@@ -1051,6 +1051,12 @@ window.__ModuleLoader__.load({
         h('circle', { cx: 8, cy: 12.2, r: .7, fill: 'currentColor', stroke: 'none' }))
     }
 
+    function MacIcon() {
+      return h('svg', { viewBox: '0 0 16 16', width: 15, height: 15, fill: 'none', stroke: 'currentColor', strokeWidth: 1.2, 'aria-hidden': 'true' },
+        h('rect', { x: 2.2, y: 2.5, width: 11.6, height: 8, rx: 1.5 }),
+        h('path', { d: 'M1.2 12.4h13.6l-.8 1.4H2z' }))
+    }
+
     function SettingsIcon() {
       return h('svg', { viewBox: '0 0 16 16', width: 15, height: 15, fill: 'none', stroke: 'currentColor', strokeWidth: 1.3, strokeLinecap: 'round', 'aria-hidden': true },
         h('path', { d: 'M2.5 4h1.7M8.7 4h4.8' }),
@@ -1900,7 +1906,7 @@ window.__ModuleLoader__.load({
             h('span', { className: 'ac-onboard-node-icon' }, GitHubIcon()),
             h('div', null, h('strong', null, t('flowInbox')), h('span', null, t('flowInboxHint')))),
           h('div', { className: 'ac-onboard-node' },
-            h('span', { className: 'ac-onboard-node-icon ac-onboard-node-icon-brand' }, BrandMark()),
+            h('span', { className: 'ac-onboard-node-icon' }, MacIcon()),
             h('div', null, h('strong', null, t('flowMac')), h('span', null, t('flowMacHint')))),
           h('div', { className: 'ac-onboarding-aside-note' }, t('flowFree'))))
 
@@ -1967,7 +1973,7 @@ window.__ModuleLoader__.load({
                 h('span', { className: 'ac-onboard-node-icon' }, PhoneIcon()),
                 h('div', null, h('strong', null, t('flowIphone')), h('span', null, t('flowInstall')))),
               h('div', { className: 'ac-onboard-node' },
-                h('span', { className: 'ac-onboard-node-icon ac-onboard-node-icon-brand' }, BrandMark()),
+                h('span', { className: 'ac-onboard-node-icon' }, MacIcon()),
                 h('div', null, h('strong', null, t('flowMac')), h('span', null, t('flowMacArrive')))),
             h('div', { className: 'ac-onboarding-aside-note' }, t('flowArrive'))))))
     }
