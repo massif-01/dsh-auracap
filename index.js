@@ -1195,32 +1195,57 @@ function regexTags(text) {
 }
 
 const ENTITY_TYPES = new Set(['person', 'org', 'product', 'project', 'topic', 'place', 'other'])
+const NOISE_ENTITY_KEYS = new Set(['郑博士巴顿', 'data source'])
 
 function normalizeEntityName(value) {
   return String(value || '').normalize('NFKC').trim().replace(/\s+/g, ' ').slice(0, 48)
 }
 
-function entityId(type, name) {
-  return 'ent_' + createHash('sha256').update(String(type) + ':' + normalizeEntityName(name).toLowerCase()).digest('hex').slice(0, 16)
+function entityMatchKey(value) {
+  return normalizeEntityName(value)
+    .toLowerCase()
+    .replace(/^@+/, '')
+    .replace(/[\s·・.．,，。()（）\-_/\\]+/g, '')
 }
 
-function normalizeEntities(value) {
+function canonicalEntityInfo(name, type) {
+  const display = normalizeEntityName(name)
+  const key = entityMatchKey(display)
+  if (!key || display.startsWith('@') || NOISE_ENTITY_KEYS.has(key) || key.startsWith('datacenter')) return null
+  if (/^(?:理光)?(?:gr|gr3|gr3x|gr4)$/.test(key) || /^ricohgr/.test(key)) {
+    return { name: '理光 GR', type: 'product', aliases: display === '理光 GR' ? [] : [display] }
+  }
+  if (/奔驰|迈巴赫/.test(display)) {
+    return { name: '奔驰', type: 'product', aliases: display === '奔驰' ? [] : [display] }
+  }
+  return { name: display, type: ENTITY_TYPES.has(type) ? type : 'other', aliases: [] }
+}
+
+function entityId(type, name) {
+  const info = canonicalEntityInfo(name, type)
+  const key = info ? info.name : normalizeEntityName(name)
+  return 'ent_' + createHash('sha256').update(entityMatchKey(key)).digest('hex').slice(0, 16)
+}
+
+export function normalizeEntities(value) {
   if (!Array.isArray(value)) return []
   const result = []
   const seen = new Set()
   for (const entry of value) {
     const raw = typeof entry === 'string' ? { name: entry, type: 'other' } : (entry && typeof entry === 'object' ? entry : null)
     if (!raw) continue
-    const name = normalizeEntityName(raw.name)
-    if (!name) continue
-    const type = ENTITY_TYPES.has(raw.type) ? raw.type : 'other'
-    const key = type + ':' + name.toLowerCase()
-    if (seen.has(key)) continue
+    const info = canonicalEntityInfo(raw.name, raw.type)
+    if (!info) continue
+    const key = entityMatchKey(info.name)
+    if (!key || seen.has(key)) continue
     seen.add(key)
-    const aliases = Array.isArray(raw.aliases)
-      ? [...new Set(raw.aliases.map(normalizeEntityName).filter((alias) => alias && alias.toLowerCase() !== name.toLowerCase()))].slice(0, 3)
-      : []
-    result.push({ name, type, aliases })
+    const aliases = []
+    for (const alias of [info.name, ...(info.aliases || []), ...(Array.isArray(raw.aliases) ? raw.aliases : [])]) {
+      const normalized = normalizeEntityName(alias)
+      if (!normalized || entityMatchKey(normalized) === key) continue
+      if (!aliases.some((value) => entityMatchKey(value) === entityMatchKey(normalized))) aliases.push(normalized)
+    }
+    result.push({ name: info.name, type: info.type, aliases: aliases.slice(0, 4) })
     if (result.length >= 6) break
   }
   return result
@@ -1307,31 +1332,81 @@ function saveMemoryIndex(index) {
   renameSync(tmp, file)
 }
 
-function buildMemoryIndex(items) {
+export function buildMemoryIndex(items) {
   const index = { version: 1, entities: {}, aliases: {} }
+  let changed = false
   for (const item of items) {
-    const entities = item && item.summary && Array.isArray(item.summary.entities) ? item.summary.entities : []
-    if (!entities.length) continue
-    for (const entity of entities) {
-      const name = normalizeEntityName(entity && entity.name)
-      if (!name) continue
-      const type = ENTITY_TYPES.has(entity.type) ? entity.type : 'other'
-      const id = entityId(type, name)
+    const current = item && item.summary && Array.isArray(item.summary.entities) ? item.summary.entities : []
+    if (!current.length) continue
+    const normalized = normalizeEntities(current)
+    if (JSON.stringify(normalized) !== JSON.stringify(current)) {
+      item.summary.entities = normalized
+      changed = true
+    }
+    for (const entity of normalized) {
+      const name = normalizeEntityName(entity.name)
+      const id = entityId(entity.type, name)
       if (!index.entities[id]) {
-        index.entities[id] = { id, name, type, aliases: Array.isArray(entity.aliases) ? entity.aliases.slice(0, 3) : [], itemIds: [], firstSeen: item.createdAt, lastSeen: item.createdAt }
+        index.entities[id] = { id, name, type: entity.type, aliases: entity.aliases.slice(0, 4), itemIds: [], firstSeen: item.createdAt, lastSeen: item.createdAt }
       }
       const entry = index.entities[id]
       if (!entry.itemIds.includes(item.id)) entry.itemIds.push(item.id)
       if (String(item.createdAt) < String(entry.firstSeen)) entry.firstSeen = item.createdAt
       if (String(item.createdAt) > String(entry.lastSeen)) entry.lastSeen = item.createdAt
-      const aliases = [name].concat(Array.isArray(entity.aliases) ? entity.aliases : [], entry.aliases || [])
-      for (const alias of aliases) {
-        const key = normalizeEntityName(alias).toLowerCase()
-        if (key && !index.aliases[key]) index.aliases[key] = id
+      for (const alias of [name, ...entity.aliases]) {
+        const normalizedAlias = normalizeEntityName(alias)
+        if (normalizedAlias && entityMatchKey(normalizedAlias) !== entityMatchKey(name) && !entry.aliases.some((value) => entityMatchKey(value) === entityMatchKey(normalizedAlias))) entry.aliases.push(normalizedAlias)
       }
     }
   }
+
+  const nameOwner = new Map()
+  for (const entry of Object.values(index.entities)) nameOwner.set(entityMatchKey(entry.name), entry.id)
+  const parent = new Map(Object.keys(index.entities).map((id) => [id, id]))
+  const find = (id) => {
+    let current = id
+    while (parent.get(current) !== current) current = parent.get(current)
+    while (parent.get(id) !== id) { const next = parent.get(id); parent.set(id, current); id = next }
+    return current
+  }
+  const union = (left, right) => {
+    const a = find(left)
+    const b = find(right)
+    if (a === b) return
+    const aa = index.entities[a]
+    const bb = index.entities[b]
+    const root = (aa.itemIds.length >= bb.itemIds.length ? a : b)
+    const child = root === a ? b : a
+    parent.set(child, root)
+  }
+  for (const entry of Object.values(index.entities)) {
+    for (const alias of [entry.name, ...entry.aliases]) {
+      const owner = nameOwner.get(entityMatchKey(alias))
+      if (owner && owner !== entry.id) union(entry.id, owner)
+    }
+  }
+  const merged = {}
+  for (const entry of Object.values(index.entities)) {
+    const root = find(entry.id)
+    if (!merged[root]) merged[root] = { ...entry, itemIds: [], aliases: [] }
+    const target = merged[root]
+    for (const itemId of entry.itemIds) if (!target.itemIds.includes(itemId)) target.itemIds.push(itemId)
+    for (const alias of [entry.name, ...entry.aliases]) {
+      if (entityMatchKey(alias) !== entityMatchKey(target.name) && !target.aliases.some((value) => entityMatchKey(value) === entityMatchKey(alias))) target.aliases.push(alias)
+    }
+    if (String(entry.firstSeen) < String(target.firstSeen)) target.firstSeen = entry.firstSeen
+    if (String(entry.lastSeen) > String(target.lastSeen)) target.lastSeen = entry.lastSeen
+  }
+  index.entities = merged
+  index.aliases = {}
+  for (const entry of Object.values(index.entities)) {
+    for (const alias of [entry.name, ...entry.aliases]) {
+      const key = entityMatchKey(alias)
+      if (key && !index.aliases[key]) index.aliases[key] = entry.id
+    }
+  }
   memoryIndex = index
+  if (changed) { try { saveItems(items) } catch {} }
   try { saveMemoryIndex(index) } catch {}
   return index
 }
@@ -1346,7 +1421,7 @@ function loadMemoryIndex() {
 
 function shareEntityIds(item) {
   const entities = item && item.summary && Array.isArray(item.summary.entities) ? item.summary.entities : []
-  return new Set(entities.map((entity) => entityId(entity.type, entity.name)))
+  return new Set(entities.map((entity) => memoryIndex.aliases[entityMatchKey(entity.name)] || entityId(entity.type, entity.name)))
 }
 
 function relatedItems(items, itemId, limit = 5) {
@@ -1396,7 +1471,7 @@ function allInsightFiles() {
 function entityDetail(id, items) {
   let entity = memoryIndex.entities[id]
   if (!entity) {
-    const mapped = memoryIndex.aliases[normalizeEntityName(id).toLowerCase()]
+    const mapped = memoryIndex.aliases[entityMatchKey(id)]
     if (mapped) entity = memoryIndex.entities[mapped]
   }
   if (!entity) return null
