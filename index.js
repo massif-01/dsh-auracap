@@ -35,6 +35,8 @@ const GITHUB_REPO = 'auracap-inbox'
 const GITHUB_TAG = 'auracap-inbox'
 const GITHUB_KEY = 'auracap/github'
 const GITHUB_POLL_MS = 60_000
+const DIGEST_REFRESH_MS = 4 * 60 * 60 * 1000
+const DIGEST_CHECK_MS = 30 * 60 * 1000
 
 const dataDir = () => join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'auracap')
 const itemsFile = () => join(dataDir(), 'items.json')
@@ -206,6 +208,7 @@ async function generateDigest(llm, items, date) {
       title: parsed.title || `${date} 洞察`,
       content,
       itemCount: ready.length,
+      itemIds: ready.map((item) => item.id),
       createdAt: new Date().toISOString(),
       model: MODEL.model,
     }
@@ -214,6 +217,39 @@ async function generateDigest(llm, items, date) {
   } finally {
     clearTimeout(timer)
   }
+}
+
+async function refreshDigestIfDue(ctx, github) {
+  if (github.digestBusy) return
+  const date = todayKey()
+  const ready = github.items.filter((item) => item.status === 'ready' && localDateKey(item.createdAt) === date)
+  if (!ready.length) return
+  const existing = loadDigest(date)
+  const now = Date.now()
+  if (existing && existing.createdAt) {
+    const generatedAt = Date.parse(existing.createdAt)
+    if (Number.isFinite(generatedAt) && now - generatedAt < DIGEST_REFRESH_MS) return
+  }
+  const ids = ready.map((item) => item.id)
+  if (existing && Array.isArray(existing.itemIds) && ids.every((id) => existing.itemIds.includes(id))) return
+  github.digestBusy = true
+  try {
+    await generateDigest(ctx.llm, github.items, date)
+  } finally {
+    github.digestBusy = false
+  }
+}
+
+function startDigestLoop(ctx, github) {
+  const check = () => { refreshDigestIfDue(ctx, github).catch(() => {}) }
+  const timer = setInterval(check, DIGEST_CHECK_MS)
+  if (typeof timer.unref === 'function') timer.unref()
+  const startup = setTimeout(check, 30_000)
+  if (typeof startup.unref === 'function') startup.unref()
+  ctx.effect(() => () => {
+    clearInterval(timer)
+    clearTimeout(startup)
+  })
 }
 
 const stateFile = () => join(dataDir(), 'state.json')
@@ -792,8 +828,9 @@ async function summarize(llm, items, item) {
 
 export function apply(ctx) {
   const items = loadItems()
-  const github = { items, state: loadState(), flows: new Map(), syncing: false }
+  const github = { items, state: loadState(), flows: new Map(), syncing: false, digestBusy: false }
   startGithubLoop(ctx, github)
+  startDigestLoop(ctx, github)
 
   const ingest = async (req, res) => {
     if (!trusted(req)) return sendError(res, 403, 'forbidden')
