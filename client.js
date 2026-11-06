@@ -433,6 +433,9 @@ window.__ModuleLoader__.load({
 .ac-digest-empty { padding: 70px 20px; text-align: center; }
 .ac-digest-hint { max-width: 420px; margin: 0 auto 20px; font-size: 13px; line-height: 1.75; color: var(--dsw-alias-label-secondary); }
 .ac-digest .ac-body-text { margin-bottom: 0; }
+[data-tip] { position: relative; }
+[data-tip]::after { content: attr(data-tip); position: absolute; left: 50%; top: calc(100% + 7px); transform: translateX(-50%) translateY(-2px); padding: 4px 7px; border-radius: 5px; background: var(--dsw-alias-label-primary); color: var(--dsw-alias-bg-base); font-size: 10.5px; line-height: 1.2; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .12s ease, transform .12s ease; z-index: 80; box-shadow: 0 4px 14px color-mix(in srgb, var(--dsw-alias-label-primary) 18%, transparent); }
+[data-tip]:hover::after, [data-tip]:focus-visible::after { opacity: 1; transform: translateX(-50%) translateY(0); }
 .ac-icon-button { width: 30px; height: 30px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--dsw-alias-label-secondary); display: grid; place-items: center; cursor: pointer; }
 .ac-icon-button:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-1); border-color: var(--dsw-alias-border-l1); }
 .ac-settings { width: min(620px, 100%); max-height: 86vh; overflow: auto; background: var(--dsw-alias-bg-base); border: 1px solid var(--dsw-alias-border-l1); border-radius: 16px; box-shadow: 0 30px 80px color-mix(in srgb, var(--dsw-alias-label-primary) 18%, transparent); padding: 26px 28px 32px; position: relative; }
@@ -1926,13 +1929,13 @@ window.__ModuleLoader__.load({
           h('div', { className: 'ac-name' }, t('appTitle')),
           h('div', { className: 'ac-sub' }, t('tagline'))),
         h('div', { className: 'ac-grow' }),
-        h('button', { className: 'ac-icon-button', onClick: openSettings, title: t('settings'), 'aria-label': t('settings') }, SettingsIcon()),
+        h('button', { className: 'ac-icon-button', onClick: openSettings, 'data-tip': t('settings'), 'aria-label': t('settings') }, SettingsIcon()),
         h('div', { className: 'ac-seg', role: 'group', 'aria-label': t('layout') },
-          h('button', { type: 'button', 'aria-pressed': view === 'split', title: t('split'), onClick: () => chooseView('split') }, SplitIcon()),
-          h('button', { type: 'button', 'aria-pressed': view === 'grid', title: t('grid'), onClick: () => chooseView('grid') }, GridIcon())),
+          h('button', { type: 'button', 'aria-pressed': view === 'split', 'data-tip': t('split'), 'aria-label': t('split'), onClick: () => chooseView('split') }, SplitIcon()),
+          h('button', { type: 'button', 'aria-pressed': view === 'grid', 'data-tip': t('grid'), 'aria-label': t('grid'), onClick: () => chooseView('grid') }, GridIcon())),
         h('div', { className: 'ac-header-actions' },
-          h('button', { className: 'ac-icon-button', type: 'button', title: t('screenshot'), 'aria-label': t('screenshot'), onClick: () => setScreenshotPromptOpen(true), disabled: captureBusy || busy }, ScreenshotIcon()),
-          h('button', { className: 'ac-icon-button', type: 'button', title: t('import'), 'aria-label': t('import'), onClick: openPicker, disabled: busy }, UploadIcon())),
+          h('button', { className: 'ac-icon-button', type: 'button', 'data-tip': t('screenshot'), 'aria-label': t('screenshot'), onClick: () => setScreenshotPromptOpen(true), disabled: captureBusy || busy }, ScreenshotIcon()),
+          h('button', { className: 'ac-icon-button', type: 'button', 'data-tip': t('import'), 'aria-label': t('import'), onClick: openPicker, disabled: busy }, UploadIcon())),
         h('input', {
           ref: fileRef,
           type: 'file',
