@@ -1397,7 +1397,7 @@ export function buildMemoryIndex(items) {
     }
   }
 
-  // Exact aliases first: exact aliases, and any model-provided aliases.
+  // Exact aliases first, including model-provided aliases.
   const nameOwner = new Map()
   for (const entry of Object.values(index.entities)) nameOwner.set(entityMatchKey(entry.name), entry.id)
   for (const entry of Object.values(index.entities)) {
