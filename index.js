@@ -136,6 +136,73 @@ async function extractPdfText(data) {
   }
 }
 
+let systemCaptureWatch = null
+
+async function screenshotDirectory() {
+  try {
+    const result = await execFileAsync('/usr/bin/defaults', ['read', 'com.apple.screencapture', 'location'], { timeout: 3000 })
+    const location = String(result.stdout || '').trim()
+    if (location) return location.startsWith('~') ? join(homedir(), location.slice(1)) : location
+  } catch {}
+  return join(homedir(), 'Desktop')
+}
+
+async function startSystemCapture(ctx, items) {
+  if (systemCaptureWatch) return { watching: true }
+  const dir = await screenshotDirectory()
+  const baseline = new Set()
+  try { for (const name of readdirSync(dir)) baseline.add(name) } catch { return { watching: false, error: '找不到桌面目录' } }
+  const startedAt = Date.now()
+  try {
+    await execFileAsync('/usr/bin/osascript', ['-e', 'tell application "System Events" to set visible of process "DeepSeek Harness" to false'], { timeout: 5000 })
+  } catch {}
+  try {
+    await execFileAsync('/usr/bin/osascript', ['-e', 'display notification "按 ⌘⇧4 框选要截的内容；截完点 Dock 里的 DeepSeek Harness 回来。" with title "AuraCap · 已准备截图" sound name "Glass"'], { timeout: 5000 })
+  } catch {}
+  const candidates = new Map()
+  const timer = setInterval(async () => {
+    if (!systemCaptureWatch) return
+    if (Date.now() - startedAt > 180_000) {
+      clearInterval(timer)
+      systemCaptureWatch = null
+      return
+    }
+    let names = []
+    try { names = readdirSync(dir) } catch { return }
+    for (const name of names) {
+      if (baseline.has(name)) continue
+      if (!/\.(png|jpe?g)$/i.test(name)) continue
+      const file = join(dir, name)
+      let info
+      try { info = statSync(file) } catch { continue }
+      if (!info.isFile() || !info.size || info.mtimeMs < startedAt - 2000) continue
+      const last = candidates.get(name)
+      if (!last || last.size !== info.size || last.mtimeMs !== info.mtimeMs) {
+        candidates.set(name, { size: info.size, mtimeMs: info.mtimeMs })
+        continue
+      }
+      try {
+        const data = readFileSync(file)
+        const digest = createHash('sha256').update(data).digest('hex')
+        if (items.some((item) => item.image && item.image.attachmentId === 'sha256:' + digest)) {
+          clearInterval(timer); systemCaptureWatch = null; return
+        }
+        const mediaType = /\.png$/i.test(name) ? 'image/png' : 'image/jpeg'
+        await addImageItem(ctx, items, data, mediaType, name, { kind: 'screenshot', name })
+        try {
+          await execFileAsync('/usr/bin/osascript', ['-e', 'display notification "截图已收进 AuraCap。" with title "AuraCap" sound name "Glass"'], { timeout: 5000 })
+        } catch {}
+      } catch {}
+      clearInterval(timer)
+      systemCaptureWatch = null
+      return
+    }
+  }, 900)
+  if (typeof timer.unref === 'function') timer.unref()
+  systemCaptureWatch = { timer }
+  return { watching: true, dir }
+}
+
 async function migrateMedia(ctx, items) {
   let changed = false
   for (const item of items) {
@@ -1549,23 +1616,12 @@ export function apply(ctx) {
         if (path === `${BASE}/api/capture-screen`) {
           if (req.method !== 'POST') return sendError(res, 405, 'method not allowed')
           if (!trusted(req)) return sendError(res, 403, 'forbidden')
-          const tmp = join(dataDir(), 'screen-' + randomUUID() + '.png')
-          try { mkdirSync(dataDir(), { recursive: true }) } catch {}
           try {
-            await execFileAsync('/usr/sbin/screencapture', ['-i', '-x', '-t', 'png', tmp], { timeout: 180_000 })
-          } catch {}
-          if (!existsSync(tmp) || !statSync(tmp).size) {
-            try { unlinkSync(tmp) } catch {}
-            return sendError(res, 409, '已取消截图')
-          }
-          try {
-            const data = readFileSync(tmp)
-            const item = await addImageItem(ctx, items, data, 'image/png', '截图 ' + new Date().toLocaleString('zh-CN'), { kind: 'local', name: '截图' })
-            return sendJson(res, 202, { item })
+            const result = await startSystemCapture(ctx, items)
+            if (!result.watching) return sendError(res, 409, result.error || '无法开始系统截图')
+            return sendJson(res, 202, { watching: true })
           } catch (error) {
-            return sendError(res, 422, error && error.message ? error.message : '截图导入失败')
-          } finally {
-            try { unlinkSync(tmp) } catch {}
+            return sendError(res, 422, error && error.message ? error.message : '无法开始系统截图')
           }
         }
         const action = path.match(/^\/auracap\/api\/items\/([^/]+)\/(retry|delete)$/)
