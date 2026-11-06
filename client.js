@@ -72,6 +72,23 @@ window.__ModuleLoader__.load({
       whyGithubBody1: '手机在外面，Mac 在家里，需要一个只有你能访问的中间站。GitHub 的私有仓库和 Release 正好可以当这个收件箱。正常个人用量免费，不用我们自己的服务器，也不用你配置端口。',
       whyGithubBody2: '图片会先传到你的私有仓库，Mac 取回后立刻从队列删除；授权只存在本机 DSH 凭据里，随时可以在 GitHub 设置中撤销。',
       whyGithubBody3: '不用它的话，要么自己维护一台有公网地址的服务器，要么接付费同步服务；手机没法直接找到你家或公司网络里的 Mac。读图和总结需要调用 DeepSeek 模型，这一步和原来一样，结果、原图、索引都留在本机。',
+      onboardingKickerFirst: '第一次使用',
+      onboardingKickerConnect: '连接手机',
+      onboardingKickerConnected: '连接成功',
+      onboardingAfter: '接入之后',
+      onboardingNext: '接下来',
+      flowPhone: '手机',
+      flowPhoneHint: '截屏 / 相册分享',
+      flowInbox: '私有收件箱',
+      flowInboxHint: '只有你能访问',
+      flowMac: '这台 Mac',
+      flowMacHint: '取回后删除',
+      flowFree: 'GitHub 私有仓库 · 正常个人用量免费',
+      flowIphone: 'iPhone',
+      flowInstall: '安装快捷指令',
+      flowMacArrive: '片刻自动到达',
+      flowArrive: '装好后，截屏会自动落进「今天」',
+      githubCode: 'GitHub 验证码',
       importGuideTitle: '三种收法',
       importGuideDesktop: '电脑：拖入文件，或点「导入」。',
       importGuidePhone: '相册：分享给「AuraCap」。',
@@ -255,6 +272,23 @@ window.__ModuleLoader__.load({
       whyGithubBody1: 'Your phone is outside, your Mac is at home, and they need a meeting point only you can access. A private GitHub repository and Release make a free inbox for normal personal use — no server of ours, no port forwarding.',
       whyGithubBody2: 'Images go to your private repository first; the Mac removes them from the queue after fetching. The authorization lives only in local DSH credentials and can be revoked from GitHub settings at any time.',
       whyGithubBody3: 'Without it, you would need to run a server with a public address or pay for a sync service; your phone cannot reach a Mac behind your home or office network. Image understanding and summaries still call the DeepSeek model as before; results, originals, and indexes stay on this Mac.',
+      onboardingKickerFirst: 'First run',
+      onboardingKickerConnect: 'Connect phone',
+      onboardingKickerConnected: 'Connected',
+      onboardingAfter: 'After connecting',
+      onboardingNext: 'Next',
+      flowPhone: 'Phone',
+      flowPhoneHint: 'Screenshots / shared photos',
+      flowInbox: 'Private inbox',
+      flowInboxHint: 'Only you can access',
+      flowMac: 'This Mac',
+      flowMacHint: 'Removed after fetching',
+      flowFree: 'Private GitHub repo · free for normal personal use',
+      flowIphone: 'iPhone',
+      flowInstall: 'Install shortcut',
+      flowMacArrive: 'Moments arrive automatically',
+      flowArrive: 'Once installed, screenshots land in Today',
+      githubCode: 'GitHub code',
       importGuideTitle: 'Three ways to capture',
       importGuideDesktop: 'Mac: drag a file in, or click Import.',
       importGuidePhone: 'Photos: share it to the AuraCap shortcut.',
@@ -667,6 +701,42 @@ window.__ModuleLoader__.load({
 .ac-onboarding-steps { width: min(330px, 100%); margin: 22px 0 16px; display: flex; flex-direction: column; gap: 10px; text-align: left; }
 .ac-onboarding-step { display: flex; align-items: baseline; gap: 10px; font-size: 12px; line-height: 1.6; color: var(--dsw-alias-label-secondary); }
 .ac-onboarding-step-no { width: 18px; height: 18px; flex: none; display: grid; place-items: center; border: 1px solid var(--dsw-alias-border-l1); border-radius: 50%; font-size: 9px; color: var(--dsw-alias-label-secondary); }
+.ac-onboarding { padding: 38px 56px 56px; }
+.ac-onboarding-frame { width: min(900px, 100%); display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 58px; align-items: center; }
+.ac-onboarding-copy { min-width: 0; text-align: left; }
+.ac-onboarding-kicker { font-size: 9.5px; letter-spacing: .18em; color: var(--dsw-alias-label-secondary); opacity: .62; margin-bottom: 15px; text-transform: uppercase; }
+.ac-onboarding-title { font-size: 31px; line-height: 1.2; letter-spacing: -.025em; margin: 0 0 12px; }
+.ac-onboarding-body { max-width: 350px; font-size: 13px; line-height: 1.9; }
+.ac-onboarding-actions { display: flex; flex-direction: row; align-items: center; gap: 18px; margin-top: 26px; }
+.ac-onboarding-primary { min-width: 0; height: 38px; padding: 0 20px; border-radius: 10px; border-color: var(--dsw-alias-brand-primary); background: var(--dsw-alias-brand-primary); color: var(--dsw-alias-bg-base); font-size: 12.5px; }
+.ac-onboarding-primary:hover { background: var(--dsw-alias-brand-primary); border-color: var(--dsw-alias-brand-primary); opacity: .88; }
+.ac-onboarding-link { font-size: 11.5px; text-decoration: none; }
+.ac-onboarding-link:hover { text-decoration: underline; }
+.ac-onboarding-why { width: auto; max-width: 360px; margin-top: 32px; padding-top: 15px; text-align: left; }
+.ac-onboarding-aside { width: 100%; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l1); border-radius: 18px; padding: 24px 22px; }
+.ac-onboarding-aside-label { font-size: 9.5px; letter-spacing: .14em; color: var(--dsw-alias-label-secondary); opacity: .66; margin-bottom: 20px; }
+.ac-flow { display: flex; flex-direction: column; }
+.ac-flow-node { display: flex; align-items: center; gap: 12px; }
+.ac-flow-icon { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-secondary); }
+.ac-flow-icon-brand { color: var(--dsw-alias-brand-primary); }
+.ac-flow-node strong { display: block; font-size: 12.5px; font-weight: 500; line-height: 1.3; color: var(--dsw-alias-label-primary); }
+.ac-flow-node span { display: block; margin-top: 2px; font-size: 10.5px; color: var(--dsw-alias-label-secondary); }
+.ac-flow-line { width: 1px; height: 21px; margin: 5px 0 5px 16px; background: var(--dsw-alias-border-l1); }
+.ac-onboarding-aside-note { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--dsw-alias-border-l1); font-size: 9.5px; color: var(--dsw-alias-label-secondary); line-height: 1.6; }
+.ac-onboarding-code-card { display: flex; flex-direction: column; align-items: flex-start; }
+.ac-onboarding-code { margin: 0 0 18px; font-size: 24px; font-weight: 600; letter-spacing: .18em; font-variant-numeric: tabular-nums; }
+.ac-onboarding-code-card .ac-onboarding-aside-note { width: 100%; margin-top: 18px; }
+.ac-onboarding-error { max-width: 360px; margin-top: 14px; color: #b45445; font-size: 11px; line-height: 1.6; }
+.ac-onboarding-success { max-width: 360px; margin-top: 10px; color: var(--dsw-alias-label-secondary); font-size: 11px; line-height: 1.6; }
+.ac-onboarding-steps { width: min(330px, 100%); margin: 24px 0 16px; display: flex; flex-direction: column; gap: 11px; text-align: left; }
+.ac-onboarding-step { display: flex; align-items: baseline; gap: 10px; font-size: 12px; line-height: 1.6; color: var(--dsw-alias-label-secondary); }
+.ac-onboarding-step-no { width: 18px; height: 18px; flex: none; display: grid; place-items: center; border: 1px solid var(--dsw-alias-border-l1); border-radius: 50%; font-size: 9px; color: var(--dsw-alias-label-secondary); }
+@media (max-width: 780px) {
+  .ac-onboarding { padding: 28px 28px 40px; }
+  .ac-onboarding-frame { grid-template-columns: 1fr; gap: 32px; }
+  .ac-onboarding-aside { max-width: 420px; }
+}
+
 .ac-shot-prompt { width: min(460px, 100%); background: var(--dsw-alias-bg-base); border: 1px solid var(--dsw-alias-border-l1); border-radius: 14px; padding: 24px 24px 20px; box-shadow: 0 30px 80px color-mix(in srgb, var(--dsw-alias-label-primary) 18%, transparent); }
 .ac-shot-title { font-size: 17px; font-weight: 600; margin-bottom: 10px; }
 .ac-shot-body { margin: 0; font-size: 13px; line-height: 1.75; color: var(--dsw-alias-label-primary); }
@@ -959,6 +1029,13 @@ window.__ModuleLoader__.load({
     function GitHubIcon() {
       return h('svg', { viewBox: '0 0 16 16', width: 13, height: 13, fill: 'currentColor', 'aria-hidden': 'true' },
         h('path', { d: 'M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z' }))
+    }
+
+    function PhoneIcon() {
+      return h('svg', { viewBox: '0 0 16 16', width: 15, height: 15, fill: 'none', stroke: 'currentColor', strokeWidth: 1.2, 'aria-hidden': 'true' },
+        h('rect', { x: 4, y: 1.5, width: 8, height: 13, rx: 2 }),
+        h('path', { d: 'M7 3.2h2' }),
+        h('circle', { cx: 8, cy: 12.2, r: .7, fill: 'currentColor', stroke: 'none' }))
     }
 
     function SettingsIcon() {
@@ -1787,6 +1864,7 @@ window.__ModuleLoader__.load({
       const connected = Boolean(props.github && props.github.connected)
       const waiting = props.device && (props.device.status === 'pending' || props.device.status === 'provisioning')
       const mark = h('div', { className: 'ac-onboarding-mark' }, EmptyArt())
+
       const why = h('div', { className: 'ac-onboarding-why' },
         h('button', { className: 'ac-onboarding-why-toggle', type: 'button', onClick: () => setWhyOpen(!whyOpen) },
           h('span', null, t('whyGithub')),
@@ -1798,51 +1876,85 @@ window.__ModuleLoader__.load({
               h('p', null, t('whyGithubBody3')))
           : null)
 
+      const flow = h('div', { className: 'ac-onboarding-aside' },
+        h('div', { className: 'ac-onboarding-aside-label' }, t('onboardingAfter')),
+        h('div', { className: 'ac-flow' },
+          h('div', { className: 'ac-flow-node' },
+            h('span', { className: 'ac-flow-icon' }, PhoneIcon()),
+            h('div', null, h('strong', null, t('flowPhone')), h('span', null, t('flowPhoneHint')))),
+          h('div', { className: 'ac-flow-line' }),
+          h('div', { className: 'ac-flow-node' },
+            h('span', { className: 'ac-flow-icon' }, GitHubIcon()),
+            h('div', null, h('strong', null, t('flowInbox')), h('span', null, t('flowInboxHint')))),
+          h('div', { className: 'ac-flow-line' }),
+          h('div', { className: 'ac-flow-node' },
+            h('span', { className: 'ac-flow-icon ac-flow-icon-brand' }, BrandMark()),
+            h('div', null, h('strong', null, t('flowMac')), h('span', null, t('flowMacHint')))),
+          h('div', { className: 'ac-onboarding-aside-note' }, t('flowFree'))))
+
       if (!connected && waiting) {
         return h('div', { className: 'ac-onboarding' },
-          h('div', { className: 'ac-onboarding-inner' },
-            mark,
-            h('h1', { className: 'ac-onboarding-title' }, t('deviceTitle')),
-            h('p', { className: 'ac-onboarding-body' }, t('deviceBody')),
-            h('div', { className: 'ac-onboarding-code' }, props.device.userCode || ''),
-            h('a', {
-              className: 'ac-primary ac-onboarding-primary',
-              href: props.device.verificationUri || 'https://github.com/login/device',
-              target: '_blank',
-              rel: 'noreferrer',
-            }, t('openGithub')),
-            h('div', { className: 'ac-onboarding-hint' }, props.device.status === 'provisioning' ? t('provisioningGithub') : t('githubWaiting')),
-            props.error ? h('div', { className: 'ac-onboarding-error' }, props.error) : null))
+          h('div', { className: 'ac-onboarding-frame' },
+            h('div', { className: 'ac-onboarding-copy' },
+              h('div', { className: 'ac-onboarding-kicker' }, t('onboardingKickerConnect')),
+              h('h1', { className: 'ac-onboarding-title' }, t('deviceTitle')),
+              h('p', { className: 'ac-onboarding-body' }, t('deviceBody')),
+              h('div', { className: 'ac-onboarding-actions' },
+                h('a', {
+                  className: 'ac-primary ac-onboarding-primary',
+                  href: props.device.verificationUri || 'https://github.com/login/device',
+                  target: '_blank',
+                  rel: 'noreferrer',
+                }, t('openGithub'))),
+              props.error ? h('div', { className: 'ac-onboarding-error' }, props.error) : null),
+            h('div', { className: 'ac-onboarding-aside ac-onboarding-code-card' },
+              h('div', { className: 'ac-onboarding-aside-label' }, t('githubCode')),
+              h('div', { className: 'ac-onboarding-code' }, props.device.userCode || ''),
+              h('div', { className: 'ac-onboarding-aside-note' }, props.device.status === 'provisioning' ? t('provisioningGithub') : t('githubWaiting')))))
       }
 
       if (!connected) {
         return h('div', { className: 'ac-onboarding' },
-          h('div', { className: 'ac-onboarding-inner' },
-            mark,
-            h('h1', { className: 'ac-onboarding-title' }, t('onboardingTitle')),
-            h('p', { className: 'ac-onboarding-body' }, t('onboardingBody')),
-            h('div', { className: 'ac-onboarding-actions' },
-              h('button', { className: 'ac-primary ac-onboarding-primary', type: 'button', onClick: () => props.onConnect(), disabled: props.githubBusy }, props.githubBusy ? t('connecting') : t('connectPhone')),
-              h('button', { className: 'ac-onboarding-link', type: 'button', onClick: () => props.onLocalImport() }, t('localOnlyAction'))),
-            props.error ? h('div', { className: 'ac-onboarding-error' }, props.error) : null,
-            why))
+          h('div', { className: 'ac-onboarding-frame' },
+            h('div', { className: 'ac-onboarding-copy' },
+              h('div', { className: 'ac-onboarding-kicker' }, t('onboardingKickerFirst')),
+              h('h1', { className: 'ac-onboarding-title' }, t('onboardingTitle')),
+              h('p', { className: 'ac-onboarding-body' }, t('onboardingBody')),
+              h('div', { className: 'ac-onboarding-actions' },
+                h('button', { className: 'ac-primary ac-onboarding-primary', type: 'button', onClick: () => props.onConnect(), disabled: props.githubBusy }, props.githubBusy ? t('connecting') : t('connectPhone')),
+                h('button', { className: 'ac-onboarding-link', type: 'button', onClick: () => props.onLocalImport() }, t('localOnlyAction'))),
+              props.error ? h('div', { className: 'ac-onboarding-error' }, props.error) : null,
+              why),
+            flow))
       }
 
       return h('div', { className: 'ac-onboarding' },
-        h('div', { className: 'ac-onboarding-inner' },
-          mark,
-          h('h1', { className: 'ac-onboarding-title' }, t('connectedTitle')),
-          h('p', { className: 'ac-onboarding-body' }, t('connectedBody')),
-          h('div', { className: 'ac-onboarding-actions' },
-            h('button', { className: 'ac-primary ac-onboarding-primary', type: 'button', onClick: () => props.onDownloadShortcut(), disabled: props.shortcutFileBusy }, props.shortcutFileBusy ? t('preparing') : t('downloadShortcut')),
+        h('div', { className: 'ac-onboarding-frame' },
+          h('div', { className: 'ac-onboarding-copy' },
+            h('div', { className: 'ac-onboarding-kicker' }, t('onboardingKickerConnected')),
+            h('h1', { className: 'ac-onboarding-title' }, t('connectedTitle')),
+            h('p', { className: 'ac-onboarding-body' }, t('connectedBody')),
+            h('div', { className: 'ac-onboarding-actions' },
+              h('button', { className: 'ac-primary ac-onboarding-primary', type: 'button', onClick: () => props.onDownloadShortcut(), disabled: props.shortcutFileBusy }, props.shortcutFileBusy ? t('preparing') : t('downloadShortcut'))),
             props.shortcutFileMessage
               ? h('div', { className: props.shortcutFileMessage.ok ? 'ac-onboarding-success' : 'ac-onboarding-error' }, props.shortcutFileMessage.ok ? t('downloadedShortcut') : props.shortcutFileMessage.text)
-              : null),
-          h('div', { className: 'ac-onboarding-steps' },
-            [t('installStep1'), t('installStep2'), t('installStep3')].map((text, index) => h('div', { className: 'ac-onboarding-step', key: index },
-              h('span', { className: 'ac-onboarding-step-no' }, String(index + 1)),
-              h('span', null, text)))),
-          h('button', { className: 'ac-onboarding-link', type: 'button', onClick: () => props.onLocalImport() }, t('localOnlyAction'))))
+              : null,
+            h('div', { className: 'ac-onboarding-steps' },
+              [t('installStep1'), t('installStep2'), t('installStep3')].map((text, index) => h('div', { className: 'ac-onboarding-step', key: index },
+                h('span', { className: 'ac-onboarding-step-no' }, String(index + 1)),
+                h('span', null, text)))),
+            h('button', { className: 'ac-onboarding-link', type: 'button', onClick: () => props.onLocalImport() }, t('localOnlyAction'))),
+          h('div', { className: 'ac-onboarding-aside' },
+            h('div', { className: 'ac-onboarding-aside-label' }, t('onboardingNext')),
+            h('div', { className: 'ac-flow' },
+              h('div', { className: 'ac-flow-node' },
+                h('span', { className: 'ac-flow-icon' }, PhoneIcon()),
+                h('div', null, h('strong', null, t('flowIphone')), h('span', null, t('flowInstall')))),
+              h('div', { className: 'ac-flow-line' }),
+              h('div', { className: 'ac-flow-node' },
+                h('span', { className: 'ac-flow-icon ac-flow-icon-brand' }, BrandMark()),
+                h('div', null, h('strong', null, t('flowMac')), h('span', null, t('flowMacArrive')))),
+            h('div', { className: 'ac-onboarding-aside-note' }, t('flowArrive'))))))
     }
 
     function Empty(props) {
