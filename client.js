@@ -277,7 +277,7 @@ window.__ModuleLoader__.load({
 .ac-flow-reset { border: 0; background: transparent; color: var(--dsw-alias-label-secondary); font-size: 10.5px; cursor: pointer; padding: 0; font-family: inherit; }
 .ac-flow-reset:hover { color: var(--dsw-alias-label-primary); }
 .ac-flow-hint { opacity: .55; }
-.ac-periods {.ac-periods { display: flex; gap: 6px; margin-bottom: 24px; }
+.ac-periods { display: flex; gap: 6px; margin-bottom: 24px; }
 .ac-period { height: 28px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--dsw-alias-border-l1); background: transparent; color: var(--dsw-alias-label-secondary); font-size: 12px; cursor: pointer; font-family: inherit; }
 .ac-period:hover { color: var(--dsw-alias-label-primary); }
 .ac-period[aria-selected="true"] { background: var(--dsw-alias-label-primary); color: var(--dsw-alias-bg-base); border-color: transparent; }
