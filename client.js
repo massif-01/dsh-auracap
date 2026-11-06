@@ -49,6 +49,7 @@ window.__ModuleLoader__.load({
       insightToday: '今日洞察',
       generateInsight: '生成今日洞察',
       generating: '正在归纳…',
+      preparing: '正在生成…',
       insightRegenerate: '重新生成',
       insightBasedOn: '基于今日碎片',
       insightUpdated: '生成于',
@@ -78,8 +79,12 @@ window.__ModuleLoader__.load({
       itemsUnit: '条',
       phoneEntry: '手机入口',
       phoneIntro: '连接已完成。下面三步把手机接进来；快捷指令我们最后再做。',
-      stepInstall: '安装快捷指令',
-      stepInstallHint: '快捷指令模板稍后提供；安装时如果没出现导入问题，装好后打开快捷指令，把配置粘进「文本」动作即可。',
+      stepDownload: '下载专属快捷指令',
+      stepDownloadHint: '文件里已经写好你的仓库和 token，安装时不需要编辑任何内容。',
+      downloadShortcut: '下载快捷指令',
+      shortcutDownloaded: '已开始下载；在「下载」文件夹里找到后 AirDrop 到 iPhone。',
+      stepInstall: '安装到 iPhone',
+      stepInstallHint: 'AirDrop 到 iPhone → 用快捷指令打开 → 添加快捷指令。',
       stepConfig: '写入配置',
       stepConfigHint: '先复制配置；安装快捷指令时，导入问题会让你粘贴它。',
       copyConfigDone: '已复制，等快捷指令做好后粘贴到唯一的文本变量。',
@@ -136,6 +141,7 @@ window.__ModuleLoader__.load({
       insightToday: 'Today’s insight',
       generateInsight: 'Generate insight',
       generating: 'Reading the day…',
+      preparing: 'Preparing…',
       insightRegenerate: 'Regenerate',
       insightBasedOn: 'Based on',
       insightUpdated: 'Generated',
@@ -165,8 +171,12 @@ window.__ModuleLoader__.load({
       itemsUnit: 'items',
       phoneEntry: 'Phone',
       phoneIntro: 'Connected. Three steps to bring your phone in; the shortcut comes last.',
-      stepInstall: 'Install the shortcut',
-      stepInstallHint: 'The template is coming later. If no import question appears, open the shortcut after installing and paste the config into its Text action.',
+      stepDownload: 'Download your shortcut',
+      stepDownloadHint: 'The file already contains your repo and token; nothing to edit when installing.',
+      downloadShortcut: 'Download shortcut',
+      shortcutDownloaded: 'Download started. Find it in Downloads, then AirDrop it to your iPhone.',
+      stepInstall: 'Install on iPhone',
+      stepInstallHint: 'AirDrop to iPhone → open with Shortcuts → Add Shortcut.',
       stepConfig: 'Store the config',
       stepConfigHint: 'Copy it first; the import question asks for it when you install the shortcut.',
       copyConfigDone: 'Copied. Paste it into the single Text variable once the shortcut exists.',
@@ -747,10 +757,15 @@ window.__ModuleLoader__.load({
               h('div', { className: 'ac-step' },
                 h('div', { className: 'ac-step-no' }, '1'),
                 h('div', { className: 'ac-step-body' },
-                  h('div', { className: 'ac-step-title' }, t('stepConfig')),
-                  h('div', { className: 'ac-step-hint' }, t('stepConfigHint')),
+                  h('div', { className: 'ac-step-title' }, t('stepDownload')),
+                  h('div', { className: 'ac-step-hint' }, t('stepDownloadHint')),
                   h('div', { className: 'ac-step-actions' },
-                    h('button', { className: 'ac-ghost', onClick: props.onCopyConfig, disabled: !shortcut || !shortcut.config }, CopyIcon(), props.copied ? t('configCopied') : t('copyConfig'))))),
+                    h('button', { className: 'ac-primary', onClick: props.onDownloadShortcut, disabled: props.shortcutFileBusy },
+                      props.shortcutFileBusy ? t('preparing') : t('downloadShortcut'))),
+                  props.shortcutFileMessage
+                    ? h('div', { className: props.shortcutFileMessage.ok ? 'ac-success' : 'ac-error', style: { marginTop: 8 } },
+                        props.shortcutFileMessage.ok ? t('shortcutDownloaded') : props.shortcutFileMessage.text)
+                    : null)),
               h('div', { className: 'ac-step' },
                 h('div', { className: 'ac-step-no' }, '2'),
                 h('div', { className: 'ac-step-body' },
@@ -845,6 +860,8 @@ window.__ModuleLoader__.load({
       const [configCopied, setConfigCopied] = useState(false)
       const [testBusy, setTestBusy] = useState(false)
       const [testMessage, setTestMessage] = useState(null)
+      const [shortcutFileBusy, setShortcutFileBusy] = useState(false)
+      const [shortcutFileMessage, setShortcutFileMessage] = useState(null)
       const fileRef = useRef(null)
       const dragDepth = useRef(0)
 
@@ -984,6 +1001,36 @@ window.__ModuleLoader__.load({
           setGithubError(disconnectError.message)
         } finally {
           setGithubBusy(false)
+        }
+      }
+
+      const downloadShortcut = async () => {
+        setShortcutFileBusy(true)
+        setShortcutFileMessage(null)
+        try {
+          const response = await fetch(API + '/github/shortcut-file', { cache: 'no-store' })
+          if (!response.ok) {
+            let message = '生成快捷指令失败'
+            try {
+              const payload = await response.json()
+              if (payload && payload.error) message = payload.error
+            } catch {}
+            throw new Error(message)
+          }
+          const blob = await response.blob()
+          const url = URL.createObjectURL(blob)
+          const link = document.createElement('a')
+          link.href = url
+          link.download = 'AuraCap-mobile.shortcut'
+          document.body.appendChild(link)
+          link.click()
+          link.remove()
+          setTimeout(() => URL.revokeObjectURL(url), 30000)
+          setShortcutFileMessage({ ok: true })
+        } catch (error) {
+          setShortcutFileMessage({ ok: false, text: error && error.message ? error.message : String(error) })
+        } finally {
+          setShortcutFileBusy(false)
         }
       }
 
@@ -1195,6 +1242,9 @@ window.__ModuleLoader__.load({
           testBusy,
           testMessage,
           onTestUpload: testGithubUpload,
+          shortcutFileBusy,
+          shortcutFileMessage,
+          onDownloadShortcut: downloadShortcut,
         }) : null,
         lightbox ? h('div', { className: 'ac-lightbox', onClick: () => setLightbox(null) },
           h('img', {

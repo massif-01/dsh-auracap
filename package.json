@@ -21,7 +21,8 @@
     "README.md",
     "LICENSE",
     "docs/*.jpg",
-    "assets/*.png"
+    "assets/*.png",
+    "assets/*.plist"
   ],
   "icon": "./icon.svg",
   "engines": {

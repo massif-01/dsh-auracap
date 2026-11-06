@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
@@ -478,6 +479,36 @@ async function ingestGithubAsset(ctx, github, token, asset) {
   await deleteGithubAsset(token, github.state.github, asset.id)
 }
 
+async function generateShortcutFile(ctx, github) {
+  const repo = github.state.github
+  const token = repo ? await readGithubToken(ctx, github.state) : null
+  if (!repo || !token) {
+    const error = new Error('GitHub 未连接')
+    error.status = 409
+    throw error
+  }
+  const template = readFileSync(join(ROOT, 'assets', 'shortcut-template.plist'), 'utf8')
+  const filled = template
+    .split('__AURACAP_REPO__').join(repo.owner + '/' + repo.name)
+    .split('__AURACAP_TOKEN__').join(token)
+  mkdirSync(dataDir(), { recursive: true })
+  const id = randomUUID()
+  const tmp = join(dataDir(), `shortcut-${id}.plist`)
+  const out = join(dataDir(), `shortcut-${id}.shortcut`)
+  try {
+    writeFileSync(tmp, filled)
+    execFileSync('/usr/bin/shortcuts', ['sign', '--mode', 'anyone', '--input', tmp, '--output', out], { timeout: 30_000, stdio: 'pipe' })
+    return readFileSync(out)
+  } catch (error) {
+    const failure = new Error('生成快捷指令失败：' + (error && error.message ? error.message : String(error)))
+    failure.status = 502
+    throw failure
+  } finally {
+    try { unlinkSync(tmp) } catch {}
+    try { unlinkSync(out) } catch {}
+  }
+}
+
 async function syncGithub(ctx, github) {
   if (github.syncing) return
   if (!github.state.github) return
@@ -928,6 +959,21 @@ export function apply(ctx) {
           github.state.lastError = null
           saveState(github.state)
           return sendJson(res, 200, githubStatus(github))
+        }
+        if (path === `${BASE}/api/github/shortcut-file`) {
+          if (req.method !== 'GET') return sendError(res, 405, 'method not allowed')
+          try {
+            const file = await generateShortcutFile(ctx, github)
+            res.writeHead(200, {
+              'content-type': 'application/octet-stream',
+              'content-disposition': 'attachment; filename="AuraCap-mobile.shortcut"',
+              'content-length': file.length,
+              'cache-control': 'no-store',
+            })
+            return res.end(file)
+          } catch (error) {
+            return sendError(res, error.status || 502, error && error.message ? error.message : '生成快捷指令失败')
+          }
         }
         if (path === `${BASE}/api/github/test-upload`) {
           if (req.method !== 'POST') return sendError(res, 405, 'method not allowed')
