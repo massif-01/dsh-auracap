@@ -726,7 +726,7 @@ window.__ModuleLoader__.load({
 .ac-onboarding-primary:hover { background: var(--dsw-alias-brand-primary); border-color: var(--dsw-alias-brand-primary); opacity: .88; }
 .ac-onboarding-link { font-size: 11.5px; text-decoration: none; }
 .ac-onboarding-link:hover { text-decoration: underline; }
-.ac-onboarding-why { width: auto; max-width: 360px; margin-top: 32px; padding-top: 15px; text-align: left; }
+.ac-onboarding-why { width: auto; max-width: 360px; margin-top: 28px; padding-top: 0; border-top: 0; text-align: left; }
 .ac-onboarding-aside { width: 100%; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l1); border-radius: 18px; padding: 28px 26px; overflow: hidden; }
 .ac-onboarding-aside-label { font-size: 9.5px; letter-spacing: .14em; color: var(--dsw-alias-label-secondary); opacity: .66; margin-bottom: 24px; }
 .ac-onboard-flow { display: flex; flex-direction: column; gap: 19px; }
