@@ -1,6 +1,8 @@
 # Third-Party Notices
 
-AuraCap 的原创代码与文档以 MIT 发布，完整文本见 [LICENSE](LICENSE)。
+本仓库的原创代码与文档以 Apache License 2.0 发布，完整文本见 [LICENSE](LICENSE)。
+
+原 AuraCap 项目的部分内容仍按 MIT 授权，完整文本见 [third-party/AuraCap-MIT.txt](third-party/AuraCap-MIT.txt)。
 
 本文件列出随仓库分发或运行时依赖的第三方作品，以及它们的授权来源。  
 分发本仓库或基于它构建的安装包时，请一并保留本文件和相关许可证。
@@ -13,6 +15,7 @@ AuraCap 的原创代码与文档以 MIT 发布，完整文本见 [LICENSE](LICEN
 - 用途：最初的截图收集、LLM 整理、时间线思路，以及部分提示词结构
 - 许可证：MIT
 - 版权：Copyright (c) 2026 massif-01
+- 完整 MIT 文本：[third-party/AuraCap-MIT.txt](third-party/AuraCap-MIT.txt)
 
 当前仓库的提示词是在原 AuraCap 思路基础上改写和扩展的；原项目的 MIT 许可和署名需要保留。
 
@@ -65,7 +68,7 @@ OFL 允许使用、修改和再分发字体，但字体本身不能单独出售�
 
 ## 名称与商标
 
-MIT 许可证只授予代码版权许可，不授予任何商标、品牌名或标识的使用权。
+Apache 2.0 与本仓库包含的 MIT 内容都只授予版权/专利许可，不授予任何商标、品牌名或标识的使用权。
 
 - **AuraCap / 拾穗**：项目名称与品牌；
 - **DeepSeek Harness**：DeepSeek 的产品名称；

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Capture screenshots from your phone or clipboard into DeepSeek Harness, and let the model turn them into searchable fragments.",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
@@ -24,7 +24,9 @@
     "assets/*.png",
     "assets/*.plist",
     "assets/fonts/*",
-    "THIRD_PARTY_NOTICES.md"
+    "THIRD_PARTY_NOTICES.md",
+    "NOTICE",
+    "third-party/*"
   ],
   "icon": "./assets/icon.png",
   "engines": {

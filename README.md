@@ -277,13 +277,14 @@ dsh-auracap/
 
 ## 致谢
 
-- 产品思路与提示词来自 [AuraCap](https://github.com/massif-01/AuraCap)（MIT）；
+- 产品思路与提示词来自 [AuraCap](https://github.com/massif-01/AuraCap)（原项目 MIT，当前插件以 Apache 2.0 发布）；
 - 插件机制基于 DeepSeek Harness / Cordis；
 - 字体使用 [Geist](https://github.com/vercel/geist-font)（SIL OFL）。
 
 ## License
 
-本仓库的原创代码与文档以 **MIT** 发布，完整文本见 [LICENSE](LICENSE)。
+本仓库的原创代码与文档以 **Apache License 2.0** 发布，完整文本见 [LICENSE](LICENSE)。
 
-第三方组件、字体、提示词来源与商标说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。  
-MIT 只授予代码版权许可，不授予 AuraCap、DeepSeek Harness、GitHub 等名称或标识的商标权。
+版权与归属声明见 [NOTICE](NOTICE)，第三方组件、字体、原 AuraCap 的 MIT 提示词来源与商标说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+Apache 2.0 包含明确的专利授权；但它只授予代码版权与专利许可，不授予 AuraCap、DeepSeek Harness、GitHub 等名称或标识的商标权。
