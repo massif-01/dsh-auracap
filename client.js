@@ -21,6 +21,11 @@ window.__ModuleLoader__.load({
       import: '导入',
       screenshot: '截图',
       capturing: '截图中…',
+      screenshotPromptTitle: '系统截图',
+      screenshotPromptBody: 'DSH 会隐藏。切到目标应用，按 ⌘⇧4 框选要截的内容；截完点 Dock 里的 DeepSeek Harness 回来。',
+      screenshotPromptNote: '截图只在本机处理，不会上传到 GitHub。若系统截图设为「保存到剪贴板」，请改用导入。',
+      screenshotPromptStart: '开始截图',
+      screenshotPromptCancel: '取消',
       unsupportedFile: '仅支持图片、PDF、TXT、Markdown',
       search: '搜索',
       searchPlaceholder: '搜索片刻与洞察…',
@@ -154,6 +159,11 @@ window.__ModuleLoader__.load({
       import: 'Import',
       screenshot: 'Screenshot',
       capturing: 'Capturing…',
+      screenshotPromptTitle: 'System screenshot',
+      screenshotPromptBody: 'DSH will hide. Switch to the app you want, press ⌘⇧4 to select, then click DeepSeek Harness in the Dock when you are done.',
+      screenshotPromptNote: 'The capture is processed locally and never uploaded to GitHub. If macOS saves screenshots to the clipboard, use Import instead.',
+      screenshotPromptStart: 'Start screenshot',
+      screenshotPromptCancel: 'Cancel',
       unsupportedFile: 'Only images, PDF, TXT, and Markdown are supported',
       search: 'Search',
       searchPlaceholder: 'Search moments and insights…',
@@ -481,6 +491,11 @@ window.__ModuleLoader__.load({
 .ac-empty h2 { font-size: 21px; font-weight: 600; letter-spacing: -.01em; margin: 0 0 8px; }
 .ac-empty p { margin: 0; max-width: 420px; color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 1.75; }
 .ac-empty .ac-primary { margin-top: 22px; height: 34px; padding: 0 17px; font-size: 13px; }
+.ac-shot-prompt { width: min(460px, 100%); background: var(--dsw-alias-bg-base); border: 1px solid var(--dsw-alias-border-l1); border-radius: 14px; padding: 24px 24px 20px; box-shadow: 0 30px 80px color-mix(in srgb, var(--dsw-alias-label-primary) 18%, transparent); }
+.ac-shot-title { font-size: 17px; font-weight: 600; margin-bottom: 10px; }
+.ac-shot-body { margin: 0; font-size: 13px; line-height: 1.75; color: var(--dsw-alias-label-primary); }
+.ac-shot-note { margin: 14px 0 0; font-size: 11px; line-height: 1.65; color: var(--dsw-alias-label-secondary); opacity: .8; }
+.ac-shot-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
 .ac-import-guide { margin-top: 26px; display: flex; flex-direction: column; gap: 5px; font-size: 11.5px; line-height: 1.7; color: var(--dsw-alias-label-secondary); opacity: .82; }
 .ac-import-guide-title { font-family: 'Songti SC', 'Noto Serif SC', serif; font-size: 11px; letter-spacing: .12em; opacity: .65; margin-bottom: 2px; }
 .ac-import-guide-row { text-align: center; }
@@ -1466,6 +1481,7 @@ window.__ModuleLoader__.load({
       const [drag, setDrag] = useState(false)
       const [busy, setBusy] = useState(false)
       const [captureBusy, setCaptureBusy] = useState(false)
+      const [screenshotPromptOpen, setScreenshotPromptOpen] = useState(false)
       const [error, setError] = useState(null)
       const [lightbox, setLightbox] = useState(null)
       const [modalId, setModalId] = useState(null)
@@ -1915,7 +1931,7 @@ window.__ModuleLoader__.load({
           h('button', { type: 'button', 'aria-pressed': view === 'split', title: t('split'), onClick: () => chooseView('split') }, SplitIcon()),
           h('button', { type: 'button', 'aria-pressed': view === 'grid', title: t('grid'), onClick: () => chooseView('grid') }, GridIcon())),
         h('div', { className: 'ac-header-actions' },
-          h('button', { className: 'ac-icon-button', type: 'button', title: t('screenshot'), 'aria-label': t('screenshot'), onClick: captureScreen, disabled: captureBusy || busy }, ScreenshotIcon()),
+          h('button', { className: 'ac-icon-button', type: 'button', title: t('screenshot'), 'aria-label': t('screenshot'), onClick: () => setScreenshotPromptOpen(true), disabled: captureBusy || busy }, ScreenshotIcon()),
           h('button', { className: 'ac-icon-button', type: 'button', title: t('import'), 'aria-label': t('import'), onClick: openPicker, disabled: busy }, UploadIcon())),
         h('input', {
           ref: fileRef,
@@ -1994,6 +2010,17 @@ window.__ModuleLoader__.load({
           onOpenItem: openSearchItem,
           onOpenInsight: openSearchInsight,
         }) : null,
+        screenshotPromptOpen ? h('div', {
+          className: 'ac-modal',
+          onMouseDown: (event) => { if (event.target === event.currentTarget) setScreenshotPromptOpen(false) },
+        },
+          h('div', { className: 'ac-shot-prompt', role: 'dialog', 'aria-modal': 'true' },
+            h('div', { className: 'ac-shot-title' }, t('screenshotPromptTitle')),
+            h('p', { className: 'ac-shot-body' }, t('screenshotPromptBody')),
+            h('p', { className: 'ac-shot-note' }, t('screenshotPromptNote')),
+            h('div', { className: 'ac-shot-actions' },
+              h('button', { className: 'ac-ghost', onClick: () => setScreenshotPromptOpen(false) }, t('screenshotPromptCancel')),
+              h('button', { className: 'ac-primary', disabled: captureBusy, onClick: async () => { setScreenshotPromptOpen(false); await captureScreen() } }, t('screenshotPromptStart'))))) : null,
         drag ? h('div', { className: 'ac-drop' },
           h('div', { className: 'ac-drop-inner' },
             h('div', { className: 'ac-drop-icon' }, PlusIcon()),

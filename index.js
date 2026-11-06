@@ -156,9 +156,6 @@ async function startSystemCapture(ctx, items) {
   try {
     await execFileAsync('/usr/bin/osascript', ['-e', 'tell application "System Events" to set visible of process "DeepSeek Harness" to false'], { timeout: 5000 })
   } catch {}
-  try {
-    await execFileAsync('/usr/bin/osascript', ['-e', 'display notification "按 ⌘⇧4 框选要截的内容；截完点 Dock 里的 DeepSeek Harness 回来。" with title "AuraCap · 已准备截图" sound name "Glass"'], { timeout: 5000 })
-  } catch {}
   const candidates = new Map()
   const timer = setInterval(async () => {
     if (!systemCaptureWatch) return
@@ -189,9 +186,6 @@ async function startSystemCapture(ctx, items) {
         }
         const mediaType = /\.png$/i.test(name) ? 'image/png' : 'image/jpeg'
         await addImageItem(ctx, items, data, mediaType, name, { kind: 'screenshot', name })
-        try {
-          await execFileAsync('/usr/bin/osascript', ['-e', 'display notification "截图已收进 AuraCap。" with title "AuraCap" sound name "Glass"'], { timeout: 5000 })
-        } catch {}
       } catch {}
       clearInterval(timer)
       systemCaptureWatch = null
