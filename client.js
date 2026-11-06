@@ -33,7 +33,7 @@ window.__ModuleLoader__.load({
       searchNoResults: '没有找到',
       searchLoading: '搜索中…',
       moment: '片刻',
-      entities: '实体',
+      entities: '线索',
       tagFilter: '标签',
       relatedMoments: '相关片刻',
       relatedInsights: '相关洞察',
@@ -44,7 +44,7 @@ window.__ModuleLoader__.load({
       memoryRunning: '正在建立…',
       occurrences: '出现',
       timeSpan: '时间跨度',
-      noEntities: '暂无实体',
+      noEntities: '暂无线索',
       importing: '处理中…',
       today: '今天',
       all: '全部',
@@ -139,7 +139,9 @@ window.__ModuleLoader__.load({
       usageKindDocument: '文档',
       usageKindDaily: '日洞察',
       usageKindLong: '长洞察',
-      usageKindBackfill: '实体回填',
+      usageKindBackfill: '线索回填',
+      usageEstimate: '估算费用',
+      usageEstimateHint: '按 API 单价估算，不代表账单',
       phoneIntro: '已连接 GitHub。下面把手机接进来。',
       phoneSection: '把手机接进来',
       syncSection: '同步',
@@ -195,7 +197,7 @@ window.__ModuleLoader__.load({
       searchNoResults: 'Nothing found',
       searchLoading: 'Searching…',
       moment: 'Moment',
-      entities: 'Entities',
+      entities: 'Clues',
       tagFilter: 'Tag',
       relatedMoments: 'Related moments',
       relatedInsights: 'Related insights',
@@ -206,7 +208,7 @@ window.__ModuleLoader__.load({
       memoryRunning: 'Building…',
       occurrences: 'appearances',
       timeSpan: 'time span',
-      noEntities: 'No entities yet',
+      noEntities: 'No clues yet',
       importing: 'Working…',
       today: 'Today',
       all: 'All',
@@ -301,7 +303,9 @@ window.__ModuleLoader__.load({
       usageKindDocument: 'Documents',
       usageKindDaily: 'Daily insight',
       usageKindLong: 'Long insight',
-      usageKindBackfill: 'Entity backfill',
+      usageKindBackfill: 'Clue backfill',
+      usageEstimate: 'Estimated cost',
+      usageEstimateHint: 'Estimated from API list prices; not a bill',
       phoneIntro: 'GitHub is connected. Let’s bring your phone in.',
       phoneSection: 'Bring your phone in',
       syncSection: 'Sync',
@@ -504,6 +508,7 @@ window.__ModuleLoader__.load({
 .ac-usage-stats b { display: block; font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
 .ac-usage-stats span { display: block; margin-top: 2px; font-size: 9.5px; color: var(--dsw-alias-label-secondary); letter-spacing: .04em; }
 .ac-usage-meta { font-size: 10.5px; color: var(--dsw-alias-label-secondary); padding-bottom: 8px; }
+.ac-usage-cost { font-size: 10.5px; color: var(--dsw-alias-label-secondary); padding: 0 0 8px; }
 .ac-usage-kinds { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 10.5px; color: var(--dsw-alias-label-secondary); }
 .ac-usage-kinds span { white-space: nowrap; }
 @media (max-width: 760px) {
@@ -771,6 +776,13 @@ window.__ModuleLoader__.load({
       if (number >= 1_000_000) return (number / 1_000_000).toFixed(number >= 10_000_000 ? 0 : 1) + 'M'
       if (number >= 1_000) return (number / 1_000).toFixed(number >= 10_000 ? 0 : 1) + 'K'
       return String(Math.round(number))
+    }
+
+    function formatCost(value) {
+      const number = Number(value) || 0
+      if (!number) return '$0.00'
+      if (number < 0.01) return '< $0.01'
+      return '$' + number.toFixed(number < 1 ? 3 : 2)
     }
 
     function usageKindLabel(kind, t) {
@@ -1503,7 +1515,7 @@ window.__ModuleLoader__.load({
     }
 
     function entityTypeLabel(type, t) {
-      const map = { person: '人物', org: '机构', product: '产品', project: '项目', topic: '主题', place: '地点', other: '实体' }
+      const map = { person: '人物', org: '机构', product: '产品', project: '项目', topic: '主题', place: '地点', other: '线索' }
       return map[type] || t('entities')
     }
 
@@ -1617,6 +1629,8 @@ window.__ModuleLoader__.load({
               h('div', null, h('b', null, String(props.usage.calls || 0)), h('span', null, t('usageCalls')))),
             h('div', { className: 'ac-usage-meta' },
               Object.keys(props.usage.models || {}).join(' · ') || 'deepseek-flash'),
+            props.usage.cost ? h('div', { className: 'ac-usage-cost' },
+              t('usageEstimate') + ' ≈ ' + formatCost(props.usage.cost.total) + ' · ' + t('usageEstimateHint')) : null,
             usageKinds.length ? h('div', { className: 'ac-usage-kinds' },
               usageKinds.map(([kind, value]) => h('span', { key: kind },
                 usageKindLabel(kind, t) + ' ' + formatTokens(value)))) : null)

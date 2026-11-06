@@ -1519,6 +1519,10 @@ function loadMemoryProfile() {
 }
 
 const usageFile = () => join(memoryDir(), 'usage.json')
+const MODEL_PRICING = {
+  'deepseek-flash': { input: 0.3, output: 1.2, cacheRead: 0.006, cacheWrite: 0, currency: 'USD' },
+  'deepseek-v4-pro': { input: 1.32, output: 3.96, cacheRead: 0.044, cacheWrite: 0, currency: 'USD' },
+}
 
 function loadUsage() {
   try { return JSON.parse(readFileSync(usageFile(), 'utf8')) } catch { return { version: 1, days: {} } }
@@ -1542,17 +1546,58 @@ function usageTotal(usage) {
     .reduce((sum, value) => sum + value, 0)
 }
 
+function usageParts(usage) {
+  return {
+    total: usageTotal(usage),
+    input: Number(usage && usage.inputTokens) || 0,
+    output: Number(usage && usage.outputTokens) || 0,
+    cacheRead: Number(usage && usage.cacheReadTokens) || 0,
+    cacheWrite: Number(usage && usage.cacheWriteTokens) || 0,
+  }
+}
+
+function addUsageParts(target, parts) {
+  target.total += Number(parts.total) || 0
+  target.input += Number(parts.input) || 0
+  target.output += Number(parts.output) || 0
+  target.cacheRead += Number(parts.cacheRead) || 0
+  target.cacheWrite += Number(parts.cacheWrite) || 0
+  return target
+}
+
+function emptyParts() {
+  return { total: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
+}
+
+function costOfModels(models) {
+  let cost = 0
+  for (const [model, parts] of Object.entries(models || {})) {
+    const price = MODEL_PRICING[model]
+    if (!price) continue
+    cost += (Number(parts.input) || 0) / 1_000_000 * price.input
+    cost += (Number(parts.output) || 0) / 1_000_000 * price.output
+    cost += (Number(parts.cacheRead) || 0) / 1_000_000 * price.cacheRead
+    cost += (Number(parts.cacheWrite) || 0) / 1_000_000 * price.cacheWrite
+  }
+  return cost
+}
+
 function recordUsage(kind, usage, model = MODEL.model) {
-  const total = usageTotal(usage)
-  if (!total) return
+  const parts = usageParts(usage)
+  if (!parts.total) return
   const data = loadUsage()
   if (!data.days || typeof data.days !== 'object') data.days = {}
   const dayKey = todayKey()
-  const day = data.days[dayKey] || { total: 0, calls: 0, models: {}, kinds: {} }
-  day.total += total
+  const day = data.days[dayKey] || { total: 0, calls: 0, models: {}, kinds: {}, components: { models: {}, kinds: {} } }
+  if (!day.components) day.components = { models: {}, kinds: {} }
+  day.total += parts.total
   day.calls += 1
-  day.models[model] = (day.models[model] || 0) + total
-  day.kinds[kind] = (day.kinds[kind] || 0) + total
+  day.models[model] = (day.models[model] || 0) + parts.total
+  day.kinds[kind] = (day.kinds[kind] || 0) + parts.total
+  if (!day.components.models[model]) day.components.models[model] = emptyParts()
+  addUsageParts(day.components.models[model], parts)
+  if (!day.components.kinds[kind]) day.components.kinds[kind] = emptyParts()
+  addUsageParts(day.components.kinds[kind], parts)
   data.days[dayKey] = day
   const keepFrom = addDays(todayKey(), -120)
   for (const key of Object.keys(data.days)) if (key < keepFrom) delete data.days[key]
@@ -1564,7 +1609,10 @@ function usageSummary() {
   const days = data.days || {}
   const today = todayKey()
   const weekStart = addDays(today, -6)
-  const result = { today: 0, week: 0, total: 0, calls: 0, models: {}, kinds: {} }
+  const result = { today: 0, week: 0, total: 0, calls: 0, models: {}, kinds: {}, cost: { currency: 'USD', today: 0, week: 0, total: 0 } }
+  const allModels = {}
+  const weekModels = {}
+  const todayModels = {}
   for (const [key, day] of Object.entries(days)) {
     const total = Number(day.total) || 0
     result.total += total
@@ -1573,7 +1621,22 @@ function usageSummary() {
     if (key >= weekStart && key <= today) result.week += total
     for (const [model, value] of Object.entries(day.models || {})) result.models[model] = (result.models[model] || 0) + Number(value || 0)
     for (const [kind, value] of Object.entries(day.kinds || {})) result.kinds[kind] = (result.kinds[kind] || 0) + Number(value || 0)
+    for (const [model, parts] of Object.entries((day.components && day.components.models) || {})) {
+      if (!allModels[model]) allModels[model] = emptyParts()
+      addUsageParts(allModels[model], parts)
+      if (key === today) {
+        if (!todayModels[model]) todayModels[model] = emptyParts()
+        addUsageParts(todayModels[model], parts)
+      }
+      if (key >= weekStart && key <= today) {
+        if (!weekModels[model]) weekModels[model] = emptyParts()
+        addUsageParts(weekModels[model], parts)
+      }
+    }
   }
+  result.cost.total = costOfModels(allModels)
+  result.cost.today = costOfModels(todayModels)
+  result.cost.week = costOfModels(weekModels)
   return result
 }
 
