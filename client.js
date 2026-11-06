@@ -19,6 +19,12 @@ window.__ModuleLoader__.load({
       split: '双栏',
       grid: '卡片',
       import: '导入截图',
+      search: '搜索',
+      searchPlaceholder: '搜索片刻与洞察…',
+      searchHint: '输入关键词，搜索所有片刻与洞察',
+      searchNoResults: '没有找到',
+      searchLoading: '搜索中…',
+      moment: '片刻',
       importing: '处理中…',
       today: '今天',
       all: '全部',
@@ -133,6 +139,12 @@ window.__ModuleLoader__.load({
       split: 'Split',
       grid: 'Grid',
       import: 'Import',
+      search: 'Search',
+      searchPlaceholder: 'Search moments and insights…',
+      searchHint: 'Type to search across every moment and insight',
+      searchNoResults: 'Nothing found',
+      searchLoading: 'Searching…',
+      moment: 'Moment',
       importing: 'Working…',
       today: 'Today',
       all: 'All',
@@ -264,6 +276,25 @@ window.__ModuleLoader__.load({
 .ac-tab-count { margin-left: 5px; min-width: 15px; height: 15px; padding: 0 5px; border-radius: 999px; background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-secondary); font-size: 10px; display: inline-flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
 .ac-tab[aria-selected="true"] .ac-tab-count { color: var(--dsw-alias-label-primary); }
 .ac-tab-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--dsw-alias-brand-primary); margin-left: 5px; vertical-align: 1px; }
+.ac-search-trigger { border: 0; background: transparent; padding: 2px 4px; margin-left: -6px; color: var(--dsw-alias-label-secondary); font-family: inherit; font-size: 11.5px; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; border-radius: 6px; }
+.ac-search-trigger:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-1); }
+.ac-search-trigger kbd { font-size: 9px; color: var(--dsw-alias-label-secondary); border: 1px solid var(--dsw-alias-border-l1); border-radius: 4px; padding: 0 3px; opacity: .6; font-family: inherit; }
+.ac-search-overlay { position: fixed; inset: 0; z-index: 300; background: color-mix(in srgb, var(--dsw-alias-label-primary) 12%, transparent); display: flex; justify-content: center; align-items: flex-start; padding-top: 12vh; }
+.ac-search-panel { width: min(620px, calc(100vw - 80px)); background: var(--dsw-alias-bg-base); border: 1px solid var(--dsw-alias-border-l1); border-radius: 14px; box-shadow: 0 24px 70px color-mix(in srgb, var(--dsw-alias-label-primary) 18%, transparent); overflow: hidden; }
+.ac-search-input-row { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--dsw-alias-border-l1); color: var(--dsw-alias-label-secondary); }
+.ac-search-input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 14px; }
+.ac-search-input::placeholder { color: var(--dsw-alias-label-secondary); opacity: .68; }
+.ac-search-kbd { font-size: 9.5px; color: var(--dsw-alias-label-secondary); border: 1px solid var(--dsw-alias-border-l1); border-radius: 4px; padding: 1px 4px; font-family: inherit; opacity: .65; flex: none; }
+.ac-search-results { max-height: 390px; overflow: auto; padding: 6px; }
+.ac-search-result { width: 100%; display: flex; align-items: flex-start; gap: 10px; padding: 10px; border: 0; background: transparent; border-radius: 8px; text-align: left; cursor: pointer; font-family: inherit; color: inherit; }
+.ac-search-result[data-active="true"] { background: var(--dsw-alias-bg-layer-1); }
+.ac-search-kind { flex: none; min-width: 36px; font-size: 9.5px; letter-spacing: .08em; color: var(--dsw-alias-label-secondary); padding-top: 2px; }
+.ac-search-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ac-search-title { font-size: 12.5px; font-weight: 500; line-height: 1.4; }
+.ac-search-snippet { font-size: 11.5px; color: var(--dsw-alias-label-secondary); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ac-search-result mark { background: color-mix(in srgb, var(--dsw-alias-brand-primary) 16%, transparent); color: inherit; border-radius: 2px; }
+.ac-search-empty { padding: 34px 20px; text-align: center; color: var(--dsw-alias-label-secondary); font-size: 12px; }
+.ac-search-foot { display: flex; justify-content: space-between; gap: 10px; padding: 8px 14px; border-top: 1px solid var(--dsw-alias-border-l1); font-size: 10px; color: var(--dsw-alias-label-secondary); opacity: .7; }
 .ac-flow { flex: none; padding: 5px 22px 6px; border-bottom: 1px solid var(--dsw-alias-border-l1); position: relative; }
 .ac-flow-months { position: relative; height: 13px; }
 .ac-flow-month { position: absolute; transform: translateX(-50%); font-family: 'Songti SC', 'Noto Serif SC', serif; font-size: 10px; letter-spacing: .08em; color: var(--dsw-alias-label-secondary); opacity: .55; white-space: nowrap; }
@@ -592,6 +623,11 @@ window.__ModuleLoader__.load({
       return h('svg', { viewBox: '0 0 16 16', width: 13, height: 13, fill: 'none', stroke: 'currentColor', strokeWidth: 1.3, strokeLinecap: 'round', 'aria-hidden': true },
         h('path', { d: 'M13 8a5 5 0 1 1-1.6-3.7' }),
         h('path', { d: 'M13 2.8v3.4H9.6' }))
+    }
+    function SearchIcon() {
+      return h('svg', { viewBox: '0 0 16 16', width: 13, height: 13, fill: 'none', stroke: 'currentColor', strokeWidth: 1.4, strokeLinecap: 'round', 'aria-hidden': true },
+        h('circle', { cx: 7, cy: 7, r: 4.2 }),
+        h('path', { d: 'm10.2 10.2 3 3' }))
     }
 
     function ImageIcon() {
@@ -950,6 +986,112 @@ window.__ModuleLoader__.load({
         h('path', { d: 'M4 6.5 8 10.5 12 6.5' }))
     }
 
+    function highlightText(text, query) {
+      const source = String(text || '')
+      const terms = String(query || '').toLowerCase().split(/\s+/).filter(Boolean)
+      if (!terms.length) return source
+      const escaped = terms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+      const expression = new RegExp('(' + escaped + ')', 'gi')
+      return source.split(expression).map((part, index) => terms.includes(part.toLowerCase())
+        ? h('mark', { key: index }, part)
+        : part)
+    }
+
+    function SearchPalette(props) {
+      const t = props.t
+      const [query, setQuery] = useState('')
+      const [results, setResults] = useState([])
+      const [busy, setBusy] = useState(false)
+      const [active, setActive] = useState(0)
+      const inputRef = useRef(null)
+
+      useEffect(() => {
+        if (!props.open) return
+        setQuery('')
+        setResults([])
+        setActive(0)
+        const timer = setTimeout(() => { if (inputRef.current) inputRef.current.focus() }, 20)
+        return () => clearTimeout(timer)
+      }, [props.open])
+
+      useEffect(() => {
+        if (!props.open) return
+        const term = query.trim()
+        if (!term) { setResults([]); setBusy(false); return }
+        let cancelled = false
+        setBusy(true)
+        const timer = setTimeout(async () => {
+          try {
+            const payload = await request(API + '/search?q=' + encodeURIComponent(term))
+            if (!cancelled) { setResults(payload.results || []); setActive(0) }
+          } catch {
+            if (!cancelled) setResults([])
+          } finally {
+            if (!cancelled) setBusy(false)
+          }
+        }, 180)
+        return () => { cancelled = true; clearTimeout(timer) }
+      }, [props.open, query])
+
+      if (!props.open) return null
+
+      const choose = (result) => {
+        if (!result) return
+        props.onClose()
+        if (result.kind === 'item') props.onOpenItem(result.id)
+        else props.onOpenInsight(result)
+      }
+      const onKeyDown = (event) => {
+        if (event.key === 'Escape') { event.preventDefault(); props.onClose(); return }
+        if (event.key === 'ArrowDown') { event.preventDefault(); setActive((index) => Math.min(results.length - 1, index + 1)); return }
+        if (event.key === 'ArrowUp') { event.preventDefault(); setActive((index) => Math.max(0, index - 1)); return }
+        if (event.key === 'Enter') { event.preventDefault(); choose(results[active]) }
+      }
+      const kindLabel = (result) => {
+        if (result.kind === 'item') return t('moment')
+        if (result.type === 'day') return t('periodDay')
+        if (result.type === 'week') return t('periodWeek')
+        if (result.type === 'month') return t('periodMonth')
+        return t('periodYear')
+      }
+      const body = busy
+        ? h('div', { className: 'ac-search-empty' }, t('searchLoading'))
+        : !query.trim()
+          ? h('div', { className: 'ac-search-empty' }, t('searchHint'))
+          : !results.length
+            ? h('div', { className: 'ac-search-empty' }, t('searchNoResults'))
+            : h('div', { className: 'ac-search-results' }, results.map((result, index) => h('button', {
+                key: String(result.kind) + '-' + String(result.id || result.key) + '-' + index,
+                type: 'button',
+                className: 'ac-search-result',
+                'data-active': index === active,
+                onMouseEnter: () => setActive(index),
+                onClick: () => choose(result),
+              },
+                h('span', { className: 'ac-search-kind' }, kindLabel(result)),
+                h('span', { className: 'ac-search-text' },
+                  h('span', { className: 'ac-search-title' }, highlightText(result.title || '', query)),
+                  h('span', { className: 'ac-search-snippet' }, highlightText(result.snippet || '', query))))))
+
+      return h('div', { className: 'ac-search-overlay', onMouseDown: (event) => { if (event.target === event.currentTarget) props.onClose() } },
+        h('div', { className: 'ac-search-panel', onMouseDown: (event) => event.stopPropagation() },
+          h('div', { className: 'ac-search-input-row' },
+            SearchIcon(),
+            h('input', {
+              ref: inputRef,
+              className: 'ac-search-input',
+              value: query,
+              placeholder: t('searchPlaceholder'),
+              onChange: (event) => setQuery(event.target.value),
+              onKeyDown,
+            }),
+            h('kbd', { className: 'ac-search-kbd' }, 'esc')),
+          body,
+          h('div', { className: 'ac-search-foot' },
+            h('span', null, t('searchHint')),
+            h('span', { className: 'ac-search-kbd' }, '⌘K'))))
+    }
+
     function DigestView(props) {
       const t = props.t
       const digest = props.digest
@@ -1173,6 +1315,7 @@ window.__ModuleLoader__.load({
         } catch { return null }
       })
       const [settingsOpen, setSettingsOpen] = useState(false)
+      const [searchOpen, setSearchOpen] = useState(false)
       const [github, setGithub] = useState(null)
       const [githubBusy, setGithubBusy] = useState(false)
       const [githubError, setGithubError] = useState(null)
@@ -1185,6 +1328,17 @@ window.__ModuleLoader__.load({
       const [shortcutFileMessage, setShortcutFileMessage] = useState(null)
       const fileRef = useRef(null)
       const dragDepth = useRef(0)
+
+      useEffect(() => {
+        const onKeyDown = (event) => {
+          if ((event.metaKey || event.ctrlKey) && String(event.key).toLowerCase() === 'k') {
+            event.preventDefault()
+            setSearchOpen((open) => !open)
+          }
+        }
+        window.addEventListener('keydown', onKeyDown)
+        return () => window.removeEventListener('keydown', onKeyDown)
+      }, [])
 
       const load = useCallback(async () => {
         try {
@@ -1530,6 +1684,20 @@ window.__ModuleLoader__.load({
         setRangeStart(null)
         setRangeEnd(null)
       }
+      const openSearchItem = (id) => {
+        setSearchOpen(false)
+        setRangeStart(null)
+        setRangeEnd(null)
+        setScope('all')
+        setSelectedId(id)
+        if (view === 'grid') setModalId(id)
+      }
+      const openSearchInsight = (result) => {
+        setSearchOpen(false)
+        setScope('digest')
+        setPeriod(result.type || 'day')
+        setAppliedAnchor(result.start || todayKey())
+      }
       const shiftPeriod = (delta) => {
         const [year, month, day] = appliedAnchor.split('-').map(Number)
         const date = new Date(year, month - 1, day, 12)
@@ -1571,6 +1739,7 @@ window.__ModuleLoader__.load({
         h('button', { className: 'ac-tab', 'aria-selected': scope === 'today', onClick: () => setScope('today') }, t('today'), h('span', { className: 'ac-tab-count' }, String(todayCount))),
         h('button', { className: 'ac-tab', 'aria-selected': scope === 'all', onClick: () => setScope('all') }, t('all'), h('span', { className: 'ac-tab-count' }, String(items.length))),
         h('button', { className: 'ac-tab', 'aria-selected': scope === 'digest', onClick: () => setScope('digest') }, t('insights'), (anyPeriodUnread || digestUnread) ? h('span', { className: 'ac-tab-dot', 'aria-hidden': true }) : null),
+        h('button', { className: 'ac-search-trigger', type: 'button', onClick: () => setSearchOpen(true), title: t('search') + '  ⌘K' }, SearchIcon(), h('span', null, t('search')), h('kbd', null, '⌘K')),
         h('div', { className: 'ac-grow' }),
         h('span', { className: 'ac-hint' }, t('localOnly')))
 
@@ -1623,6 +1792,13 @@ window.__ModuleLoader__.load({
         timeline,
         error ? h('div', { className: 'ac-banner' }, h('span', null, error), h('button', { onClick: () => setError(null), 'aria-label': t('close') }, CloseIcon())) : null,
         content,
+        searchOpen ? h(SearchPalette, {
+          t,
+          open: true,
+          onClose: () => setSearchOpen(false),
+          onOpenItem: openSearchItem,
+          onOpenInsight: openSearchInsight,
+        }) : null,
         drag ? h('div', { className: 'ac-drop' },
           h('div', { className: 'ac-drop-inner' },
             h('div', { className: 'ac-drop-icon' }, PlusIcon()),

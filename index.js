@@ -302,6 +302,92 @@ async function generatePeriodInsight(ctx, items, type, anchorISO, force) {
   }
 }
 
+function searchSnippet(text, terms) {
+  const source = String(text || '').replace(/^#{1,6}\s+.*$/gm, ' ').replace(/\s+/g, ' ').trim()
+  if (!source) return ''
+  const lower = source.toLowerCase()
+  let index = -1
+  for (const term of terms) {
+    const found = lower.indexOf(term)
+    if (found >= 0 && (index < 0 || found < index)) index = found
+  }
+  if (index < 0) return source.slice(0, 90)
+  const start = Math.max(0, index - 34)
+  const end = Math.min(source.length, index + 76)
+  return (start > 0 ? '…' : '') + source.slice(start, end) + (end < source.length ? '…' : '')
+}
+
+function searchScore(haystack, terms, title) {
+  const lower = String(haystack || '').toLowerCase()
+  let score = 0
+  for (const term of terms) {
+    if (!term) continue
+    if (String(title || '').toLowerCase().includes(term)) score += 4
+    if (lower.includes(term)) score += 1
+  }
+  return score
+}
+
+function searchItemsFor(items, query) {
+  const terms = String(query || '').toLowerCase().split(/\s+/).filter(Boolean)
+  if (!terms.length) return []
+  return items.map((item) => {
+    const summary = item.summary || {}
+    const title = summary.title || '未命名片刻'
+    const body = [summary.content, summary.excerpt, summary.summary, (summary.tags || []).join(' '), item.error].filter(Boolean).join(' ')
+    const haystack = title + ' ' + body
+    if (!terms.every((term) => haystack.toLowerCase().includes(term))) return null
+    return {
+      kind: 'item',
+      id: item.id,
+      title,
+      snippet: searchSnippet(body || title, terms),
+      createdAt: item.createdAt,
+      status: item.status,
+      score: searchScore(haystack, terms, title),
+    }
+  }).filter(Boolean).sort((a, b) => b.score - a.score || String(b.createdAt).localeCompare(String(a.createdAt))).slice(0, 8)
+}
+
+function searchInsightsFor(query) {
+  const terms = String(query || '').toLowerCase().split(/\s+/).filter(Boolean)
+  if (!terms.length) return []
+  const files = []
+  const add = (type, file) => {
+    try {
+      const parsed = JSON.parse(readFileSync(file, 'utf8'))
+      const title = parsed.title || ''
+      const content = parsed.content || ''
+      const haystack = title + ' ' + content
+      if (!terms.every((term) => haystack.toLowerCase().includes(term))) return
+      files.push({
+        kind: 'insight',
+        type: type === 'day' ? 'day' : type,
+        key: parsed.key || (type === 'day' ? file.split('/').pop().replace(/\.json$/, '') : ''),
+        start: parsed.start || parsed.date || '',
+        end: parsed.end || parsed.date || '',
+        title,
+        snippet: searchSnippet(content || title, terms),
+        createdAt: parsed.createdAt || '',
+        score: searchScore(haystack, terms, title) + 2,
+      })
+    } catch {}
+  }
+  try {
+    for (const name of readdirSync(join(dataDir(), 'digests'))) {
+      if (/^\d{4}-\d{2}-\d{2}\.json$/.test(name)) add('day', join(dataDir(), 'digests', name))
+    }
+  } catch {}
+  for (const type of ['week', 'month', 'year']) {
+    try {
+      for (const name of readdirSync(join(dataDir(), 'insights', type))) {
+        if (name.endsWith('.json')) add(type, join(dataDir(), 'insights', type, name))
+      }
+    } catch {}
+  }
+  return files.sort((a, b) => b.score - a.score || String(b.createdAt).localeCompare(String(a.createdAt))).slice(0, 8)
+}
+
 function latestInsightStatus(type) {
   const files = []
   const push = (file, key) => {
@@ -1333,6 +1419,12 @@ export function apply(ctx) {
             repo: repo.owner + '/' + repo.name,
             release: repo.releaseId,
           })
+        }
+        if (path === `${BASE}/api/search`) {
+          if (req.method !== 'GET') return sendError(res, 405, 'method not allowed')
+          const query = String(url.searchParams.get('q') || '').trim().slice(0, 100)
+          if (!query) return sendJson(res, 200, { query, results: [] })
+          return sendJson(res, 200, { query, results: searchItemsFor(items, query).concat(searchInsightsFor(query)).sort((a, b) => b.score - a.score).slice(0, 12) })
         }
         if (path === `${BASE}/api/items`) {
           if (req.method !== 'GET') return sendError(res, 405, 'method not allowed')
