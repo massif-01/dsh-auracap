@@ -66,6 +66,7 @@ window.__ModuleLoader__.load({
       dragHint: '拖动两端选择时间段',
       previousPeriod: '上一期',
       nextPeriod: '下一期',
+      jumpToDate: '跳到某一天',
       longInsightEmptyTitle: '这段时间还没有洞察',
       longInsightEmptyHint: '生成一次，看看这段时间里反复出现的是什么。',
       generateLongInsight: '生成本期洞察',
@@ -179,6 +180,7 @@ window.__ModuleLoader__.load({
       dragHint: 'Drag both ends to choose a range',
       previousPeriod: 'Previous period',
       nextPeriod: 'Next period',
+      jumpToDate: 'Jump to a day',
       longInsightEmptyTitle: 'No insight for this period yet',
       longInsightEmptyHint: 'Generate one to see what kept recurring in this stretch of time.',
       generateLongInsight: 'Generate period insight',
@@ -277,12 +279,29 @@ window.__ModuleLoader__.load({
 .ac-flow-reset { border: 0; background: transparent; color: var(--dsw-alias-label-secondary); font-size: 10.5px; cursor: pointer; padding: 0; font-family: inherit; }
 .ac-flow-reset:hover { color: var(--dsw-alias-label-primary); }
 .ac-flow-hint { opacity: .55; }
-.ac-periods { display: flex; gap: 6px; margin-bottom: 24px; }
-.ac-period { height: 28px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--dsw-alias-border-l1); background: transparent; color: var(--dsw-alias-label-secondary); font-size: 12px; cursor: pointer; font-family: inherit; }
-.ac-period:hover { color: var(--dsw-alias-label-primary); }
-.ac-period[aria-selected="true"] { background: var(--dsw-alias-label-primary); color: var(--dsw-alias-bg-base); border-color: transparent; }
-.ac-period-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--dsw-alias-brand-primary); margin-left: 5px; vertical-align: 1px; }
-.ac-hint { font-size: 11px; color: var(--dsw-alias-label-secondary); opacity: .8; }
+.ac-insight-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 30px; }
+.ac-insight-heading { display: flex; flex-direction: column; gap: 6px; }
+.ac-insight-kicker { font-family: 'Songti SC', 'Noto Serif SC', serif; font-size: 10px; letter-spacing: .16em; color: var(--dsw-alias-label-secondary); opacity: .55; }
+.ac-period-picker { position: relative; }
+.ac-period-trigger { display: flex; align-items: baseline; gap: 10px; border: 0; background: transparent; padding: 0; color: var(--dsw-alias-label-primary); font-family: inherit; cursor: pointer; text-align: left; }
+.ac-period-trigger:hover .ac-period-name { opacity: .72; }
+.ac-period-name { font-size: 22px; line-height: 1.25; font-weight: 600; letter-spacing: -.01em; transition: opacity .12s ease; }
+.ac-period-range { font-family: 'Songti SC', 'Noto Serif SC', serif; font-size: 11px; letter-spacing: .04em; color: var(--dsw-alias-label-secondary); }
+.ac-period-trigger svg { color: var(--dsw-alias-label-secondary); align-self: center; margin-left: -2px; }
+.ac-insight-generate { margin-top: 3px; flex: none; }
+.ac-period-menu { position: absolute; top: calc(100% + 10px); left: 0; z-index: 40; width: 286px; padding: 6px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 12px; background: var(--dsw-alias-bg-base); box-shadow: 0 18px 48px color-mix(in srgb, var(--dsw-alias-label-primary) 13%, transparent); }
+.ac-period-row { width: 100%; display: flex; align-items: baseline; gap: 8px; padding: 9px 10px; border: 0; border-radius: 8px; background: transparent; color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
+.ac-period-row:hover { background: var(--dsw-alias-bg-layer-1); }
+.ac-period-row[aria-selected="true"] { background: var(--dsw-alias-bg-layer-1); }
+.ac-period-row-label { font-weight: 500; }
+.ac-period-row-sub { margin-left: auto; font-size: 11px; color: var(--dsw-alias-label-secondary); font-family: 'Songti SC', 'Noto Serif SC', serif; }
+.ac-period-dot { display: inline-block; flex: none; width: 5px; height: 5px; border-radius: 50%; background: var(--dsw-alias-brand-primary); }
+.ac-period-menu-divider { height: 1px; margin: 6px 4px; background: var(--dsw-alias-border-l1); }
+.ac-period-date { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 10px 9px; font-size: 12px; }
+.ac-period-date input { border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); border-radius: 7px; padding: 4px 6px; font-family: inherit; font-size: 11px; }
+.ac-period-date input:focus { outline: none; border-color: var(--dsw-alias-border-l2); }
+.ac-period-backdrop { position: fixed; inset: 0; z-index: 30; background: transparent; }
+.ac-hint {.ac-hint { font-size: 11px; color: var(--dsw-alias-label-secondary); opacity: .8; }
 .ac-body { flex: 1; display: flex; min-height: 0; }
 .ac-list { width: 236px; flex: none; border-right: 1px solid var(--dsw-alias-border-l1); overflow: auto; padding: 8px; }
 .ac-row { display: flex; gap: 10px; padding: 6px 8px; border-radius: 8px; align-items: center; border: 1px solid transparent; cursor: pointer; transition: background .12s ease, border-color .12s ease; }
@@ -924,29 +943,57 @@ window.__ModuleLoader__.load({
           active ? h('button', { type: 'button', className: 'ac-flow-reset', onClick: props.onReset }, t('allTime')) : h('span', { className: 'ac-flow-hint' }, t('dragHint'))))
     }
 
+    function ChevronDownIcon() {
+      return h('svg', { viewBox: '0 0 16 16', width: 12, height: 12, fill: 'none', stroke: 'currentColor', strokeWidth: 1.4, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+        h('path', { d: 'M4 6.5 8 10.5 12 6.5' }))
+    }
+
     function DigestView(props) {
       const t = props.t
       const digest = props.digest
       const sections = digest && digest.content ? splitSections(digest.content) : []
-      const periodTabs = h('div', { className: 'ac-periods' },
-        [['day', 'periodDay'], ['week', 'periodWeek'], ['month', 'periodMonth'], ['year', 'periodYear']].map(([id, key]) =>
-          h('button', {
+      const [menuOpen, setMenuOpen] = useState(false)
+      const periods = [
+        ['day', 'periodDay', '今日'],
+        ['week', 'periodWeek', '本周'],
+        ['month', 'periodMonth', '本月'],
+        ['year', 'periodYear', '今年'],
+      ]
+      const menu = menuOpen ? h('div', { className: 'ac-period-menu' },
+        periods.map(([id, key, fallback]) => {
+          const bounds = periodBounds(id, props.anchor)
+          const sub = id === 'day' ? rangeText(bounds.start, bounds.end) : rangeText(bounds.start, bounds.end)
+          return h('button', {
             key: id,
             type: 'button',
-            className: 'ac-period',
+            className: 'ac-period-row',
             'aria-selected': props.period === id,
-            onClick: () => props.onPeriodChange(id),
-          }, t(key), props.unreadPeriods && props.unreadPeriods[id] ? h('span', { className: 'ac-period-dot', 'aria-hidden': true }) : null)))
-      const head = h('div', { className: 'ac-digest-head' },
-        h('div', { className: 'ac-digest-heading' },
-          h('div', { className: 'ac-sec-label', style: { marginBottom: 3 } }, props.periodLabel || t('insightToday')),
-          h('div', { className: 'ac-digest-date' }, props.rangeLabel || props.date)),
-        h('div', { className: 'ac-digest-actions' },
-          h('div', { className: 'ac-digest-nav' },
-            h('button', { className: 'ac-icon-button', onClick: () => props.onShift(-1), title: t('previousPeriod'), 'aria-label': t('previousPeriod') }, '‹'),
-            h('button', { className: 'ac-icon-button', onClick: () => props.onShift(1), title: t('nextPeriod'), 'aria-label': t('nextPeriod') }, '›')),
-          h('button', { className: 'ac-ghost', onClick: props.onGenerate, disabled: props.busy },
-            RetryIcon(), props.busy ? t('generating') : (digest ? t('insightRegenerate') : t('generateInsight')))))
+            onClick: () => { props.onPeriodChange(id); setMenuOpen(false) },
+          },
+            h('span', { className: 'ac-period-row-label' }, t(key) || fallback),
+            h('span', { className: 'ac-period-row-sub' }, sub),
+            props.unreadPeriods && props.unreadPeriods[id] ? h('span', { className: 'ac-period-dot', 'aria-hidden': true }) : null)
+        }),
+        h('div', { className: 'ac-period-menu-divider' }),
+        h('div', { className: 'ac-period-date' },
+          h('span', { className: 'ac-period-row-label' }, t('jumpToDate')),
+          h('input', {
+            type: 'date',
+            value: props.anchor,
+            max: todayKey(),
+            onChange: (event) => { if (event.target.value) { props.onAnchorChange(event.target.value); setMenuOpen(false) } },
+          }))) : null
+      const head = h('div', { className: 'ac-insight-head' },
+        h('div', { className: 'ac-insight-heading' },
+          h('div', { className: 'ac-insight-kicker' }, t('insights')),
+          h('div', { className: 'ac-period-picker' },
+            h('button', { type: 'button', className: 'ac-period-trigger', onClick: () => setMenuOpen((open) => !open) },
+              h('span', { className: 'ac-period-name' }, props.periodLabel || t('insightToday')),
+              h('span', { className: 'ac-period-range' }, props.rangeLabel || props.date),
+              ChevronDownIcon()),
+            menu)),
+        digest ? h('button', { className: 'ac-ghost ac-insight-generate', onClick: props.onGenerate, disabled: props.busy },
+          RetryIcon(), props.busy ? t('generating') : t('insightRegenerate')) : null)
       let body
       if (props.busy) {
         body = h('div', null,
@@ -969,7 +1016,8 @@ window.__ModuleLoader__.load({
           h('button', { className: 'ac-primary', onClick: props.onGenerate }, PlusIcon(), props.period === 'day' ? t('generateInsight') : t('generateLongInsight')))
       }
       return h('div', { className: 'ac-digest' },
-        h('div', { className: 'ac-digest-inner' }, periodTabs, head, body))
+        h('div', { className: 'ac-digest-inner' }, head, body),
+        menuOpen ? h('div', { className: 'ac-period-backdrop', onClick: () => setMenuOpen(false) }) : null)
     }
 
     function maskedConfig(config) {
@@ -1545,7 +1593,8 @@ window.__ModuleLoader__.load({
           error: digestError,
           onGenerate: generateInsight,
           onPeriodChange: changePeriod,
-          onShift: shiftPeriod,
+          onAnchorChange: (next) => setAppliedAnchor(next),
+          anchor: appliedAnchor,
           unreadPeriods: periodUnread,
         })
       } else if (!visible.length) {
