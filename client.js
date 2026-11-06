@@ -301,7 +301,7 @@ window.__ModuleLoader__.load({
 .ac-period-date input { border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); border-radius: 7px; padding: 4px 6px; font-family: inherit; font-size: 11px; }
 .ac-period-date input:focus { outline: none; border-color: var(--dsw-alias-border-l2); }
 .ac-period-backdrop { position: fixed; inset: 0; z-index: 30; background: transparent; }
-.ac-hint {.ac-hint { font-size: 11px; color: var(--dsw-alias-label-secondary); opacity: .8; }
+.ac-hint { font-size: 11px; color: var(--dsw-alias-label-secondary); opacity: .8; }
 .ac-body { flex: 1; display: flex; min-height: 0; }
 .ac-list { width: 236px; flex: none; border-right: 1px solid var(--dsw-alias-border-l1); overflow: auto; padding: 8px; }
 .ac-row { display: flex; gap: 10px; padding: 6px 8px; border-radius: 8px; align-items: center; border: 1px solid transparent; cursor: pointer; transition: background .12s ease, border-color .12s ease; }
