@@ -45,6 +45,15 @@ window.__ModuleLoader__.load({
       onlyImages: '只支持图片文件',
       local: '本地导入',
       source: '来源',
+      insights: '洞察',
+      insightToday: '今日洞察',
+      generateInsight: '生成今日洞察',
+      generating: '正在归纳…',
+      insightRegenerate: '重新生成',
+      insightBasedOn: '基于今日碎片',
+      insightUpdated: '生成于',
+      insightEmptyTitle: '今天还没有洞察',
+      insightEmptyHint: '把今天的碎片放在一起，AuraCap 会从中找主题、未完成信号和值得跟进的事。',
     }
 
     const EN = {
@@ -84,6 +93,15 @@ window.__ModuleLoader__.load({
       onlyImages: 'Images only',
       local: 'Local import',
       source: 'Source',
+      insights: 'Insights',
+      insightToday: 'Today’s insight',
+      generateInsight: 'Generate insight',
+      generating: 'Reading the day…',
+      insightRegenerate: 'Regenerate',
+      insightBasedOn: 'Based on',
+      insightUpdated: 'Generated',
+      insightEmptyTitle: 'No insight yet',
+      insightEmptyHint: 'Bring today’s fragments together and AuraCap will look for themes, loose ends, and things worth following up.',
     }
 
     const CSS = `
@@ -143,6 +161,16 @@ window.__ModuleLoader__.load({
 .ac-bullets { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .ac-bullet { display: flex; gap: 10px; font-size: 13px; line-height: 1.65; }
 .ac-bullet-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--dsw-alias-label-secondary); flex: none; margin-top: 9px; }
+.ac-digest { flex: 1; overflow: auto; padding: 30px 28px 60px; }
+.ac-digest-inner { max-width: 780px; margin: 0 auto; }
+.ac-digest-head { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 26px; }
+.ac-digest-date { font-size: 12px; color: var(--dsw-alias-label-secondary); font-variant-numeric: tabular-nums; }
+.ac-digest-actions { margin-left: auto; }
+.ac-digest-h1 { font-size: 24px; line-height: 1.35; font-weight: 600; letter-spacing: -.01em; margin: 0 0 10px; }
+.ac-digest-meta { font-size: 11.5px; color: var(--dsw-alias-label-secondary); margin-bottom: 26px; }
+.ac-digest-empty { padding: 70px 20px; text-align: center; }
+.ac-digest-hint { max-width: 420px; margin: 0 auto 20px; font-size: 13px; line-height: 1.75; color: var(--dsw-alias-label-secondary); }
+.ac-digest .ac-body-text { margin-bottom: 0; }
 .ac-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .ac-tag { font-size: 10.5px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-secondary); }
 .ac-actions { display: flex; gap: 8px; margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--dsw-alias-border-l1); flex-wrap: wrap; }
@@ -241,6 +269,11 @@ window.__ModuleLoader__.load({
       const date = new Date(iso)
       const now = new Date()
       return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate()
+    }
+
+    function todayKey() {
+      const now = new Date()
+      return now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate())
     }
 
     function timeText(iso) {
@@ -520,6 +553,54 @@ window.__ModuleLoader__.load({
             summary && summary.tags && summary.tags.length ? h('span', null, '#' + summary.tags[0]) : null)))
     }
 
+    function SectionBlock(props) {
+      const section = props.section
+      return h('div', { className: 'ac-section' },
+        section.label ? h('div', { className: 'ac-sec-label' }, section.label) : null,
+        section.bodyText ? h('div', { className: 'ac-body-text' }, section.bodyText) : null,
+        section.items.length
+          ? h('ul', { className: 'ac-bullets' }, section.items.map((entry, index) => h('li', { className: 'ac-bullet', key: index },
+              h('span', { className: 'ac-bullet-dot' }),
+              h('span', null, entry))))
+          : null)
+    }
+
+    function DigestView(props) {
+      const t = props.t
+      const digest = props.digest
+      const sections = digest && digest.content ? splitSections(digest.content) : []
+      const head = h('div', { className: 'ac-digest-head' },
+        h('div', { className: 'ac-digest-heading' },
+          h('div', { className: 'ac-sec-label', style: { marginBottom: 3 } }, t('insightToday')),
+          h('div', { className: 'ac-digest-date' }, props.date)),
+        h('div', { className: 'ac-digest-actions' },
+          h('button', { className: 'ac-ghost', onClick: props.onGenerate, disabled: props.busy },
+            RetryIcon(), props.busy ? t('generating') : (digest ? t('insightRegenerate') : t('generateInsight')))))
+      let body
+      if (props.busy) {
+        body = h('div', null,
+          h('div', { className: 'ac-skeleton', style: { width: '58%', height: 22, marginBottom: 18 } }),
+          h('div', { className: 'ac-skeleton', style: { width: '92%', marginBottom: 10 } }),
+          h('div', { className: 'ac-skeleton', style: { width: '88%', marginBottom: 10 } }),
+          h('div', { className: 'ac-skeleton', style: { width: '64%' } }),
+          h('div', { className: 'ac-footnote', style: { marginTop: 16 } }, t('generating')))
+      } else if (props.error) {
+        body = h('div', { className: 'ac-error' }, props.error)
+      } else if (digest) {
+        body = h('div', null,
+          h('h1', { className: 'ac-digest-h1' }, digest.title || t('insightToday')),
+          h('div', { className: 'ac-digest-meta' }, t('insightBasedOn') + ' ' + digest.itemCount + ' 条 · ' + t('insightUpdated') + ' ' + timeText(digest.createdAt)),
+          sections.map((section, index) => h(SectionBlock, { key: index, section })))
+      } else {
+        body = h('div', { className: 'ac-digest-empty' },
+          h('h2', { className: 'ac-digest-h1' }, t('insightEmptyTitle')),
+          h('p', { className: 'ac-digest-hint' }, t('insightEmptyHint')),
+          h('button', { className: 'ac-primary', onClick: props.onGenerate }, PlusIcon(), t('generateInsight')))
+      }
+      return h('div', { className: 'ac-digest' },
+        h('div', { className: 'ac-digest-inner' }, head, body))
+    }
+
     function Empty(props) {
       const t = props.t
       return h('div', { className: 'ac-empty' },
@@ -546,6 +627,10 @@ window.__ModuleLoader__.load({
       const [error, setError] = useState(null)
       const [lightbox, setLightbox] = useState(null)
       const [modalId, setModalId] = useState(null)
+      const [digest, setDigest] = useState(null)
+      const [digestBusy, setDigestBusy] = useState(false)
+      const [digestError, setDigestError] = useState(null)
+      const [digestLoaded, setDigestLoaded] = useState(false)
       const fileRef = useRef(null)
       const dragDepth = useRef(0)
 
@@ -577,6 +662,40 @@ window.__ModuleLoader__.load({
       const chooseView = (next) => {
         setView(next)
         try { localStorage.setItem('auracap.view', next) } catch {}
+      }
+
+      const loadDigest = useCallback(async () => {
+        try {
+          const payload = await request(API + '/digest?date=' + encodeURIComponent(todayKey()))
+          setDigest(payload.digest || null)
+          setDigestError(null)
+        } catch (digestLoadError) {
+          setDigestError(digestLoadError.message)
+        } finally {
+          setDigestLoaded(true)
+        }
+      }, [t])
+
+      useEffect(() => {
+        if (scope === 'digest' && !digestLoaded) loadDigest()
+      }, [scope, digestLoaded, loadDigest])
+
+      const generateInsight = async () => {
+        setDigestBusy(true)
+        setDigestError(null)
+        try {
+          const payload = await request(API + '/digest', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ date: todayKey() }),
+          })
+          setDigest(payload.digest || null)
+          setDigestLoaded(true)
+        } catch (insightError) {
+          setDigestError(insightError.message)
+        } finally {
+          setDigestBusy(false)
+        }
       }
 
       const importFiles = useCallback(async (fileList) => {
@@ -677,11 +796,21 @@ window.__ModuleLoader__.load({
       const tabs = h('div', { className: 'ac-tabs' },
         h('button', { className: 'ac-tab', 'aria-selected': scope === 'today', onClick: () => setScope('today') }, t('today')),
         h('button', { className: 'ac-tab', 'aria-selected': scope === 'all', onClick: () => setScope('all') }, t('all')),
+        h('button', { className: 'ac-tab', 'aria-selected': scope === 'digest', onClick: () => setScope('digest') }, t('insights')),
         h('div', { className: 'ac-grow' }),
         h('span', { className: 'ac-hint' }, t('localOnly')))
 
       let content
-      if (!visible.length) {
+      if (scope === 'digest') {
+        content = h(DigestView, {
+          t,
+          date: todayKey(),
+          digest,
+          busy: digestBusy,
+          error: digestError,
+          onGenerate: generateInsight,
+        })
+      } else if (!visible.length) {
         content = h(Empty, { t, busy, hasOlder, onImport: openPicker, onShowAll: () => setScope('all') })
       } else if (view === 'grid') {
         content = h('div', { className: 'ac-grid-wrap' },

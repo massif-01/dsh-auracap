@@ -8,19 +8,21 @@ export const name = 'auracap'
 export const inject = ['webServer', 'llm', 'attachments']
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url))
-let promptCache = { mtimeMs: -1, text: '' }
+const promptCache = new Map()
 
-function promptText() {
-  const file = join(ROOT, 'prompts', 'screenshot-zh.md')
+function readPrompt(name) {
+  const file = join(ROOT, 'prompts', name)
   try {
     const stat = statSync(file)
-    if (stat.mtimeMs !== promptCache.mtimeMs) {
-      promptCache = { mtimeMs: stat.mtimeMs, text: readFileSync(file, 'utf8') }
+    const cached = promptCache.get(name)
+    if (!cached || cached.mtimeMs !== stat.mtimeMs) {
+      promptCache.set(name, { mtimeMs: stat.mtimeMs, text: readFileSync(file, 'utf8') })
     }
+    return promptCache.get(name).text
   } catch {
-    // keep the last good prompt
+    const cached = promptCache.get(name)
+    return cached ? cached.text : ''
   }
-  return promptCache.text
 }
 
 const BASE = '/auracap'
@@ -79,6 +81,133 @@ function saveItems(items) {
   const tmp = `${file}.${process.pid}.tmp`
   writeFileSync(tmp, JSON.stringify(items, null, 2))
   renameSync(tmp, file)
+}
+
+function readJsonBody(req, limit) {
+  return readBody(req, limit).then((buffer) => {
+    const text = buffer.toString('utf8').trim()
+    return text ? JSON.parse(text) : {}
+  })
+}
+
+const digestsDir = () => join(dataDir(), 'digests')
+const digestPath = (date) => join(digestsDir(), `${date}.json`)
+
+function loadDigest(date) {
+  try {
+    return JSON.parse(readFileSync(digestPath(date), 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+function saveDigest(digest) {
+  mkdirSync(digestsDir(), { recursive: true })
+  const file = digestPath(digest.date)
+  const tmp = `${file}.${process.pid}.tmp`
+  writeFileSync(tmp, JSON.stringify(digest, null, 2))
+  renameSync(tmp, file)
+}
+
+function pad2(value) {
+  return String(value).padStart(2, '0')
+}
+
+function localDateKey(iso) {
+  const date = new Date(iso)
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
+}
+
+function todayKey() {
+  return localDateKey(new Date().toISOString())
+}
+
+function plainTextOfSummary(summary) {
+  if (!summary) return ''
+  const source = typeof summary.content === 'string' && summary.content.trim()
+    ? summary.content
+    : (typeof summary.summary === 'string' ? summary.summary : '')
+  return String(source)
+    .replace(/^#{1,6}\s+.*$/gm, ' ')
+    .replace(/^\s*[-*]\s+/gm, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function digestMaterial(items) {
+  const lines = items.map((item) => {
+    const summary = item.summary || {}
+    const time = new Date(item.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+    const type = summary.contentType || 'other'
+    const title = summary.title || ''
+    const content = plainTextOfSummary(summary)
+    return `${time} | ${type} | ${title ? title + '：' : ''}${content}`.slice(0, 800)
+  })
+  return lines.join('\n').slice(0, 12000)
+}
+
+function parseDigest(text) {
+  const cleaned = String(text || '')
+    .replace(/^\s*```(?:json)?/i, '')
+    .replace(/```\s*$/, '')
+    .trim()
+  const start = cleaned.indexOf('{')
+  const end = cleaned.lastIndexOf('}')
+  if (start >= 0 && end > start) {
+    try {
+      const parsed = JSON.parse(cleaned.slice(start, end + 1))
+      if (typeof parsed.content === 'string' && parsed.content.trim()) {
+        return { title: typeof parsed.title === 'string' ? parsed.title.trim() : '', content: parsed.content.trim() }
+      }
+    } catch {}
+  }
+  return { title: '', content: cleaned }
+}
+
+async function generateDigest(llm, items, date) {
+  const ready = items.filter((item) => item.status === 'ready' && localDateKey(item.createdAt) === date)
+  if (!ready.length) {
+    const error = new Error('这一天还没有可用的碎片')
+    error.status = 409
+    throw error
+  }
+  const material = digestMaterial(ready)
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 180_000)
+  try {
+    const stream = llm.stream({
+      provider: MODEL.provider,
+      model: MODEL.model,
+      reasoningEffort: 'low',
+      maxTokens: 2200,
+      system: readPrompt('insights-zh.md'),
+      messages: [{ role: 'user', content: [{ type: 'text', text: `日期：${date}\n\n${material}` }] }],
+      signal: controller.signal,
+    })
+    let text = ''
+    for await (const chunk of stream) {
+      if (chunk.type === 'text-delta') text += chunk.text
+      else if (chunk.type === 'finish') {
+        if (chunk.reason && chunk.reason.kind === 'error') throw new Error(chunk.reason.failure && chunk.reason.failure.message ? chunk.reason.failure.message : '模型调用失败')
+        if (chunk.reason && chunk.reason.kind === 'aborted') throw new Error('生成已取消')
+      }
+    }
+    const parsed = parseDigest(text)
+    let content = parsed.content
+    if (content && !/^\s*#{1,6}\s+/m.test(content)) content = '### 今日焦点\n' + content
+    const digest = {
+      date,
+      title: parsed.title || `${date} 洞察`,
+      content,
+      itemCount: ready.length,
+      createdAt: new Date().toISOString(),
+      model: MODEL.model,
+    }
+    saveDigest(digest)
+    return digest
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 function sendJson(res, status, body) {
@@ -221,7 +350,7 @@ async function summarize(llm, items, item) {
       model: MODEL.model,
       reasoningEffort: 'off',
       maxTokens: 2000,
-      system: promptText(),
+      system: readPrompt('screenshot-zh.md'),
       messages: [
         {
           role: 'user',
@@ -350,6 +479,31 @@ export function apply(ctx) {
       const url = new URL(req.url || '/', 'http://localhost')
       const path = url.pathname
       try {
+        if (path === `${BASE}/api/digest`) {
+          if (req.method === 'GET') {
+            const date = url.searchParams.get('date') || todayKey()
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return sendError(res, 400, '日期格式应为 YYYY-MM-DD')
+            return sendJson(res, 200, { date, digest: loadDigest(date) })
+          }
+          if (req.method === 'POST') {
+            if (!trusted(req)) return sendError(res, 403, 'forbidden')
+            let body = {}
+            try {
+              body = await readJsonBody(req, 64 * 1024)
+            } catch {
+              return sendError(res, 400, '请求体不是合法 JSON')
+            }
+            const date = body.date || todayKey()
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return sendError(res, 400, '日期格式应为 YYYY-MM-DD')
+            try {
+              const digest = await generateDigest(ctx.llm, items, date)
+              return sendJson(res, 200, { date, digest })
+            } catch (error) {
+              return sendError(res, error.status || 500, error.message || '生成失败')
+            }
+          }
+          return sendError(res, 405, 'method not allowed')
+        }
         if (path === `${BASE}/api/items`) {
           if (req.method !== 'GET') return sendError(res, 405, 'method not allowed')
           return sendJson(res, 200, { items })
