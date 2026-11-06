@@ -407,10 +407,25 @@ window.__ModuleLoader__.load({
     }
 
     function BrandMark() {
-      return h('svg', { viewBox: '0 0 24 24', width: 15, height: 15, fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
-        h('rect', { x: 3.5, y: 8, width: 11, height: 11, rx: 3, opacity: .4 }),
-        h('rect', { x: 9.5, y: 3.5, width: 11, height: 11, rx: 3 }),
-        h('circle', { cx: 17.6, cy: 6.4, r: 1.1, fill: 'currentColor', stroke: 'none' }))
+      const size = 16
+      const mask = `url(${SIDEBAR_MARK})`
+      return h('span', {
+        'aria-hidden': true,
+        style: {
+          display: 'inline-block',
+          width: size + 'px',
+          height: size + 'px',
+          backgroundColor: 'currentColor',
+          WebkitMaskImage: mask,
+          WebkitMaskSize: 'contain',
+          WebkitMaskRepeat: 'no-repeat',
+          WebkitMaskPosition: 'center',
+          maskImage: mask,
+          maskSize: 'contain',
+          maskRepeat: 'no-repeat',
+          maskPosition: 'center',
+        },
+      })
     }
 
     function SplitIcon() {
