@@ -1519,10 +1519,39 @@ function loadMemoryProfile() {
 }
 
 const usageFile = () => join(memoryDir(), 'usage.json')
-const USD_TO_CNY = 7.2
+// Official CNY prices per 1M tokens; peak/off-peak windows are Beijing time.
+// https://api-docs.deepseek.com/zh-cn/quick_start/pricing/
 const MODEL_PRICING = {
-  'deepseek-flash': { input: 0.3, output: 1.2, cacheRead: 0.006, cacheWrite: 0, currency: 'CNY' },
-  'deepseek-v4-pro': { input: 1.32, output: 3.96, cacheRead: 0.044, cacheWrite: 0, currency: 'CNY' },
+  'deepseek-flash': {
+    offpeak: { cacheHit: 0.02, input: 1, output: 4 },
+    peak: { cacheHit: 0.04, input: 2, output: 8 },
+  },
+  'deepseek-v4-pro': {
+    offpeak: { cacheHit: 0.15, input: 4.5, output: 13.5 },
+    peak: { cacheHit: 0.30, input: 9, output: 27 },
+  },
+}
+
+function isPeakNow() {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Shanghai', weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(new Date())
+  const get = (type) => (parts.find((part) => part.type === type) || {}).value
+  const weekday = get('weekday')
+  const hour = Number(get('hour')) || 0
+  const minute = Number(get('minute')) || 0
+  const isWeekday = weekday !== 'Sat' && weekday !== 'Sun'
+  const minutes = hour * 60 + minute
+  return isWeekday && ((minutes >= 540 && minutes < 720) || (minutes >= 840 && minutes < 1080))
+}
+
+export function costForModel(model, parts, peak) {
+  const price = MODEL_PRICING[model]
+  if (!price) return 0
+  const rate = peak ? price.peak : price.offpeak
+  return (Number(parts.input) || 0) / 1_000_000 * rate.input
+    + (Number(parts.cacheRead) || 0) / 1_000_000 * rate.cacheHit
+    + (Number(parts.output) || 0) / 1_000_000 * rate.output
 }
 
 function loadUsage() {
@@ -1570,18 +1599,6 @@ function emptyParts() {
   return { total: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
 }
 
-function costOfModels(models) {
-  let cost = 0
-  for (const [model, parts] of Object.entries(models || {})) {
-    const price = MODEL_PRICING[model]
-    if (!price) continue
-    cost += (Number(parts.input) || 0) / 1_000_000 * price.input * USD_TO_CNY
-    cost += (Number(parts.output) || 0) / 1_000_000 * price.output * USD_TO_CNY
-    cost += (Number(parts.cacheRead) || 0) / 1_000_000 * price.cacheRead * USD_TO_CNY
-    cost += (Number(parts.cacheWrite) || 0) / 1_000_000 * price.cacheWrite * USD_TO_CNY
-  }
-  return cost
-}
 
 function recordUsage(kind, usage, model = MODEL.model) {
   const parts = usageParts(usage)
@@ -1599,6 +1616,13 @@ function recordUsage(kind, usage, model = MODEL.model) {
   addUsageParts(day.components.models[model], parts)
   if (!day.components.kinds[kind]) day.components.kinds[kind] = emptyParts()
   addUsageParts(day.components.kinds[kind], parts)
+  const peak = isPeakNow()
+  const cost = costForModel(model, parts, peak)
+  day.cost = (Number(day.cost) || 0) + cost
+  day.periods = day.periods || { peak: { cost: 0, calls: 0 }, offpeak: { cost: 0, calls: 0 } }
+  const bucket = day.periods[peak ? 'peak' : 'offpeak']
+  bucket.cost += cost
+  bucket.calls += 1
   data.days[dayKey] = day
   const keepFrom = addDays(todayKey(), -120)
   for (const key of Object.keys(data.days)) if (key < keepFrom) delete data.days[key]
@@ -1611,33 +1635,17 @@ function usageSummary() {
   const today = todayKey()
   const weekStart = addDays(today, -6)
   const result = { today: 0, week: 0, total: 0, calls: 0, models: {}, kinds: {}, cost: { currency: 'CNY', today: 0, week: 0, total: 0 } }
-  const allModels = {}
-  const weekModels = {}
-  const todayModels = {}
   for (const [key, day] of Object.entries(days)) {
     const total = Number(day.total) || 0
+    const cost = Number(day.cost) || 0
     result.total += total
     result.calls += Number(day.calls) || 0
-    if (key === today) result.today += total
-    if (key >= weekStart && key <= today) result.week += total
+    result.cost.total += cost
+    if (key === today) { result.today += total; result.cost.today += cost }
+    if (key >= weekStart && key <= today) { result.week += total; result.cost.week += cost }
     for (const [model, value] of Object.entries(day.models || {})) result.models[model] = (result.models[model] || 0) + Number(value || 0)
     for (const [kind, value] of Object.entries(day.kinds || {})) result.kinds[kind] = (result.kinds[kind] || 0) + Number(value || 0)
-    for (const [model, parts] of Object.entries((day.components && day.components.models) || {})) {
-      if (!allModels[model]) allModels[model] = emptyParts()
-      addUsageParts(allModels[model], parts)
-      if (key === today) {
-        if (!todayModels[model]) todayModels[model] = emptyParts()
-        addUsageParts(todayModels[model], parts)
-      }
-      if (key >= weekStart && key <= today) {
-        if (!weekModels[model]) weekModels[model] = emptyParts()
-        addUsageParts(weekModels[model], parts)
-      }
-    }
   }
-  result.cost.total = costOfModels(allModels)
-  result.cost.today = costOfModels(todayModels)
-  result.cost.week = costOfModels(weekModels)
   return result
 }
 
