@@ -23,7 +23,8 @@
     "docs/*.jpg",
     "assets/*.png",
     "assets/*.plist",
-    "assets/fonts/*"
+    "assets/fonts/*",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "icon": "./assets/icon.png",
   "engines": {

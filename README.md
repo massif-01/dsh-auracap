@@ -283,4 +283,7 @@ dsh-auracap/
 
 ## License
 
-MIT
+本仓库的原创代码与文档以 **MIT** 发布，完整文本见 [LICENSE](LICENSE)。
+
+第三方组件、字体、提示词来源与商标说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。  
+MIT 只授予代码版权许可，不授予 AuraCap、DeepSeek Harness、GitHub 等名称或标识的商标权。
