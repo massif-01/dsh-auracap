@@ -709,7 +709,7 @@ window.__ModuleLoader__.load({
 .ac-onboarding-steps { width: min(330px, 100%); margin: 22px 0 16px; display: flex; flex-direction: column; gap: 10px; text-align: left; }
 .ac-onboarding-step { display: flex; align-items: baseline; gap: 10px; font-size: 12px; line-height: 1.6; color: var(--dsw-alias-label-secondary); }
 .ac-onboarding-step-no { width: 18px; height: 18px; flex: none; display: grid; place-items: center; border: 1px solid var(--dsw-alias-border-l1); border-radius: 50%; font-size: 9px; color: var(--dsw-alias-label-secondary); }
-.ac-onboarding { align-items: flex-start; padding: clamp(72px, 14vh, 132px) 56px 56px; }
+.ac-onboarding { align-items: flex-start; padding: clamp(104px, 19vh, 180px) 56px 56px; }
 .ac-onboarding-frame { width: min(920px, 100%); display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 62px; align-items: start; }
 .ac-onboarding-copy { min-width: 0; text-align: left; }
 .ac-onboarding-brand { display: flex; align-items: baseline; gap: 9px; margin-bottom: 18px; }
