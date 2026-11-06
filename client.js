@@ -2086,6 +2086,7 @@ window.__ModuleLoader__.load({
     function App(props) {
       const t = props.t
       const [items, setItems] = useState([])
+      const hasPending = useMemo(() => items.some((item) => item.status === 'summarizing'), [items])
       const [selectedId, setSelectedId] = useState(null)
       const [scope, setScope] = useState('today')
       const [view, setView] = useState(() => {
@@ -2162,10 +2163,33 @@ window.__ModuleLoader__.load({
       }, [t])
 
       useEffect(() => {
-        load()
-        const timer = setInterval(load, 4000)
-        return () => clearInterval(timer)
-      }, [load])
+        let stopped = false
+        let timer = null
+        const schedule = () => {
+          if (stopped) return
+          if (timer) clearTimeout(timer)
+          const delay = document.visibilityState === 'hidden' ? 60_000 : (hasPending ? 2_500 : 15_000)
+          timer = setTimeout(async () => {
+            if (stopped) return
+            await load()
+            if (!stopped) schedule()
+          }, delay)
+        }
+        const onVisibility = () => {
+          if (document.visibilityState === 'visible') {
+            load().finally(() => { if (!stopped) schedule() })
+          } else {
+            schedule()
+          }
+        }
+        document.addEventListener('visibilitychange', onVisibility)
+        load().finally(() => { if (!stopped) schedule() })
+        return () => {
+          stopped = true
+          if (timer) clearTimeout(timer)
+          document.removeEventListener('visibilitychange', onVisibility)
+        }
+      }, [load, hasPending])
 
       useEffect(() => {
         let alive = true
