@@ -154,21 +154,24 @@ function digestMaterial(items) {
   return lines.join('\n').slice(0, 12000)
 }
 
-function parseDigest(text) {
+export function parseDigest(text) {
   const cleaned = String(text || '')
     .replace(/^\s*```(?:json)?/i, '')
     .replace(/```\s*$/, '')
     .trim()
-  const start = cleaned.indexOf('{')
-  const end = cleaned.lastIndexOf('}')
-  if (start >= 0 && end > start) {
-    try {
-      const parsed = JSON.parse(cleaned.slice(start, end + 1))
-      if (typeof parsed.content === 'string' && parsed.content.trim()) {
-        return { title: typeof parsed.title === 'string' ? parsed.title.trim() : '', content: parsed.content.trim() }
-      }
-    } catch {}
+
+  const merged = {}
+  for (const raw of balancedJsonObjects(cleaned)) {
+    try { Object.assign(merged, JSON.parse(raw)) } catch {}
   }
+
+  let content = typeof merged.content === 'string' ? merged.content.trim() : ''
+  let title = typeof merged.title === 'string' ? merged.title.trim() : ''
+  if (!content) {
+    content = regexField(cleaned, 'content').trim()
+    title = title || regexField(cleaned, 'title').trim()
+  }
+  if (content) return { title, content }
   return { title: '', content: cleaned }
 }
 
