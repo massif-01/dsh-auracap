@@ -33,6 +33,18 @@ window.__ModuleLoader__.load({
       searchNoResults: '没有找到',
       searchLoading: '搜索中…',
       moment: '片刻',
+      entities: '实体',
+      tagFilter: '标签',
+      relatedMoments: '相关片刻',
+      relatedInsights: '相关洞察',
+      insightSources: '依据',
+      memory: '记忆',
+      memoryIndexed: '已建立',
+      memoryBackfill: '建立记忆索引',
+      memoryRunning: '正在建立…',
+      occurrences: '出现',
+      timeSpan: '时间跨度',
+      noEntities: '暂无实体',
       importing: '处理中…',
       today: '今天',
       all: '全部',
@@ -171,6 +183,18 @@ window.__ModuleLoader__.load({
       searchNoResults: 'Nothing found',
       searchLoading: 'Searching…',
       moment: 'Moment',
+      entities: 'Entities',
+      tagFilter: 'Tag',
+      relatedMoments: 'Related moments',
+      relatedInsights: 'Related insights',
+      insightSources: 'Sources',
+      memory: 'Memory',
+      memoryIndexed: 'Indexed',
+      memoryBackfill: 'Build memory index',
+      memoryRunning: 'Building…',
+      occurrences: 'appearances',
+      timeSpan: 'time span',
+      noEntities: 'No entities yet',
       importing: 'Working…',
       today: 'Today',
       all: 'All',
@@ -446,6 +470,7 @@ window.__ModuleLoader__.load({
 .ac-settings-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dsw-alias-state-success-primary); flex: none; }
 .ac-settings-status-repo { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
 .ac-section-eyebrow { font-size: 10px; letter-spacing: .12em; color: var(--dsw-alias-label-secondary); opacity: .7; margin-bottom: 10px; }
+.ac-memory-status { font-size: 12px; color: var(--dsw-alias-label-secondary); margin-top: 4px; }
 .ac-settings-section { padding-top: 20px; border-top: 1px solid var(--dsw-alias-border-l1); margin-top: 22px; }
 .ac-settings-status + .ac-settings-section { margin-top: 18px; }
 .ac-set-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
@@ -476,6 +501,46 @@ window.__ModuleLoader__.load({
 .ac-debug { margin-top: 10px; }
 .ac-success { font-size: 12px; color: var(--dsw-alias-state-success-primary); line-height: 1.6; }
 
+.ac-tag-button { cursor: pointer; font-family: inherit; }
+.ac-tag-button:hover { border-color: var(--dsw-alias-border-l2); color: var(--dsw-alias-label-primary); }
+.ac-entity-chip { cursor: pointer; font-family: inherit; color: var(--dsw-alias-brand-primary); border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 30%, var(--dsw-alias-border-l1)); background: color-mix(in srgb, var(--dsw-alias-brand-primary) 6%, var(--dsw-alias-bg-base)); }
+.ac-entity-chip:hover { border-color: var(--dsw-alias-brand-primary); }
+.ac-filter-bar { flex: none; display: flex; align-items: center; gap: 8px; padding: 7px 20px; border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 11px; color: var(--dsw-alias-label-secondary); }
+.ac-filter-bar button { border: 0; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; font-family: inherit; font-size: 11px; padding: 0 2px; }
+.ac-filter-bar button:hover { color: var(--dsw-alias-label-primary); }
+.ac-related-section { margin-top: 20px; }
+.ac-related-list { display: flex; flex-direction: column; gap: 1px; }
+.ac-related-row { display: flex; align-items: baseline; gap: 10px; width: 100%; padding: 8px 0; border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1); background: transparent; color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 12px; text-align: left; cursor: pointer; }
+.ac-related-row:hover { color: var(--dsw-alias-brand-primary); }
+.ac-related-time { min-width: 48px; color: var(--dsw-alias-label-secondary); font-size: 10.5px; }
+.ac-related-title { flex: 1; min-width: 0; }
+.ac-related-reason { color: var(--dsw-alias-label-secondary); font-size: 10.5px; }
+.ac-insight-sources { margin: -10px 0 24px; }
+.ac-source-toggle { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; padding: 0; color: var(--dsw-alias-label-secondary); font-family: inherit; font-size: 10.5px; cursor: pointer; }
+.ac-source-toggle:hover { color: var(--dsw-alias-label-primary); }
+.ac-source-toggle span { display: inline-flex; transition: transform .15s ease; }
+.ac-source-toggle span[data-open="true"] { transform: rotate(180deg); }
+.ac-source-list { display: flex; flex-direction: column; gap: 1px; margin-top: 8px; padding: 4px 0; border-top: 1px solid var(--dsw-alias-border-l1); }
+.ac-source-row { display: flex; align-items: baseline; gap: 10px; width: 100%; border: 0; background: transparent; padding: 6px 0; color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 11.5px; text-align: left; cursor: pointer; }
+.ac-source-row:hover { color: var(--dsw-alias-brand-primary); }
+.ac-source-row span:first-child { min-width: 48px; color: var(--dsw-alias-label-secondary); font-size: 10px; }
+.ac-entity-panel { width: min(620px, 100%); max-height: 86vh; overflow: auto; background: var(--dsw-alias-bg-base); border: 1px solid var(--dsw-alias-border-l1); border-radius: 16px; padding: 26px 28px 30px; box-shadow: 0 30px 80px color-mix(in srgb, var(--dsw-alias-label-primary) 18%, transparent); }
+.ac-entity-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 20px; }
+.ac-entity-type { font-size: 9.5px; letter-spacing: .15em; color: var(--dsw-alias-label-secondary); opacity: .7; margin-bottom: 5px; }
+.ac-entity-name { font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
+.ac-entity-stats { display: flex; gap: 26px; padding-bottom: 20px; border-bottom: 1px solid var(--dsw-alias-border-l1); margin-bottom: 4px; }
+.ac-entity-stats b { display: block; font-size: 15px; font-weight: 600; }
+.ac-entity-stats span { display: block; margin-top: 2px; font-size: 9.5px; color: var(--dsw-alias-label-secondary); }
+.ac-entity-row { width: 100%; display: flex; align-items: baseline; gap: 10px; padding: 8px 0; border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1); background: transparent; color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 12px; text-align: left; cursor: pointer; }
+.ac-entity-row:hover { color: var(--dsw-alias-brand-primary); }
+.ac-entity-row-time { min-width: 48px; font-size: 10.5px; color: var(--dsw-alias-label-secondary); }
+.ac-entity-row-title { flex: 1; }
+.ac-entity-insight { width: 100%; display: flex; flex-direction: column; gap: 3px; padding: 9px 10px; margin-top: 6px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 9px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font-family: inherit; text-align: left; cursor: pointer; }
+.ac-entity-insight:hover { border-color: var(--dsw-alias-border-l2); }
+.ac-entity-insight-kicker { font-size: 9px; letter-spacing: .1em; color: var(--dsw-alias-label-secondary); }
+.ac-entity-insight-title { font-size: 12px; font-weight: 500; }
+.ac-entity-insight-excerpt { font-size: 10.5px; line-height: 1.5; color: var(--dsw-alias-label-secondary); }
+.ac-entity-empty { padding: 30px 0; text-align: center; color: var(--dsw-alias-label-secondary); font-size: 12px; }
 .ac-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .ac-tag { font-size: 10.5px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-secondary); }
 .ac-actions { display: flex; gap: 8px; margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--dsw-alias-border-l1); flex-wrap: wrap; }
@@ -960,7 +1025,36 @@ window.__ModuleLoader__.load({
         if (summary.tags && summary.tags.length) {
           body.push(h('div', { className: 'ac-section', key: 'tags' },
             h('div', { className: 'ac-sec-label' }, t('tags')),
-            h('div', { className: 'ac-tags' }, summary.tags.map((tag, index) => h('span', { className: 'ac-tag', key: index }, tag)))))
+            h('div', { className: 'ac-tags' }, summary.tags.map((tag, index) => h('button', {
+              className: 'ac-tag ac-tag-button',
+              key: index,
+              type: 'button',
+              onClick: () => props.onTagClick(tag),
+            }, tag)))))
+        }
+        if (summary.entities && summary.entities.length) {
+          body.push(h('div', { className: 'ac-section', key: 'entities' },
+            h('div', { className: 'ac-sec-label' }, t('entities')),
+            h('div', { className: 'ac-tags' }, summary.entities.map((entity, index) => h('button', {
+              className: 'ac-tag ac-entity-chip',
+              key: index,
+              type: 'button',
+              onClick: () => props.onEntityClick(entity.id || entity.name),
+              title: entity.type,
+            }, entity.name)))))
+        }
+        if (props.related && props.related.length) {
+          body.push(h('div', { className: 'ac-section ac-related-section', key: 'related' },
+            h('div', { className: 'ac-sec-label' }, t('relatedMoments')),
+            h('div', { className: 'ac-related-list' }, props.related.map(({ item, reason }, index) => h('button', {
+              className: 'ac-related-row',
+              key: item.id + '-' + index,
+              type: 'button',
+              onClick: () => props.onOpenRelated(item.id),
+            },
+              h('span', { className: 'ac-related-time' }, timeText(item.createdAt)),
+              h('span', { className: 'ac-related-title' }, (item.summary && item.summary.title) || t('untitled')),
+              h('span', { className: 'ac-related-reason' }, reason))))))
         }
       }
       body.push(h('div', { className: 'ac-actions', key: 'actions' },
@@ -1165,6 +1259,7 @@ window.__ModuleLoader__.load({
         if (!result) return
         props.onClose()
         if (result.kind === 'item') props.onOpenItem(result.id)
+        else if (result.kind === 'entity') props.onOpenEntity(result.id)
         else props.onOpenInsight(result)
       }
       const onKeyDown = (event) => {
@@ -1176,6 +1271,7 @@ window.__ModuleLoader__.load({
         if (event.key === 'Enter') { event.preventDefault(); choose(results[active]) }
       }
       const kindLabel = (result) => {
+        if (result.kind === 'entity') return t('entities')
         if (result.kind === 'item') return t('moment')
         if (result.type === 'day') return t('periodDay')
         if (result.type === 'week') return t('periodWeek')
@@ -1227,6 +1323,7 @@ window.__ModuleLoader__.load({
       const digest = props.digest
       const sections = digest && digest.content ? splitSections(digest.content) : []
       const [menuOpen, setMenuOpen] = useState(false)
+      const [sourcesOpen, setSourcesOpen] = useState(false)
       const [calendarOpen, setCalendarOpen] = useState(false)
       const [calendarMonth, setCalendarMonth] = useState(() => String(props.anchor || todayKey()).slice(0, 7))
       useEffect(() => {
@@ -1326,6 +1423,15 @@ window.__ModuleLoader__.load({
         body = h('div', null,
           h('h1', { className: 'ac-digest-h1' }, digest.title || props.periodLabel || t('insightToday')),
           h('div', { className: 'ac-digest-meta' }, t('insightBasedOn') + ' ' + digest.itemCount + ' 条 · ' + t('insightUpdated') + ' ' + timeText(digest.createdAt)),
+          props.sources && props.sources.length ? h('div', { className: 'ac-insight-sources' },
+            h('button', { className: 'ac-source-toggle', type: 'button', onClick: () => setSourcesOpen(!sourcesOpen) },
+              t('insightSources') + ' ' + props.sources.length + ' 条', h('span', { 'data-open': sourcesOpen }, ChevronDownIcon())),
+            sourcesOpen ? h('div', { className: 'ac-source-list' }, props.sources.map((item) => h('button', {
+              key: item.id,
+              className: 'ac-source-row',
+              type: 'button',
+              onClick: () => props.onOpenSource(item.id),
+            }, h('span', null, timeText(item.createdAt)), h('span', null, (item.summary && item.summary.title) || t('untitled'))))) : null) : null,
           sections.map((section, index) => h(SectionBlock, { key: index, section })))
       } else {
         body = h('div', { className: 'ac-digest-empty' },
@@ -1340,6 +1446,58 @@ window.__ModuleLoader__.load({
 
     function maskedConfig(config) {
       return String(config || '').replace(/\|[^|]+$/, '|••••••••')
+    }
+
+    function entityTypeLabel(type, t) {
+      const map = { person: '人物', org: '机构', product: '产品', project: '项目', topic: '主题', place: '地点', other: '实体' }
+      return map[type] || t('entities')
+    }
+
+    function EntityModal(props) {
+      const t = props.t
+      const detail = props.detail
+      const entity = detail && detail.entity
+      const entityItems = detail && Array.isArray(detail.items) ? detail.items.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))) : []
+      const insights = detail && Array.isArray(detail.insights) ? detail.insights : []
+      const span = entityItems.length ? rangeText(localDateKey(entityItems[entityItems.length - 1].createdAt), localDateKey(entityItems[0].createdAt)) : ''
+      return h('div', { className: 'ac-modal', onMouseDown: (event) => { if (event.target === event.currentTarget) props.onClose() } },
+        h('div', { className: 'ac-entity-panel' },
+          h('div', { className: 'ac-entity-head' },
+            h('div', null,
+              h('div', { className: 'ac-entity-type' }, entity ? entityTypeLabel(entity.type, t) : t('entities')),
+              h('div', { className: 'ac-entity-name' }, entity ? entity.name : '')),
+            h('div', { className: 'ac-grow' }),
+            h('button', { className: 'ac-icon-button', onClick: props.onClose, 'aria-label': t('close') }, CloseIcon())),
+          props.busy
+            ? h('div', { className: 'ac-entity-empty' }, h('div', { className: 'ac-skeleton', style: { width: '60%', height: 20, marginBottom: 12 } }), h('div', { className: 'ac-skeleton', style: { width: '90%' } }))
+            : !detail
+              ? h('div', { className: 'ac-entity-empty' }, t('loadFailed'))
+              : h('div', null,
+                  h('div', { className: 'ac-entity-stats' },
+                    h('div', null, h('b', null, String(entityItems.length)), h('span', null, t('occurrences'))),
+                    h('div', null, h('b', null, String(insights.length)), h('span', null, t('relatedInsights'))),
+                    h('div', null, h('b', null, span || '—'), h('span', null, t('timeSpan')))),
+                  h('div', { className: 'ac-section' },
+                    h('div', { className: 'ac-sec-label' }, t('relatedMoments')),
+                    entityItems.slice(0, 12).map((item) => h('button', {
+                      key: item.id,
+                      className: 'ac-entity-row',
+                      type: 'button',
+                      onClick: () => props.onOpenItem(item.id),
+                    },
+                      h('span', { className: 'ac-entity-row-time' }, timeText(item.createdAt)),
+                      h('span', { className: 'ac-entity-row-title' }, (item.summary && item.summary.title) || t('untitled'))))),
+                  insights.length ? h('div', { className: 'ac-section' },
+                    h('div', { className: 'ac-sec-label' }, t('relatedInsights')),
+                    insights.map((insight) => h('button', {
+                      key: insight.type + insight.key,
+                      className: 'ac-entity-insight',
+                      type: 'button',
+                      onClick: () => props.onOpenInsight(insight),
+                    },
+                      h('span', { className: 'ac-entity-insight-kicker' }, insight.type === 'day' ? t('periodDay') : insight.type === 'week' ? t('periodWeek') : insight.type === 'month' ? t('periodMonth') : t('periodYear')),
+                      h('span', { className: 'ac-entity-insight-title' }, insight.title || insight.key),
+                      h('span', { className: 'ac-entity-insight-excerpt' }, insight.excerpt || '')))) : null)))
     }
 
     function SettingsModal(props) {
@@ -1452,7 +1610,16 @@ window.__ModuleLoader__.load({
             h('div', { className: 'ac-grow' }),
             h('button', { className: 'ac-icon-button', onClick: props.onClose, 'aria-label': t('close') }, CloseIcon())),
           props.error ? h('div', { className: 'ac-error', style: { marginBottom: 16 } }, props.error) : null,
-          status))
+          status,
+          h('div', { className: 'ac-settings-section' },
+            h('div', { className: 'ac-section-eyebrow' }, t('memory')),
+            h('div', { className: 'ac-memory-status' },
+              props.memoryStatus
+                ? t('memoryIndexed') + ' ' + props.memoryStatus.indexed + ' / ' + props.memoryStatus.total + ' · ' + props.memoryStatus.entities + ' ' + t('entities')
+                : t('memoryIndexed') + ' —'),
+            h('div', { className: 'ac-set-actions' },
+              h('button', { className: 'ac-ghost', onClick: props.onBackfill, disabled: props.memoryStatus && props.memoryStatus.backfill && props.memoryStatus.backfill.running },
+                props.memoryStatus && props.memoryStatus.backfill && props.memoryStatus.backfill.running ? t('memoryRunning') : t('memoryBackfill'))))))
     }
 
     function Empty(props) {
@@ -1496,6 +1663,12 @@ window.__ModuleLoader__.load({
       const [appliedAnchor, setAppliedAnchor] = useState(() => todayKey())
       const [rangeStart, setRangeStart] = useState(null)
       const [rangeEnd, setRangeEnd] = useState(null)
+      const [tagFilter, setTagFilter] = useState(null)
+      const [entityId, setEntityId] = useState(null)
+      const [entityDetail, setEntityDetail] = useState(null)
+      const [entityBusy, setEntityBusy] = useState(false)
+      const [related, setRelated] = useState([])
+      const [memoryStatus, setMemoryStatus] = useState(null)
       const [insightStatus, setInsightStatus] = useState({})
       const [seenPeriods, setSeenPeriods] = useState(() => {
         try { return JSON.parse(localStorage.getItem('auracap.periodSeen') || '{}') || {} } catch { return {} }
@@ -1550,19 +1723,48 @@ window.__ModuleLoader__.load({
         return () => clearInterval(timer)
       }, [load])
 
+      useEffect(() => {
+        let alive = true
+        if (!selectedId) { setRelated([]); return undefined }
+        request(API + '/memory/related?itemId=' + encodeURIComponent(selectedId))
+          .then((payload) => { if (alive) setRelated(Array.isArray(payload.related) ? payload.related : []) })
+          .catch(() => { if (alive) setRelated([]) })
+        return () => { alive = false }
+      }, [selectedId])
+
+      useEffect(() => {
+        let alive = true
+        const loadStatus = async () => {
+          try {
+            const payload = await request(API + '/memory/status')
+            if (alive) setMemoryStatus(payload)
+          } catch {}
+        }
+        loadStatus()
+        const timer = setInterval(loadStatus, 10_000)
+        return () => { alive = false; clearInterval(timer) }
+      }, [])
+
       const rangeFilter = rangeStart && rangeEnd ? { start: rangeStart, end: rangeEnd } : null
       const visible = useMemo(() => {
         const base = scope === 'today' ? items.filter((item) => isToday(item.createdAt)) : items
+        let result = base
         if (scope === 'all' && rangeFilter) {
-          return base.filter((item) => {
+          result = result.filter((item) => {
             const key = localDateKey(item.createdAt)
             return key >= rangeFilter.start && key <= rangeFilter.end
           })
         }
-        return base
-      }, [items, scope, rangeFilter])
+        if (tagFilter) result = result.filter((item) => item.summary && Array.isArray(item.summary.tags) && item.summary.tags.includes(tagFilter))
+        return result
+      }, [items, scope, rangeFilter, tagFilter])
       const todayCount = useMemo(() => items.filter((item) => isToday(item.createdAt)).length, [items])
       const digestUnread = Boolean(digest && digest.createdAt && digest.createdAt !== digestSeenAt)
+      const digestSources = useMemo(() => {
+        if (!digest) return []
+        const ids = Array.isArray(digest.itemIds) ? digest.itemIds : (Array.isArray(digest.sourceItemIds) ? digest.sourceItemIds : [])
+        return ids.map((id) => items.find((item) => item.id === id)).filter(Boolean)
+      }, [digest, items])
       const periodUnread = ['day', 'week', 'month', 'year'].reduce((acc, type) => {
         const at = insightStatus[type] && insightStatus[type].createdAt
         if (at && at !== seenPeriods[type]) acc[type] = true
@@ -1581,6 +1783,13 @@ window.__ModuleLoader__.load({
       const chooseView = (next) => {
         setView(next)
         try { localStorage.setItem('auracap.view', next) } catch {}
+      }
+
+      const backfillMemory = async () => {
+        try {
+          const payload = await request(API + '/memory/backfill', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+          setMemoryStatus(payload)
+        } catch (backfillError) { setError(backfillError.message) }
       }
 
       const loadInsight = useCallback(async (type, anchor) => {
@@ -1897,6 +2106,41 @@ window.__ModuleLoader__.load({
         setRangeStart(null)
         setRangeEnd(null)
       }
+      const applyTagFilter = (tag) => {
+        setTagFilter(tag)
+        setScope('all')
+        setRangeStart(null)
+        setRangeEnd(null)
+        setSelectedId(null)
+      }
+      const openItemById = (id) => {
+        setEntityId(null)
+        setScope('all')
+        setRangeStart(null)
+        setRangeEnd(null)
+        setSelectedId(id)
+        if (view === 'grid') setModalId(id)
+      }
+      const openEntity = async (id) => {
+        setEntityId(id)
+        setEntityDetail(null)
+        setEntityBusy(true)
+        setError(null)
+        try {
+          setEntityDetail(await request(API + '/memory/entities/' + encodeURIComponent(id)))
+        } catch (error) {
+          setError(error && error.message ? error.message : t('loadFailed'))
+        } finally {
+          setEntityBusy(false)
+        }
+      }
+      const openEntityInsight = (insight) => {
+        setEntityId(null)
+        setScope('digest')
+        setPeriod(insight.type || 'day')
+        setAppliedAnchor(insight.start || todayKey())
+      }
+      const closeEntity = () => { setEntityId(null); setEntityDetail(null) }
       const openSearchItem = (id) => {
         setSearchOpen(false)
         setRangeStart(null)
@@ -1980,6 +2224,8 @@ window.__ModuleLoader__.load({
           onPeriodChange: changePeriod,
           onAnchorChange: (next) => setAppliedAnchor(next),
           anchor: appliedAnchor,
+          sources: digestSources,
+          onOpenSource: openItemById,
           unreadPeriods: periodUnread,
         })
       } else if (!visible.length) {
@@ -1992,7 +2238,7 @@ window.__ModuleLoader__.load({
           h('div', { className: 'ac-list', role: 'list' },
             visible.map((item) => h(Row, { key: item.id, item, t, active: item.id === selectedId, onClick: () => setSelectedId(item.id) }))),
           selected
-            ? h(Detail, { item: selected, t, onRetry: retry, onDelete: remove, onOpenImage: openImage })
+            ? h(Detail, { item: selected, t, onRetry: retry, onDelete: remove, onOpenImage: openImage, onTagClick: applyTagFilter, onEntityClick: openEntity, related, onOpenRelated: openItemById })
             : h('div', { className: 'ac-empty' }, h('p', null, t('untitled'))))
       }
 
@@ -2004,6 +2250,9 @@ window.__ModuleLoader__.load({
         header,
         tabs,
         timeline,
+        tagFilter ? h('div', { className: 'ac-filter-bar' },
+          h('span', null, t('tagFilter') + '：' + tagFilter),
+          h('button', { type: 'button', onClick: () => setTagFilter(null), 'aria-label': t('close') }, '×')) : null,
         error ? h('div', { className: 'ac-banner' }, h('span', null, error), h('button', { onClick: () => setError(null), 'aria-label': t('close') }, CloseIcon())) : null,
         content,
         searchOpen ? h(SearchPalette, {
@@ -2012,6 +2261,7 @@ window.__ModuleLoader__.load({
           onClose: () => setSearchOpen(false),
           onOpenItem: openSearchItem,
           onOpenInsight: openSearchInsight,
+          onOpenEntity: openEntity,
         }) : null,
         screenshotPromptOpen ? h('div', {
           className: 'ac-modal',
@@ -2024,6 +2274,14 @@ window.__ModuleLoader__.load({
             h('div', { className: 'ac-shot-actions' },
               h('button', { className: 'ac-ghost', onClick: () => setScreenshotPromptOpen(false) }, t('screenshotPromptCancel')),
               h('button', { className: 'ac-primary', disabled: captureBusy, onClick: async () => { setScreenshotPromptOpen(false); await captureScreen() } }, t('screenshotPromptStart'))))) : null,
+        entityId ? h(EntityModal, {
+          t,
+          detail: entityDetail,
+          busy: entityBusy,
+          onClose: closeEntity,
+          onOpenItem: openItemById,
+          onOpenInsight: openEntityInsight,
+        }) : null,
         drag ? h('div', { className: 'ac-drop' },
           h('div', { className: 'ac-drop-inner' },
             h('div', { className: 'ac-drop-icon' }, PlusIcon()),
@@ -2035,7 +2293,7 @@ window.__ModuleLoader__.load({
         },
           h('div', { className: 'ac-modal-card' },
             h('button', { className: 'ac-modal-close', onClick: () => setModalId(null), 'aria-label': t('close') }, CloseIcon()),
-            h(Detail, { item: modalItem, t, onRetry: retry, onDelete: remove, onOpenImage: openImage }))) : null,
+            h(Detail, { item: modalItem, t, onRetry: retry, onDelete: remove, onOpenImage: openImage, onTagClick: applyTagFilter, onEntityClick: openEntity, related, onOpenRelated: openItemById }))) : null,
         settingsOpen ? h(SettingsModal, {
           t,
           github,
@@ -2056,6 +2314,8 @@ window.__ModuleLoader__.load({
           shortcutFileBusy,
           shortcutFileMessage,
           onDownloadShortcut: downloadShortcut,
+          memoryStatus,
+          onBackfill: backfillMemory,
         }) : null,
         lightbox ? h('div', { className: 'ac-lightbox', onClick: () => setLightbox(null) },
           h('img', {

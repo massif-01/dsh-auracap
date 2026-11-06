@@ -358,32 +358,37 @@ function itemsInRange(items, start, end) {
 
 function sourceInsightBlocks(type, start, end) {
   const blocks = []
+  const sourceKeys = []
   const seen = new Set()
   const push = (nextType, dateKey) => {
     const info = periodInfo(nextType, dateKey)
     if (seen.has(info.type + info.key)) return
     seen.add(info.type + info.key)
     const insight = loadPeriodInsight(nextType, info.key)
-    if (insight && insight.content) blocks.push(`## ${info.key}\n${insight.content}`)
+    if (insight && insight.content) {
+      blocks.push(`## ${info.key}\n${insight.content}`)
+      sourceKeys.push(info.key)
+    }
   }
-  let keys = []
-  for (let cursor = start; cursor <= end; cursor = addDays(cursor, 1)) keys.push(cursor)
+  const dates = []
+  for (let cursor = start; cursor <= end; cursor = addDays(cursor, 1)) dates.push(cursor)
   if (type === 'week') {
-    for (const key of keys) push('day', key)
+    for (const key of dates) push('day', key)
   } else if (type === 'month') {
-    for (const key of keys) push('week', key)
-    if (blocks.length < 2) for (const key of keys) push('day', key)
+    for (const key of dates) push('week', key)
+    if (blocks.length < 2) for (const key of dates) push('day', key)
   } else if (type === 'year') {
-    for (const key of keys) push('month', key)
-    if (blocks.length < 3) for (const key of keys) push('week', key)
-    if (blocks.length < 3) for (const key of keys) push('day', key)
+    for (const key of dates) push('month', key)
+    if (blocks.length < 3) for (const key of dates) push('week', key)
+    if (blocks.length < 3) for (const key of dates) push('day', key)
   }
-  return blocks.slice(0, 16)
+  return { blocks: blocks.slice(0, 16), keys: sourceKeys.slice(0, 16) }
 }
 
 function periodMaterial(type, items, info) {
   const inRange = itemsInRange(items, info.start, info.end).sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-  const sources = sourceInsightBlocks(type, info.start, info.end)
+  const sourceData = sourceInsightBlocks(type, info.start, info.end)
+  const sources = sourceData.blocks
   const limit = type === 'year' ? 36 : type === 'month' ? 20 : 14
   const itemsText = inRange.slice(-limit).map((item) => {
     const summary = item.summary || {}
@@ -395,7 +400,7 @@ function periodMaterial(type, items, info) {
   parts.push(`周期类型：${type}`, `日期范围：${info.start} ~ ${info.end}`)
   if (sources.length) parts.push('# 已有洞察', sources.join('\n\n'))
   if (itemsText) parts.push('# 原始片段', itemsText)
-  return { text: parts.join('\n\n').slice(0, 30_000), itemCount: inRange.length, sourceCount: sources.length }
+  return { text: parts.join('\n\n').slice(0, 30_000), itemCount: inRange.length, sourceCount: sources.length, itemIds: inRange.map((item) => item.id), sourceInsightKeys: sourceData.keys }
 }
 
 async function generatePeriodInsight(ctx, items, type, anchorISO, force) {
@@ -440,6 +445,8 @@ async function generatePeriodInsight(ctx, items, type, anchorISO, force) {
       content: parsed.content,
       itemCount: material.itemCount,
       sourceCount: material.sourceCount,
+      sourceItemIds: material.itemIds,
+      sourceInsightKeys: material.sourceInsightKeys,
       createdAt: new Date().toISOString(),
       model: MODEL.model,
     }
@@ -1187,6 +1194,38 @@ function regexTags(text) {
   return tags.filter((tag) => typeof tag === 'string' && tag).slice(0, 4)
 }
 
+const ENTITY_TYPES = new Set(['person', 'org', 'product', 'project', 'topic', 'place', 'other'])
+
+function normalizeEntityName(value) {
+  return String(value || '').normalize('NFKC').trim().replace(/\s+/g, ' ').slice(0, 48)
+}
+
+function entityId(type, name) {
+  return 'ent_' + createHash('sha256').update(String(type) + ':' + normalizeEntityName(name).toLowerCase()).digest('hex').slice(0, 16)
+}
+
+function normalizeEntities(value) {
+  if (!Array.isArray(value)) return []
+  const result = []
+  const seen = new Set()
+  for (const entry of value) {
+    const raw = typeof entry === 'string' ? { name: entry, type: 'other' } : (entry && typeof entry === 'object' ? entry : null)
+    if (!raw) continue
+    const name = normalizeEntityName(raw.name)
+    if (!name) continue
+    const type = ENTITY_TYPES.has(raw.type) ? raw.type : 'other'
+    const key = type + ':' + name.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    const aliases = Array.isArray(raw.aliases)
+      ? [...new Set(raw.aliases.map(normalizeEntityName).filter((alias) => alias && alias.toLowerCase() !== name.toLowerCase()))].slice(0, 3)
+      : []
+    result.push({ name, type, aliases })
+    if (result.length >= 6) break
+  }
+  return result
+}
+
 export function parseSummary(text) {
   const cleaned = String(text || '')
     .replace(/^\s*```(?:json)?/i, '')
@@ -1201,6 +1240,7 @@ export function parseSummary(text) {
   let content = typeof merged.content === 'string' ? merged.content.trim() : ''
   let title = typeof merged.title === 'string' ? merged.title.trim() : ''
   let tags = asStringArray(merged.tags, 4)
+  let entities = normalizeEntities(merged.entities)
   let contentType = typeof merged.contentType === 'string' ? merged.contentType : 'other'
   let language = typeof merged.language === 'string' ? merged.language : 'zh'
 
@@ -1217,6 +1257,7 @@ export function parseSummary(text) {
       content: normalized,
       excerpt: makeExcerpt(normalized),
       tags,
+      entities,
       contentType,
       language,
     }
@@ -1225,7 +1266,7 @@ export function parseSummary(text) {
   const summary = typeof merged.summary === 'string' ? merged.summary.trim() : ''
   if (summary) {
     if (/^\s*#{1,6}\s/m.test(summary)) {
-      return { title: title || makeExcerpt(summary).slice(0, 24), content: ensureCoreSection(summary), excerpt: makeExcerpt(summary), tags, contentType, language }
+      return { title: title || makeExcerpt(summary).slice(0, 24), content: ensureCoreSection(summary), excerpt: makeExcerpt(summary), tags, entities, contentType, language }
     }
     return {
       title: title || summary.split(/[。.!?\n]/)[0].slice(0, 24),
@@ -1233,6 +1274,7 @@ export function parseSummary(text) {
       keyPoints: asStringArray(merged.keyPoints, 8),
       todos: asStringArray(merged.todos, 8),
       tags,
+      entities,
       contentType,
       language,
     }
@@ -1245,9 +1287,169 @@ export function parseSummary(text) {
     content: fallbackContent,
     excerpt: makeExcerpt(fallbackContent),
     tags: [],
+    entities: [],
     contentType: 'other',
     language: 'zh',
   }
+}
+
+const memoryDir = () => join(dataDir(), 'memory')
+const memoryIndexFile = () => join(memoryDir(), 'entities.json')
+const memoryProfileFile = () => join(memoryDir(), 'profile.json')
+let memoryIndex = { version: 1, entities: {}, aliases: {} }
+let memoryBackfill = null
+
+function saveMemoryIndex(index) {
+  mkdirSync(memoryDir(), { recursive: true })
+  const file = memoryIndexFile()
+  const tmp = `${file}.${process.pid}.tmp`
+  writeFileSync(tmp, JSON.stringify(index, null, 2))
+  renameSync(tmp, file)
+}
+
+function buildMemoryIndex(items) {
+  const index = { version: 1, entities: {}, aliases: {} }
+  for (const item of items) {
+    const entities = item && item.summary && Array.isArray(item.summary.entities) ? item.summary.entities : []
+    if (!entities.length) continue
+    for (const entity of entities) {
+      const name = normalizeEntityName(entity && entity.name)
+      if (!name) continue
+      const type = ENTITY_TYPES.has(entity.type) ? entity.type : 'other'
+      const id = entityId(type, name)
+      if (!index.entities[id]) {
+        index.entities[id] = { id, name, type, aliases: Array.isArray(entity.aliases) ? entity.aliases.slice(0, 3) : [], itemIds: [], firstSeen: item.createdAt, lastSeen: item.createdAt }
+      }
+      const entry = index.entities[id]
+      if (!entry.itemIds.includes(item.id)) entry.itemIds.push(item.id)
+      if (String(item.createdAt) < String(entry.firstSeen)) entry.firstSeen = item.createdAt
+      if (String(item.createdAt) > String(entry.lastSeen)) entry.lastSeen = item.createdAt
+      const aliases = [name].concat(Array.isArray(entity.aliases) ? entity.aliases : [], entry.aliases || [])
+      for (const alias of aliases) {
+        const key = normalizeEntityName(alias).toLowerCase()
+        if (key && !index.aliases[key]) index.aliases[key] = id
+      }
+    }
+  }
+  memoryIndex = index
+  try { saveMemoryIndex(index) } catch {}
+  return index
+}
+
+function loadMemoryIndex() {
+  try {
+    const parsed = JSON.parse(readFileSync(memoryIndexFile(), 'utf8'))
+    if (parsed && parsed.entities) memoryIndex = parsed
+  } catch {}
+  return memoryIndex
+}
+
+function shareEntityIds(item) {
+  const entities = item && item.summary && Array.isArray(item.summary.entities) ? item.summary.entities : []
+  return new Set(entities.map((entity) => entityId(entity.type, entity.name)))
+}
+
+function relatedItems(items, itemId, limit = 5) {
+  const target = items.find((item) => item.id === itemId)
+  if (!target) return []
+  const targetEntities = shareEntityIds(target)
+  if (!targetEntities.size) return []
+  const candidates = []
+  for (const item of items) {
+    if (!item || item.id === itemId || item.status !== 'ready') continue
+    const shared = [...shareEntityIds(item)].filter((id) => targetEntities.has(id))
+    if (!shared.length) continue
+    let score = 0
+    const reasons = []
+    for (const id of shared) {
+      const entity = memoryIndex.entities[id]
+      if (!entity) continue
+      if (entity.type === 'person' || entity.type === 'project') score += 3
+      else if (entity.type === 'product' || entity.type === 'org') score += 2
+      else score += 1
+      if (reasons.length < 2) reasons.push((entity.type === 'person' ? '同一个人：' : entity.type === 'project' ? '同属' : '都提到') + entity.name)
+    }
+    const ageDays = Math.abs(Date.now() - Date.parse(item.createdAt)) / 86400000
+    score += Math.max(0, 2 - ageDays / 45)
+    candidates.push({ item, reason: reasons.join(' · '), score })
+  }
+  return candidates.sort((left, right) => right.score - left.score).slice(0, limit)
+}
+
+function allInsightFiles() {
+  const files = []
+  try {
+    for (const name of readdirSync(join(dataDir(), 'digests'))) {
+      if (/^\d{4}-\d{2}-\d{2}\.json$/.test(name)) files.push({ type: 'day', file: join(dataDir(), 'digests', name) })
+    }
+  } catch {}
+  for (const type of ['week', 'month', 'year']) {
+    try {
+      for (const name of readdirSync(join(dataDir(), 'insights', type))) {
+        if (name.endsWith('.json')) files.push({ type, file: join(dataDir(), 'insights', type, name) })
+      }
+    } catch {}
+  }
+  return files
+}
+
+function entityDetail(id, items) {
+  let entity = memoryIndex.entities[id]
+  if (!entity) {
+    const mapped = memoryIndex.aliases[normalizeEntityName(id).toLowerCase()]
+    if (mapped) entity = memoryIndex.entities[mapped]
+  }
+  if (!entity) return null
+  const entityItems = entity.itemIds.map((itemId) => items.find((item) => item.id === itemId)).filter(Boolean)
+  const ids = new Set(entity.itemIds)
+  const insights = []
+  for (const meta of allInsightFiles()) {
+    try {
+      const parsed = JSON.parse(readFileSync(meta.file, 'utf8'))
+      const sourceIds = Array.isArray(parsed.itemIds) ? parsed.itemIds : (Array.isArray(parsed.sourceItemIds) ? parsed.sourceItemIds : [])
+      if (!sourceIds.some((itemId) => ids.has(itemId))) continue
+      insights.push({
+        type: meta.type,
+        key: parsed.key || (meta.type === 'day' ? meta.file.split('/').pop().replace(/\.json$/, '') : ''),
+        start: parsed.start || parsed.date || '',
+        end: parsed.end || parsed.date || '',
+        title: parsed.title || '',
+        excerpt: String(parsed.content || '').replace(/^#{1,6}\s+.*$/gm, ' ').replace(/\s+/g, ' ').slice(0, 120),
+        createdAt: parsed.createdAt || '',
+      })
+    } catch {}
+  }
+  insights.sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)))
+  return { entity, items: entityItems, insights: insights.slice(0, 6) }
+}
+
+function searchEntitiesFor(query) {
+  const term = String(query || '').toLowerCase()
+  if (!term) return []
+  return Object.values(memoryIndex.entities || {})
+    .filter((entity) => entity.name.toLowerCase().includes(term) || (entity.aliases || []).some((alias) => alias.toLowerCase().includes(term)))
+    .sort((left, right) => right.itemIds.length - left.itemIds.length)
+    .slice(0, 6)
+    .map((entity) => ({ kind: 'entity', id: entity.id, name: entity.name, type: entity.type, count: entity.itemIds.length }))
+}
+
+function loadMemoryProfile() {
+  try { return JSON.parse(readFileSync(memoryProfileFile(), 'utf8')) } catch { return { version: 1, activeProjects: [], currentQuestions: [], constraints: [] } }
+}
+
+function saveMemoryProfile(profile) {
+  mkdirSync(memoryDir(), { recursive: true })
+  const value = {
+    version: 1,
+    activeProjects: Array.isArray(profile.activeProjects) ? profile.activeProjects.slice(0, 3) : [],
+    currentQuestions: Array.isArray(profile.currentQuestions) ? profile.currentQuestions.slice(0, 5) : [],
+    constraints: Array.isArray(profile.constraints) ? profile.constraints.slice(0, 8) : [],
+  }
+  const file = memoryProfileFile()
+  const tmp = `${file}.${process.pid}.tmp`
+  writeFileSync(tmp, JSON.stringify(value, null, 2))
+  renameSync(tmp, file)
+  return value
 }
 
 async function summarize(llm, items, item) {
@@ -1287,6 +1489,7 @@ async function summarize(llm, items, item) {
       }
     }
     item.summary = parseSummary(text)
+    item.memoryVersion = 1
     item.status = 'ready'
     item.error = null
     item.model = MODEL.model
@@ -1297,11 +1500,83 @@ async function summarize(llm, items, item) {
     clearTimeout(timer)
     item.updatedAt = new Date().toISOString()
     saveItems(items)
+    try { buildMemoryIndex(items) } catch {}
   }
+}
+
+async function collectStreamText(stream) {
+  let text = ''
+  for await (const chunk of stream) {
+    if (chunk.type === 'text-delta') text += chunk.text
+    else if (chunk.type === 'finish') {
+      if (chunk.reason && chunk.reason.kind === 'error') throw new Error(chunk.reason.failure && chunk.reason.failure.message ? chunk.reason.failure.message : '模型调用失败')
+      if (chunk.reason && chunk.reason.kind === 'aborted') throw new Error('生成已取消')
+    }
+  }
+  return text
+}
+
+async function extractEntitiesForItem(ctx, item) {
+  const summary = item.summary || {}
+  const prompt = readPrompt('entities-zh.md')
+  if (!prompt) throw new Error('实体抽取提示词缺失')
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 120_000)
+  try {
+    const text = await collectStreamText(ctx.llm.stream({
+      provider: MODEL.provider,
+      model: MODEL.model,
+      reasoningEffort: 'off',
+      maxTokens: 700,
+      system: prompt,
+      messages: [{ role: 'user', content: [{ type: 'text', text: '标题：' + (summary.title || '') + '\n\n' + plainTextOfSummary(summary).slice(0, 5000) }] }],
+      signal: controller.signal,
+    }))
+    for (const raw of balancedJsonObjects(text)) {
+      try {
+        const parsed = JSON.parse(raw)
+        if (parsed && Array.isArray(parsed.entities)) return normalizeEntities(parsed.entities)
+      } catch {}
+    }
+    return []
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+function memoryStatus(items) {
+  const total = items.filter((item) => item.summary).length
+  const indexed = items.filter((item) => item.summary && item.memoryVersion && Array.isArray(item.summary.entities)).length
+  return { total, indexed, entities: Object.keys(memoryIndex.entities || {}).length, backfill: memoryBackfill }
+}
+
+async function runMemoryBackfill(ctx, items) {
+  if (memoryBackfill && memoryBackfill.running) return memoryBackfill
+  const pending = items.filter((item) => item.summary && (!item.memoryVersion || !Array.isArray(item.summary.entities)))
+  memoryBackfill = { running: true, total: pending.length, done: 0, pending: pending.length, error: null }
+  for (const item of pending) {
+    try {
+      const entities = await extractEntitiesForItem(ctx, item)
+      item.summary.entities = entities
+      item.memoryVersion = 1
+      item.updatedAt = new Date().toISOString()
+      saveItems(items)
+      buildMemoryIndex(items)
+    } catch (error) {
+      memoryBackfill.error = error && error.message ? error.message : String(error)
+    }
+    memoryBackfill.done += 1
+    memoryBackfill.pending = Math.max(0, pending.length - memoryBackfill.done)
+  }
+  memoryBackfill.running = false
+  buildMemoryIndex(items)
+  return memoryBackfill
 }
 
 export function apply(ctx) {
   const items = loadItems()
+  loadMemoryIndex()
+  try { buildMemoryIndex(items) } catch {}
   const github = { items, state: loadState(), flows: new Map(), syncing: false, digestBusy: false, longBusy: false }
   startGithubLoop(ctx, github)
   startDigestLoop(ctx, github)
@@ -1567,11 +1842,56 @@ export function apply(ctx) {
             release: repo.releaseId,
           })
         }
+        if (path === `${BASE}/api/memory/status`) {
+          if (req.method !== 'GET') return sendError(res, 405, 'method not allowed')
+          return sendJson(res, 200, memoryStatus(items))
+        }
+        if (path === `${BASE}/api/memory/backfill`) {
+          if (req.method !== 'POST') return sendError(res, 405, 'method not allowed')
+          if (!trusted(req)) return sendError(res, 403, 'forbidden')
+          if (!memoryBackfill || !memoryBackfill.running) runMemoryBackfill(ctx, items).catch(() => {})
+          return sendJson(res, 202, memoryStatus(items))
+        }
+        if (path === `${BASE}/api/memory/entities`) {
+          if (req.method !== 'GET') return sendError(res, 405, 'method not allowed')
+          const query = String(url.searchParams.get('q') || '').toLowerCase()
+          const list = Object.values(memoryIndex.entities || {})
+            .filter((entity) => !query || entity.name.toLowerCase().includes(query) || (entity.aliases || []).some((alias) => alias.toLowerCase().includes(query)))
+            .sort((left, right) => right.itemIds.length - left.itemIds.length)
+            .slice(0, 30)
+          return sendJson(res, 200, { entities: list })
+        }
+        const entityMatch = path.match(/^\/auracap\/api\/memory\/entities\/([^/]+)$/)
+        if (entityMatch) {
+          if (req.method !== 'GET') return sendError(res, 405, 'method not allowed')
+          const detail = entityDetail(decodeURIComponent(entityMatch[1]), items)
+          if (!detail) return sendError(res, 404, '实体不存在')
+          return sendJson(res, 200, detail)
+        }
+        if (path === `${BASE}/api/memory/related`) {
+          if (req.method !== 'GET') return sendError(res, 405, 'method not allowed')
+          const itemId = String(url.searchParams.get('itemId') || '')
+          const related = relatedItems(items, itemId).map(({ item, reason }) => ({ item, reason }))
+          return sendJson(res, 200, { related })
+        }
+        if (path === `${BASE}/api/memory/profile`) {
+          if (req.method === 'GET') return sendJson(res, 200, loadMemoryProfile())
+          if (req.method === 'PUT') {
+            if (!trusted(req)) return sendError(res, 403, 'forbidden')
+            try {
+              const body = await readJsonBody(req, 64 * 1024)
+              return sendJson(res, 200, saveMemoryProfile(body || {}))
+            } catch (error) {
+              return sendError(res, 400, error && error.message ? error.message : '请求体不是合法 JSON')
+            }
+          }
+          return sendError(res, 405, 'method not allowed')
+        }
         if (path === `${BASE}/api/search`) {
           if (req.method !== 'GET') return sendError(res, 405, 'method not allowed')
           const query = String(url.searchParams.get('q') || '').trim().slice(0, 100)
           if (!query) return sendJson(res, 200, { query, results: [] })
-          return sendJson(res, 200, { query, results: searchItemsFor(items, query).concat(searchInsightsFor(query)).sort((a, b) => b.score - a.score).slice(0, 12) })
+          return sendJson(res, 200, { query, results: searchEntitiesFor(query).concat(searchItemsFor(items, query), searchInsightsFor(query)).sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 12) })
         }
         if (path === `${BASE}/api/items`) {
           if (req.method !== 'GET') return sendError(res, 405, 'method not allowed')

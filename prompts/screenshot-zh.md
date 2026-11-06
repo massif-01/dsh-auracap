@@ -58,6 +58,7 @@
 
 ---
 
+- 实体：只抽取画面中明确出现、值得长期关联的人、公司、产品、项目或稳定主题；没有就空数组，不要硬造。\n
 ## 插件输出格式（必须遵守）
 
 在保持上面「输出规范」的前提下，只输出一个 JSON 对象；不要 Markdown 代码块，不要额外解释：
@@ -68,6 +69,7 @@
 {
   "title": "不超过 20 字的克制标题：名词短语，不加引号或感叹号",
   "content": "按上面的结构写；用 `### 核心内容`、`### 行动项`、`### 待确认` 作为板块标题；板块内可以是纯文本或 `- ` 列表；不要添加其它板块。",
+  "entities": [{"name": "AuraCap", "type": "project", "aliases": ["拾穗"]}],
   "tags": ["work"],
   "contentType": "article | chat | map | product | code | social | document | video | schedule | receipt | other",
   "language": "zh"
