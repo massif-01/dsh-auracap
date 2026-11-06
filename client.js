@@ -219,6 +219,9 @@ window.__ModuleLoader__.load({
 .ac-tab:hover { color: var(--dsw-alias-label-primary); }
 .ac-tab[aria-selected="true"] { color: var(--dsw-alias-label-primary); }
 .ac-tab[aria-selected="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1.5px; background: var(--dsw-alias-label-primary); }
+.ac-tab-count { margin-left: 5px; min-width: 15px; height: 15px; padding: 0 5px; border-radius: 999px; background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-secondary); font-size: 10px; display: inline-flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
+.ac-tab[aria-selected="true"] .ac-tab-count { color: var(--dsw-alias-label-primary); }
+.ac-tab-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--dsw-alias-brand-primary); margin-left: 5px; vertical-align: 1px; }
 .ac-hint { font-size: 11px; color: var(--dsw-alias-label-secondary); opacity: .8; }
 .ac-body { flex: 1; display: flex; min-height: 0; }
 .ac-list { width: 236px; flex: none; border-right: 1px solid var(--dsw-alias-border-l1); overflow: auto; padding: 8px; }
@@ -871,6 +874,12 @@ window.__ModuleLoader__.load({
       const [digestBusy, setDigestBusy] = useState(false)
       const [digestError, setDigestError] = useState(null)
       const [digestLoaded, setDigestLoaded] = useState(false)
+      const [digestSeenAt, setDigestSeenAt] = useState(() => {
+        try {
+          const saved = JSON.parse(localStorage.getItem('auracap.digestSeen') || 'null')
+          return saved && saved.date === todayKey() ? saved.at : null
+        } catch { return null }
+      })
       const [settingsOpen, setSettingsOpen] = useState(false)
       const [github, setGithub] = useState(null)
       const [githubBusy, setGithubBusy] = useState(false)
@@ -901,6 +910,8 @@ window.__ModuleLoader__.load({
       }, [load])
 
       const visible = useMemo(() => (scope === 'today' ? items.filter((item) => isToday(item.createdAt)) : items), [items, scope])
+      const todayCount = useMemo(() => items.filter((item) => isToday(item.createdAt)).length, [items])
+      const digestUnread = Boolean(digest && digest.createdAt && digest.createdAt !== digestSeenAt)
 
       useEffect(() => {
         if (!visible.length) { if (selectedId !== null) setSelectedId(null); return }
@@ -928,8 +939,16 @@ window.__ModuleLoader__.load({
       }, [t])
 
       useEffect(() => {
-        if (scope === 'digest' && !digestLoaded) loadDigest()
-      }, [scope, digestLoaded, loadDigest])
+        loadDigest()
+        const timer = setInterval(loadDigest, 60_000)
+        return () => clearInterval(timer)
+      }, [loadDigest])
+
+      useEffect(() => {
+        if (scope !== 'digest' || !digest || !digest.createdAt) return
+        setDigestSeenAt(digest.createdAt)
+        try { localStorage.setItem('auracap.digestSeen', JSON.stringify({ date: todayKey(), at: digest.createdAt })) } catch {}
+      }, [scope, digest])
 
       const loadGithub = useCallback(async () => {
         try {
@@ -1172,7 +1191,6 @@ window.__ModuleLoader__.load({
         h('div', { className: 'ac-titles' },
           h('div', { className: 'ac-name' }, t('appTitle')),
           h('div', { className: 'ac-sub' }, t('tagline'))),
-        h('span', { className: 'ac-count' }, String(items.length)),
         h('div', { className: 'ac-grow' }),
         h('button', { className: 'ac-icon-button', onClick: openSettings, title: t('settings'), 'aria-label': t('settings') }, SettingsIcon()),
         h('div', { className: 'ac-seg', role: 'group', 'aria-label': t('layout') },
@@ -1194,9 +1212,9 @@ window.__ModuleLoader__.load({
         }))
 
       const tabs = h('div', { className: 'ac-tabs' },
-        h('button', { className: 'ac-tab', 'aria-selected': scope === 'today', onClick: () => setScope('today') }, t('today')),
-        h('button', { className: 'ac-tab', 'aria-selected': scope === 'all', onClick: () => setScope('all') }, t('all')),
-        h('button', { className: 'ac-tab', 'aria-selected': scope === 'digest', onClick: () => setScope('digest') }, t('insights')),
+        h('button', { className: 'ac-tab', 'aria-selected': scope === 'today', onClick: () => setScope('today') }, t('today'), h('span', { className: 'ac-tab-count' }, String(todayCount))),
+        h('button', { className: 'ac-tab', 'aria-selected': scope === 'all', onClick: () => setScope('all') }, t('all'), h('span', { className: 'ac-tab-count' }, String(items.length))),
+        h('button', { className: 'ac-tab', 'aria-selected': scope === 'digest', onClick: () => setScope('digest') }, t('insights'), digestUnread ? h('span', { className: 'ac-tab-dot', 'aria-hidden': true }) : null),
         h('div', { className: 'ac-grow' }),
         h('span', { className: 'ac-hint' }, t('localOnly')))
 
