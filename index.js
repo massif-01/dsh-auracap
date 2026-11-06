@@ -1,9 +1,11 @@
-import { execFileSync } from 'node:child_process'
+import { execFile, execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { createHash, randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
+import { promisify } from 'node:util'
+import { PDFParse } from 'pdf-parse'
 
 export const name = 'auracap'
 export const inject = ['webServer', 'llm', 'attachments']
@@ -28,6 +30,8 @@ function readPrompt(name) {
 
 const BASE = '/auracap'
 const MAX_BYTES = 30 * 1024 * 1024
+const MAX_IMPORT_BYTES = 40 * 1024 * 1024
+const execFileAsync = promisify(execFile)
 const MEDIA = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif'])
 const MODEL = { provider: 'deepseek-account', model: 'deepseek-flash' }
 const GITHUB_CLIENT_ID = 'Ov23ligAxNzDh8sXIMES'
@@ -49,11 +53,87 @@ function extensionOf(mediaType) {
   return 'png'
 }
 
+function imageTypeFromName(name) {
+  const lower = String(name || '').toLowerCase()
+  if (lower.endsWith('.png')) return 'image/png'
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg'
+  if (lower.endsWith('.webp')) return 'image/webp'
+  if (lower.endsWith('.gif')) return 'image/gif'
+  if (lower.endsWith('.heic')) return 'image/heic'
+  return ''
+}
+
 function storeOriginal(item, data) {
   mkdirSync(mediaDir(), { recursive: true })
   const relative = join('media', `${item.id}.${extensionOf(item.image.mediaType)}`)
   writeFileSync(join(dataDir(), relative), data)
   item.imageFile = relative
+}
+
+async function addImageItem(ctx, items, data, mediaType, name, source) {
+  const image = await ctx.attachments.saveImage({ data, mediaType, name })
+  const item = {
+    id: randomUUID(),
+    kind: 'image',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    status: 'summarizing',
+    image,
+    summary: null,
+    error: null,
+    model: null,
+    source: source || { kind: 'local', name },
+  }
+  try { storeOriginal(item, data) } catch {}
+  items.unshift(item)
+  saveItems(items)
+  summarize(ctx.llm, items, item).catch((error) => {
+    item.status = 'failed'
+    item.error = error && error.message ? error.message : String(error)
+    saveItems(items)
+  })
+  return item
+}
+
+function addDocumentItem(ctx, items, { data, mediaType, name, text, source }) {
+  const content = String(text || '').replace(/\r\n/g, '\n').trim()
+  if (content.length < 8) {
+    const error = new Error('没有从文件中提取到可用文字')
+    error.status = 422
+    throw error
+  }
+  const item = {
+    id: randomUUID(),
+    kind: 'document',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    status: 'summarizing',
+    image: null,
+    document: { name: name || '未命名文件', mediaType, bytes: data ? data.length : Buffer.byteLength(content), chars: content.length },
+    text: content.slice(0, 240000),
+    summary: null,
+    error: null,
+    model: null,
+    source: source || { kind: 'local', name: name || 'document' },
+  }
+  items.unshift(item)
+  saveItems(items)
+  summarize(ctx.llm, items, item).catch((error) => {
+    item.status = 'failed'
+    item.error = error && error.message ? error.message : String(error)
+    saveItems(items)
+  })
+  return item
+}
+
+async function extractPdfText(data) {
+  const parser = new PDFParse({ data })
+  try {
+    const result = await parser.getText()
+    return String(result && result.text ? result.text : '')
+  } finally {
+    try { await parser.destroy() } catch {}
+  }
 }
 
 async function migrateMedia(ctx, items) {
@@ -1109,21 +1189,20 @@ async function summarize(llm, items, item) {
     const captured = new Date(item.createdAt).toLocaleString('zh-CN', {
       year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
     })
+    const document = item.kind === 'document' || typeof item.text === 'string'
+    const content = document
+      ? [{ type: 'text', text: '文件：' + ((item.document && item.document.name) || '未命名') + '\n类型：' + ((item.document && item.document.mediaType) || 'text/plain') + '\n时间：' + captured + '\n\n' + String(item.text || '').slice(0, 18000) + '\n\n请按系统提示只输出 JSON。' }]
+      : [
+          { type: 'image', attachment: item.image },
+          { type: 'text', text: '截图时间：' + captured + '。请阅读这张截图，按系统提示只输出 JSON。' },
+        ]
     const stream = llm.stream({
       provider: MODEL.provider,
       model: MODEL.model,
       reasoningEffort: 'off',
-      maxTokens: 2000,
-      system: readPrompt('screenshot-zh.md'),
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'image', attachment: item.image },
-            { type: 'text', text: '截图时间：' + captured + '。请阅读这张截图，按系统提示只输出 JSON。' },
-          ],
-        },
-      ],
+      maxTokens: document ? 2200 : 2000,
+      system: readPrompt(document ? 'text-zh.md' : 'screenshot-zh.md'),
+      messages: [{ role: 'user', content }],
       signal: controller.signal,
     })
     let text = ''
@@ -1437,6 +1516,57 @@ export function apply(ctx) {
         if (path === `${BASE}/api/ingest`) {
           if (req.method !== 'POST') return sendError(res, 405, 'method not allowed')
           return ingest(req, res)
+        }
+        if (path === `${BASE}/api/import`) {
+          if (req.method !== 'POST') return sendError(res, 405, 'method not allowed')
+          if (!trusted(req)) return sendError(res, 403, 'forbidden')
+          const type = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase()
+          const name = headerText(req.headers['x-auracap-name']) || '未命名文件'
+          let data
+          try { data = await readBody(req, MAX_IMPORT_BYTES) } catch (error) { return sendError(res, error.status || 400, error.message) }
+          if (!data.length) return sendError(res, 400, '空文件')
+          try {
+            const imageType = MEDIA.has(type) ? type : imageTypeFromName(name)
+            if (imageType) {
+              const item = await addImageItem(ctx, items, data, imageType, name, { kind: 'local', name })
+              return sendJson(res, 202, { item })
+            }
+            if (type === 'application/pdf' || String(name).toLowerCase().endsWith('.pdf')) {
+              const text = await extractPdfText(data)
+              const item = addDocumentItem(ctx, items, { data, mediaType: 'application/pdf', name, text })
+              return sendJson(res, 202, { item })
+            }
+            if (type.startsWith('text/') || String(name).toLowerCase().endsWith('.txt') || String(name).toLowerCase().endsWith('.md')) {
+              const text = data.toString('utf8').replace(/^\uFEFF/, '')
+              const item = addDocumentItem(ctx, items, { data, mediaType: type || 'text/plain', name, text })
+              return sendJson(res, 202, { item })
+            }
+            return sendError(res, 415, '仅支持图片、PDF、TXT、Markdown')
+          } catch (error) {
+            return sendError(res, error.status || 422, error && error.message ? error.message : '导入失败')
+          }
+        }
+        if (path === `${BASE}/api/capture-screen`) {
+          if (req.method !== 'POST') return sendError(res, 405, 'method not allowed')
+          if (!trusted(req)) return sendError(res, 403, 'forbidden')
+          const tmp = join(dataDir(), 'screen-' + randomUUID() + '.png')
+          try { mkdirSync(dataDir(), { recursive: true }) } catch {}
+          try {
+            await execFileAsync('/usr/sbin/screencapture', ['-i', '-x', '-t', 'png', tmp], { timeout: 180_000 })
+          } catch {}
+          if (!existsSync(tmp) || !statSync(tmp).size) {
+            try { unlinkSync(tmp) } catch {}
+            return sendError(res, 409, '已取消截图')
+          }
+          try {
+            const data = readFileSync(tmp)
+            const item = await addImageItem(ctx, items, data, 'image/png', '截图 ' + new Date().toLocaleString('zh-CN'), { kind: 'local', name: '截图' })
+            return sendJson(res, 202, { item })
+          } catch (error) {
+            return sendError(res, 422, error && error.message ? error.message : '截图导入失败')
+          } finally {
+            try { unlinkSync(tmp) } catch {}
+          }
         }
         const action = path.match(/^\/auracap\/api\/items\/([^/]+)\/(retry|delete)$/)
         if (action) {

@@ -18,7 +18,10 @@ window.__ModuleLoader__.load({
       layout: '视图',
       split: '双栏',
       grid: '卡片',
-      import: '导入截图',
+      import: '导入',
+      screenshot: '截图',
+      capturing: '截图中…',
+      unsupportedFile: '仅支持图片、PDF、TXT、Markdown',
       search: '搜索',
       searchPlaceholder: '搜索片刻与洞察…',
       searchHint: '输入关键词，搜索所有片刻与洞察',
@@ -34,7 +37,7 @@ window.__ModuleLoader__.load({
       emptyTitle: '把片刻留在这里',
       emptyHint: '拖一张截图进来，或用手机随手截下；它们会在这里慢慢连成脉络。',
       importGuideTitle: '三种收法',
-      importGuideDesktop: '电脑：拖入截图，或点「导入截图」。',
+      importGuideDesktop: '电脑：拖入文件，或点「导入」。',
       importGuidePhone: '相册：分享给「AuraCap」。',
       importGuideAction: '随手：轻点背面或按操作按钮，截完即收。',
       emptyTodayTitle: '今天还没有新的片刻',
@@ -139,6 +142,9 @@ window.__ModuleLoader__.load({
       split: 'Split',
       grid: 'Grid',
       import: 'Import',
+      screenshot: 'Screenshot',
+      capturing: 'Capturing…',
+      unsupportedFile: 'Only images, PDF, TXT, and Markdown are supported',
       search: 'Search',
       searchPlaceholder: 'Search moments and insights…',
       searchHint: 'Type to search across every moment and insight',
@@ -154,7 +160,7 @@ window.__ModuleLoader__.load({
       emptyTitle: 'Keep the moments here',
       emptyHint: 'Drop a screenshot, or capture one from your phone; over time they become a thread you can look back on.',
       importGuideTitle: 'Three ways to capture',
-      importGuideDesktop: 'Mac: drag a screenshot in, or click Import.',
+      importGuideDesktop: 'Mac: drag a file in, or click Import.',
       importGuidePhone: 'Photos: share it to the AuraCap shortcut.',
       importGuideAction: 'In hand: bind it to Back Tap or the Action Button and capture on the spot.',
       emptyTodayTitle: 'Nothing captured today',
@@ -261,6 +267,7 @@ window.__ModuleLoader__.load({
 .ac-sub { font-size: 11px; color: var(--dsw-alias-label-secondary); margin-top: 2px; }
 .ac-count { font-size: 11px; color: var(--dsw-alias-label-secondary); border: 1px solid var(--dsw-alias-border-l1); border-radius: 999px; padding: 1px 7px; font-variant-numeric: tabular-nums; }
 .ac-grow { flex: 1; }
+.ac-header-actions { display: flex; align-items: center; gap: 2px; }
 .ac-seg { display: flex; gap: 2px; padding: 2px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-2); border-radius: 9px; }
 .ac-seg button { width: 30px; height: 24px; border: 0; background: transparent; color: var(--dsw-alias-label-secondary); border-radius: 7px; display: grid; place-items: center; cursor: pointer; padding: 0; }
 .ac-seg button:hover { color: var(--dsw-alias-label-primary); }
@@ -356,6 +363,9 @@ window.__ModuleLoader__.load({
 .ac-row-main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
 .ac-row-title { font-size: 12.5px; font-weight: 500; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .ac-row-desc { font-size: 11.5px; color: var(--dsw-alias-label-secondary); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ac-thumb-doc { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-layer-2); }
+.ac-doc-ext { font-size: 8px; letter-spacing: .08em; font-family: 'Geist', sans-serif; opacity: .8; }
+.ac-card-doc { display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--dsw-alias-label-secondary); }
 .ac-row-meta { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--dsw-alias-label-secondary); margin-top: auto; padding-top: 2px; }
 .ac-status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--dsw-alias-label-secondary); }
 .ac-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dsw-alias-state-idle-primary); display: inline-block; flex: none; }
@@ -497,6 +507,30 @@ window.__ModuleLoader__.load({
 
     function isImageFile(file) {
       return Boolean(mediaTypeOf(file))
+    }
+
+    function fileTypeOf(file) {
+      const image = mediaTypeOf(file)
+      if (image) return image
+      const name = ((file && file.name) || '').toLowerCase()
+      if (name.endsWith('.pdf')) return 'application/pdf'
+      if (name.endsWith('.md')) return 'text/markdown'
+      if (name.endsWith('.txt')) return 'text/plain'
+      return ''
+    }
+
+    function isImportableFile(file) {
+      return Boolean(fileTypeOf(file))
+    }
+
+    function isDocumentItem(item) {
+      return Boolean(item && (item.kind === 'document' || (!item.image && item.text)))
+    }
+
+    function documentExtension(item) {
+      const name = (item && item.document && item.document.name) || ''
+      const match = String(name).match(/\.([a-z0-9]+)$/i)
+      return match ? match[1].toUpperCase() : 'DOC'
     }
 
     async function request(path, options) {
@@ -641,6 +675,23 @@ window.__ModuleLoader__.load({
         h('circle', { cx: 7, cy: 7, r: 4.2 }),
         h('path', { d: 'm10.2 10.2 3 3' }))
     }
+    function ScreenshotIcon() {
+      return h('svg', { viewBox: '0 0 16 16', width: 15, height: 15, fill: 'none', stroke: 'currentColor', strokeWidth: 1.3, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+        h('path', { d: 'M5.5 2.5H3.5a1 1 0 0 0-1 1v2M10.5 2.5h2a1 1 0 0 1 1 1v2M5.5 13.5h-2a1 1 0 0 1-1-1v-2M10.5 13.5h2a1 1 0 0 0 1-1v-2' }),
+        h('circle', { cx: 8, cy: 8, r: 2.2 }))
+    }
+
+    function UploadIcon() {
+      return h('svg', { viewBox: '0 0 16 16', width: 15, height: 15, fill: 'none', stroke: 'currentColor', strokeWidth: 1.3, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+        h('path', { d: 'M8 10.5V2.8M5.2 5.4 8 2.6l2.8 2.8' }),
+        h('path', { d: 'M2.8 10.2v1.7a1.6 1.6 0 0 0 1.6 1.6h7.2a1.6 1.6 0 0 0 1.6-1.6v-1.7' }))
+    }
+
+    function DocumentIcon() {
+      return h('svg', { viewBox: '0 0 16 16', width: 18, height: 18, fill: 'none', stroke: 'currentColor', strokeWidth: 1.2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+        h('path', { d: 'M4 2.5h5l3 3v8H4z' }),
+        h('path', { d: 'M9 2.5v3h3M5.8 8h4.4M5.8 10.2h4.4' }))
+    }
 
     function ImageIcon() {
       return h('svg', { viewBox: '0 0 16 16', width: 13, height: 13, fill: 'none', stroke: 'currentColor', strokeWidth: 1.3, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
@@ -765,7 +816,9 @@ window.__ModuleLoader__.load({
           if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); props.onClick() }
         },
       },
-        h('img', { className: 'ac-thumb', src: API + '/media/' + encodeURIComponent(item.id), alt: '', loading: 'lazy', draggable: false }),
+        item.image
+          ? h('img', { className: 'ac-thumb', src: API + '/media/' + encodeURIComponent(item.id), alt: '', loading: 'lazy', draggable: false })
+          : h('div', { className: 'ac-thumb ac-thumb-doc' }, DocumentIcon(), h('span', { className: 'ac-doc-ext' }, documentExtension(item))),
         h('div', { className: 'ac-row-main' },
           h('div', { className: 'ac-row-title' }, summary && summary.title ? summary.title : t('untitled')),
           h('div', { className: 'ac-row-meta' },
@@ -802,7 +855,9 @@ window.__ModuleLoader__.load({
         h('span', { className: 'ac-status', key: 'status' }, h('i', { className: 'ac-dot', 'data-state': item.status }), statusText(item, t)),
         h('span', { key: 'date' }, dateText(item.createdAt)),
         h('span', { key: 'source' }, t('local')),
-        item.image && item.image.width ? h('span', { key: 'dims' }, item.image.width + ' × ' + item.image.height) : null,
+        item.image && item.image.width
+          ? h('span', { key: 'dims' }, item.image.width + ' × ' + item.image.height)
+          : item.document ? h('span', { key: 'chars' }, item.document.chars + ' 字') : null,
       ]
       const body = []
       if (item.status === 'summarizing') {
@@ -854,7 +909,7 @@ window.__ModuleLoader__.load({
         }
       }
       body.push(h('div', { className: 'ac-actions', key: 'actions' },
-        h('button', { className: 'ac-ghost', onClick: () => props.onOpenImage(item) }, ImageIcon(), t('viewOriginal')),
+        item.image ? h('button', { className: 'ac-ghost', onClick: () => props.onOpenImage(item) }, ImageIcon(), t('viewOriginal')) : null,
         h('button', { className: 'ac-ghost', onClick: copy, disabled: !copyText }, CopyIcon(), copied ? t('copied') : t('copy')),
         h('button', { className: 'ac-ghost', onClick: () => props.onRetry(item) }, RetryIcon(), t('retry')),
         h('button', {
@@ -874,7 +929,9 @@ window.__ModuleLoader__.load({
       const t = props.t
       const summary = item.summary
       return h('button', { className: 'ac-card', type: 'button', onClick: props.onClick },
-        h('img', { className: 'ac-card-img', src: API + '/media/' + encodeURIComponent(item.id), alt: '', loading: 'lazy', draggable: false }),
+        item.image
+          ? h('img', { className: 'ac-card-img', src: API + '/media/' + encodeURIComponent(item.id), alt: '', loading: 'lazy', draggable: false })
+          : h('div', { className: 'ac-card-img ac-card-doc' }, DocumentIcon(), h('span', { className: 'ac-doc-ext' }, documentExtension(item))),
         h('div', { className: 'ac-card-body' },
           h('div', { className: 'ac-card-title' }, summary && summary.title ? summary.title : t('untitled')),
           h('div', { className: 'ac-card-desc' },
@@ -1355,6 +1412,7 @@ window.__ModuleLoader__.load({
       })
       const [drag, setDrag] = useState(false)
       const [busy, setBusy] = useState(false)
+      const [captureBusy, setCaptureBusy] = useState(false)
       const [error, setError] = useState(null)
       const [lightbox, setLightbox] = useState(null)
       const [modalId, setModalId] = useState(null)
@@ -1671,17 +1729,17 @@ window.__ModuleLoader__.load({
       }
 
       const importFiles = useCallback(async (fileList) => {
-        const files = Array.from(fileList || []).filter((file) => file && isImageFile(file))
-        if (!files.length) { setError(t('onlyImages')); return }
+        const files = Array.from(fileList || []).filter((file) => file && isImportableFile(file))
+        if (!files.length) { setError(t('unsupportedFile')); return }
         setBusy(true)
         setError(null)
         try {
           for (const file of files) {
-            const payload = await request(API + '/ingest', {
+            const payload = await request(API + '/import', {
               method: 'POST',
               headers: {
-                'content-type': mediaTypeOf(file),
-                'x-auracap-name': encodeURIComponent(file.name || 'screenshot'),
+                'content-type': fileTypeOf(file),
+                'x-auracap-name': encodeURIComponent(file.name || '文件'),
               },
               body: file,
             })
@@ -1697,6 +1755,24 @@ window.__ModuleLoader__.load({
           setBusy(false)
         }
       }, [t])
+
+      const captureScreen = async () => {
+        if (captureBusy) return
+        setCaptureBusy(true)
+        setError(null)
+        try {
+          const payload = await request(API + '/capture-screen', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+          if (payload.item) {
+            setItems((previous) => [payload.item].concat(previous.filter((item) => item.id !== payload.item.id)))
+            setSelectedId(payload.item.id)
+            setScope('today')
+          }
+        } catch (captureError) {
+          if (!String(captureError.message || '').includes('已取消')) setError(captureError.message)
+        } finally {
+          setCaptureBusy(false)
+        }
+      }
 
       const retry = async (item) => {
         try {
@@ -1785,12 +1861,13 @@ window.__ModuleLoader__.load({
         h('div', { className: 'ac-seg', role: 'group', 'aria-label': t('layout') },
           h('button', { type: 'button', 'aria-pressed': view === 'split', title: t('split'), onClick: () => chooseView('split') }, SplitIcon()),
           h('button', { type: 'button', 'aria-pressed': view === 'grid', title: t('grid'), onClick: () => chooseView('grid') }, GridIcon())),
-        h('button', { className: 'ac-primary', onClick: openPicker, disabled: busy },
-          PlusIcon(), busy ? t('importing') : t('import')),
+        h('div', { className: 'ac-header-actions' },
+          h('button', { className: 'ac-icon-button', type: 'button', title: t('screenshot'), 'aria-label': t('screenshot'), onClick: captureScreen, disabled: captureBusy || busy }, ScreenshotIcon()),
+          h('button', { className: 'ac-icon-button', type: 'button', title: t('import'), 'aria-label': t('import'), onClick: openPicker, disabled: busy }, UploadIcon())),
         h('input', {
           ref: fileRef,
           type: 'file',
-          accept: 'image/png,image/jpeg,image/webp,image/gif',
+          accept: 'image/png,image/jpeg,image/webp,image/gif,application/pdf,.pdf,.txt,.md,text/plain,text/markdown',
           multiple: true,
           style: { display: 'none' },
           onChange: (event) => {

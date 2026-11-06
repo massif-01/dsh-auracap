@@ -41,5 +41,8 @@
       "immediately": true,
       "inject": []
     }
+  },
+  "dependencies": {
+    "pdf-parse": "^2.4.5"
   }
 }
