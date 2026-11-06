@@ -76,6 +76,23 @@ window.__ModuleLoader__.load({
       configCopied: '已复制',
       githubError: 'GitHub 操作失败',
       itemsUnit: '条',
+      phoneEntry: '手机入口',
+      phoneIntro: '连接已完成。下面三步把手机接进来；快捷指令我们最后再做。',
+      stepInstall: '安装快捷指令',
+      stepInstallHint: '快捷指令模板稍后提供；做好后这里会出现安装链接。',
+      stepConfig: '写入配置',
+      stepConfigHint: '配置里包含 token，只粘贴到你自己的快捷指令里。',
+      copyConfigDone: '已复制，等快捷指令做好后粘贴到唯一的文本变量。',
+      stepTest: '发送测试图',
+      stepTestHint: '用插件内置的测试图走一遍 上传 → 消费 → 总结，确认链路通了。',
+      testUpload: '发送测试图',
+      testing: '正在发送…',
+      testSuccess: '已上传并消费，看看「今天」列表。',
+      advanced: '高级',
+      hideAdvanced: '收起高级',
+      showConfig: '显示配置',
+      hideConfig: '隐藏配置',
+      templateSoon: '模板准备中',
     }
 
     const EN = {
@@ -146,6 +163,23 @@ window.__ModuleLoader__.load({
       configCopied: 'Copied',
       githubError: 'GitHub request failed',
       itemsUnit: 'items',
+      phoneEntry: 'Phone',
+      phoneIntro: 'Connected. Three steps to bring your phone in; the shortcut comes last.',
+      stepInstall: 'Install the shortcut',
+      stepInstallHint: 'The shortcut template is coming later; an install link will appear here.',
+      stepConfig: 'Store the config',
+      stepConfigHint: 'The config contains a token; paste it only into your own shortcut.',
+      copyConfigDone: 'Copied. Paste it into the single Text variable once the shortcut exists.',
+      stepTest: 'Send a test capture',
+      stepTestHint: 'Runs a built-in test image through upload → consume → summary to prove the pipeline.',
+      testUpload: 'Send test capture',
+      testing: 'Sending…',
+      testSuccess: 'Uploaded and consumed. Check Today.',
+      advanced: 'Advanced',
+      hideAdvanced: 'Hide advanced',
+      showConfig: 'Show config',
+      hideConfig: 'Hide config',
+      templateSoon: 'Template soon',
     }
 
     const CSS = `
@@ -229,6 +263,15 @@ window.__ModuleLoader__.load({
 .ac-device-link:hover { text-decoration: underline; }
 .ac-config { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; padding: 10px 12px; background: var(--dsw-alias-bg-layer-2); border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; word-break: break-all; line-height: 1.6; }
 .ac-settings-hint { font-size: 12px; color: var(--dsw-alias-label-secondary); line-height: 1.7; margin: 10px 0 0; }
+.ac-steps { display: flex; flex-direction: column; gap: 16px; margin-top: 16px; }
+.ac-step { display: flex; gap: 13px; align-items: flex-start; }
+.ac-step-no { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--dsw-alias-border-l1); color: var(--dsw-alias-label-secondary); font-size: 11px; display: grid; place-items: center; flex: none; margin-top: 1px; }
+.ac-step-body { flex: 1; min-width: 0; }
+.ac-step-title { font-size: 13px; font-weight: 500; line-height: 1.4; }
+.ac-step-hint { font-size: 12px; color: var(--dsw-alias-label-secondary); line-height: 1.6; margin-top: 2px; }
+.ac-step-actions { display: flex; gap: 8px; margin-top: 8px; }
+.ac-advanced { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--dsw-alias-border-l1); }
+.ac-success { font-size: 12px; color: var(--dsw-alias-state-success-primary); line-height: 1.6; }
 
 .ac-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .ac-tag { font-size: 10.5px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-secondary); }
@@ -404,8 +447,12 @@ window.__ModuleLoader__.load({
 
     function SettingsIcon() {
       return h('svg', { viewBox: '0 0 16 16', width: 15, height: 15, fill: 'none', stroke: 'currentColor', strokeWidth: 1.3, strokeLinecap: 'round', 'aria-hidden': true },
-        h('circle', { cx: 8, cy: 8, r: 2.1 }),
-        h('path', { d: 'M8 1.8v1.6M8 12.6v1.6M1.8 8h1.6M12.6 8h1.6M3.6 3.6l1.1 1.1M11.3 11.3l1.1 1.1M12.4 3.6l-1.1 1.1M4.7 11.3l-1.1 1.1' }))
+        h('path', { d: 'M2.5 4h1.7M8.7 4h4.8' }),
+        h('circle', { cx: 6.5, cy: 4, r: 1.5 }),
+        h('path', { d: 'M2.5 8h5.6M11.9 8h1.6' }),
+        h('circle', { cx: 10.1, cy: 8, r: 1.5 }),
+        h('path', { d: 'M2.5 12h1.7M8.7 12h4.8' }),
+        h('circle', { cx: 6.5, cy: 12, r: 1.5 }))
     }
 
     function CloseIcon() {
@@ -663,25 +710,27 @@ window.__ModuleLoader__.load({
         h('div', { className: 'ac-digest-inner' }, head, body))
     }
 
+    function maskedConfig(config) {
+      return String(config || '').replace(/\|[^|]+$/, '|••••••••')
+    }
+
     function SettingsModal(props) {
       const t = props.t
       const github = props.github
       const device = props.device
       const shortcut = props.shortcut
+      const [advanced, setAdvanced] = useState(false)
+      const [showConfig, setShowConfig] = useState(false)
       const connected = Boolean(github && github.connected)
-      const status = github
-        ? (connected ? t('githubConnected') : t('githubNotConnected'))
-        : '—'
-      let body
+      const waiting = device && (device.status === 'pending' || device.status === 'provisioning')
+
+      let status
       if (!github) {
-        body = h('div', { className: 'ac-settings-hint' }, t('githubWaiting'))
+        status = h('p', { className: 'ac-settings-hint' }, t('githubWaiting'))
       } else if (!connected) {
-        body = h('div', null,
-          h('div', { className: 'ac-set-row' },
-            h('span', { className: 'ac-set-label' }, t('githubQueue')),
-            h('span', { className: 'ac-set-value' }, status)),
+        status = h('div', null,
           h('p', { className: 'ac-settings-hint' }, t('githubHint')),
-          device && (device.status === 'pending' || device.status === 'provisioning')
+          waiting
             ? h('div', { className: 'ac-device' },
                 h('div', { className: 'ac-set-label' }, t('deviceCode')),
                 h('div', { className: 'ac-device-code' }, device.userCode || ''),
@@ -691,40 +740,70 @@ window.__ModuleLoader__.load({
             : h('div', { className: 'ac-set-actions' },
                 h('button', { className: 'ac-primary', onClick: props.onConnect, disabled: props.busy }, t('connectGithub'))))
       } else {
-        body = h('div', null,
-          h('div', { className: 'ac-set-row' },
-            h('span', { className: 'ac-set-label' }, t('githubRepo')),
-            h('span', { className: 'ac-set-value' },
-              h('a', { className: 'ac-device-link', href: github.repo.url, target: '_blank', rel: 'noreferrer' }, github.repo.owner + '/' + github.repo.name))),
-          h('div', { className: 'ac-set-row' },
-            h('span', { className: 'ac-set-label' }, t('githubQueueCount')),
-            h('span', { className: 'ac-set-value' }, String(github.queueCount || 0) + ' ' + t('itemsUnit'))),
-          h('div', { className: 'ac-set-row' },
-            h('span', { className: 'ac-set-label' }, t('githubLastSync')),
-            h('span', { className: 'ac-set-value' }, github.lastSyncAt ? timeText(github.lastSyncAt) : '—')),
-          h('div', { className: 'ac-set-actions' },
-            h('button', { className: 'ac-ghost', onClick: props.onSync, disabled: props.busy }, RetryIcon(), t('githubSyncNow')),
-            h('button', { className: 'ac-ghost', onClick: props.onRepair, disabled: props.busy }, t('githubRepair')),
-            h('button', { className: 'ac-ghost', 'data-danger': true, onClick: props.onDisconnect }, t('githubDisconnect'))),
-          shortcut && shortcut.config
-            ? h('div', { className: 'ac-settings-section' },
-                h('div', { className: 'ac-sec-label' }, t('shortcutTitle')),
-                h('div', { className: 'ac-config' }, shortcut.config),
-                h('div', { className: 'ac-set-actions' },
-                  h('button', { className: 'ac-ghost', onClick: props.onCopyConfig }, CopyIcon(), props.copied ? t('configCopied') : t('copyConfig'))),
-                h('p', { className: 'ac-settings-hint', style: { marginTop: 10 } }, t('shortcutHint')))
-            : null)
+        status = h('div', null,
+          h('div', { className: 'ac-settings-section', style: { borderTop: 0, paddingTop: 0, marginTop: 0 } },
+            h('p', { className: 'ac-settings-hint', style: { marginTop: 0, marginBottom: 2 } }, t('phoneIntro')),
+            h('div', { className: 'ac-steps' },
+              h('div', { className: 'ac-step' },
+                h('div', { className: 'ac-step-no' }, '1'),
+                h('div', { className: 'ac-step-body' },
+                  h('div', { className: 'ac-step-title' }, t('stepInstall')),
+                  h('div', { className: 'ac-step-hint' }, t('stepInstallHint')))),
+              h('div', { className: 'ac-step' },
+                h('div', { className: 'ac-step-no' }, '2'),
+                h('div', { className: 'ac-step-body' },
+                  h('div', { className: 'ac-step-title' }, t('stepConfig')),
+                  h('div', { className: 'ac-step-hint' }, t('stepConfigHint')),
+                  h('div', { className: 'ac-step-actions' },
+                    h('button', { className: 'ac-ghost', onClick: props.onCopyConfig, disabled: !shortcut || !shortcut.config }, CopyIcon(), props.copied ? t('configCopied') : t('copyConfig'))))),
+              h('div', { className: 'ac-step' },
+                h('div', { className: 'ac-step-no' }, '3'),
+                h('div', { className: 'ac-step-body' },
+                  h('div', { className: 'ac-step-title' }, t('stepTest')),
+                  h('div', { className: 'ac-step-hint' }, t('stepTestHint')),
+                  h('div', { className: 'ac-step-actions' },
+                    h('button', { className: 'ac-primary', onClick: props.onTestUpload, disabled: props.testBusy },
+                      props.testBusy ? t('testing') : t('testUpload'))),
+                  props.testMessage
+                    ? h('div', { className: props.testMessage.ok ? 'ac-success' : 'ac-error', style: { marginTop: 10 } },
+                        props.testMessage.ok ? t('testSuccess') : props.testMessage.text)
+                    : null)))),
+          h('div', { className: 'ac-advanced' },
+            h('button', { className: 'ac-ghost', onClick: () => setAdvanced(!advanced) }, advanced ? t('hideAdvanced') : t('advanced')),
+            advanced
+              ? h('div', { style: { marginTop: 14 } },
+                  h('div', { className: 'ac-set-row' },
+                    h('span', { className: 'ac-set-label' }, t('githubRepo')),
+                    h('span', { className: 'ac-set-value' },
+                      h('a', { className: 'ac-device-link', href: github.repo.url, target: '_blank', rel: 'noreferrer' }, github.repo.owner + '/' + github.repo.name))),
+                  h('div', { className: 'ac-set-row' },
+                    h('span', { className: 'ac-set-label' }, t('githubQueueCount')),
+                    h('span', { className: 'ac-set-value' }, String(github.queueCount || 0) + ' ' + t('itemsUnit'))),
+                  h('div', { className: 'ac-set-row' },
+                    h('span', { className: 'ac-set-label' }, t('githubLastSync')),
+                    h('span', { className: 'ac-set-value' }, github.lastSyncAt ? timeText(github.lastSyncAt) : '—')),
+                  h('div', { className: 'ac-set-row' },
+                    h('span', { className: 'ac-set-label' }, t('shortcutTitle')),
+                    h('div', { className: 'ac-set-value' },
+                      h('div', { className: 'ac-config' }, showConfig && shortcut ? shortcut.config : maskedConfig(shortcut && shortcut.config)),
+                      h('div', { className: 'ac-set-actions' },
+                        h('button', { className: 'ac-ghost', onClick: () => setShowConfig(!showConfig) }, showConfig ? t('hideConfig') : t('showConfig')),
+                        h('button', { className: 'ac-ghost', onClick: props.onCopyConfig, disabled: !shortcut }, CopyIcon(), t('copyConfig'))))),
+                  h('div', { className: 'ac-set-actions' },
+                    h('button', { className: 'ac-ghost', onClick: props.onSync, disabled: props.busy }, RetryIcon(), t('githubSyncNow')),
+                    h('button', { className: 'ac-ghost', onClick: props.onRepair, disabled: props.busy }, t('githubRepair')),
+                    h('button', { className: 'ac-ghost', 'data-danger': true, onClick: props.onDisconnect }, t('githubDisconnect'))))
+              : null))
       }
+
       return h('div', { className: 'ac-modal', onMouseDown: (event) => { if (event.target === event.currentTarget) props.onClose() } },
         h('div', { className: 'ac-settings' },
           h('div', { className: 'ac-settings-head' },
-            h('div', { className: 'ac-settings-title' }, t('settings')),
+            h('div', { className: 'ac-settings-title' }, t('phoneEntry')),
             h('div', { className: 'ac-grow' }),
             h('button', { className: 'ac-icon-button', onClick: props.onClose, 'aria-label': t('close') }, CloseIcon())),
           props.error ? h('div', { className: 'ac-error', style: { marginBottom: 16 } }, props.error) : null,
-          body,
-          h('div', { className: 'ac-settings-section' },
-            h('p', { className: 'ac-settings-hint' }, t('githubHint')))))
+          status))
     }
 
     function Empty(props) {
@@ -764,6 +843,8 @@ window.__ModuleLoader__.load({
       const [device, setDevice] = useState(null)
       const [shortcut, setShortcut] = useState(null)
       const [configCopied, setConfigCopied] = useState(false)
+      const [testBusy, setTestBusy] = useState(false)
+      const [testMessage, setTestMessage] = useState(null)
       const fileRef = useRef(null)
       const dragDepth = useRef(0)
 
@@ -903,6 +984,22 @@ window.__ModuleLoader__.load({
           setGithubError(disconnectError.message)
         } finally {
           setGithubBusy(false)
+        }
+      }
+
+      const testGithubUpload = async () => {
+        setTestBusy(true)
+        setTestMessage(null)
+        try {
+          const payload = await request(API + '/github/test-upload', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+          if (payload.status) setGithub(payload.status)
+          setTestMessage({ ok: true })
+          await load()
+          await loadGithub()
+        } catch (testError) {
+          setTestMessage({ ok: false, text: testError.message })
+        } finally {
+          setTestBusy(false)
         }
       }
 
@@ -1095,6 +1192,9 @@ window.__ModuleLoader__.load({
           onRepair: repairGithub,
           onDisconnect: disconnectGithub,
           onCopyConfig: copyConfig,
+          testBusy,
+          testMessage,
+          onTestUpload: testGithubUpload,
         }) : null,
         lightbox ? h('div', { className: 'ac-lightbox', onClick: () => setLightbox(null) },
           h('img', {

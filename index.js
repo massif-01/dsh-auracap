@@ -875,6 +875,39 @@ export function apply(ctx) {
           saveState(github.state)
           return sendJson(res, 200, githubStatus(github))
         }
+        if (path === `${BASE}/api/github/test-upload`) {
+          if (req.method !== 'POST') return sendError(res, 405, 'method not allowed')
+          if (!trusted(req)) return sendError(res, 403, 'forbidden')
+          const repo = github.state.github
+          const token = repo ? await readGithubToken(ctx, github.state) : null
+          if (!repo || !token) return sendError(res, 409, 'GitHub 未连接')
+          try {
+            const file = readFileSync(join(ROOT, 'assets', 'test-upload.png'))
+            const name = 'auracap-test-' + Date.now() + '.png'
+            const upload = await fetch(
+              'https://uploads.github.com/repos/' + repo.owner + '/' + repo.name + '/releases/' + repo.releaseId + '/assets?name=' + encodeURIComponent(name),
+              {
+                method: 'POST',
+                headers: {
+                  accept: 'application/vnd.github+json',
+                  authorization: 'Bearer ' + token,
+                  'content-type': 'image/png',
+                  'user-agent': 'dsh-auracap',
+                },
+                body: file,
+              },
+            )
+            if (!upload.ok) {
+              const detail = await upload.text().catch(() => '')
+              throw new Error('测试图上传失败（HTTP ' + upload.status + '）' + (detail ? '：' + detail.slice(0, 160) : ''))
+            }
+            await delay(1500)
+            await syncGithub(ctx, github)
+            return sendJson(res, 200, { uploaded: true, name, status: githubStatus(github) })
+          } catch (error) {
+            return sendError(res, 502, error && error.message ? error.message : '测试图上传失败')
+          }
+        }
         if (path === `${BASE}/api/github/shortcut`) {
           if (req.method !== 'GET') return sendError(res, 405, 'method not allowed')
           const repo = github.state.github

@@ -20,7 +20,8 @@
     "icon.svg",
     "README.md",
     "LICENSE",
-    "docs/*.jpg"
+    "docs/*.jpg",
+    "assets/*.png"
   ],
   "icon": "./icon.svg",
   "engines": {
