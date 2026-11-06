@@ -67,11 +67,18 @@ window.__ModuleLoader__.load({
       openGithub: '打开 GitHub 授权',
       provisioningGithub: '正在创建私有收件箱…',
       connectedTitle: '还差一步',
-      connectedBody: '把快捷指令装到 iPhone，之后截下的画面就会自己回来。',
+      connectedBody: '把快捷指令装到 iPhone，之后截下的画面、分享的照片，都会自己回来。',
       installStep1: '用 iPhone 打开下载的文件',
       installStep2: '安装到「快捷指令」',
-      installStep3: '轻点背面，或按操作按钮，试一张',
+      installStep3: '装好后，回来看下面的用法',
       downloadedShortcut: '已下载。接下来在 iPhone 上打开它。',
+      usageTitle: '装好之后',
+      usageShare: '从照片分享',
+      usageShareHint: '相册 → 分享 → AuraCap',
+      usageAction: 'Action Button / 操作按钮',
+      usageActionHint: '设置 → Action Button → AuraCap',
+      usageBacktap: '没有 Action Button？',
+      usageBacktapHint: '设置 → 辅助功能 → 触控 → 轻点背面',
       whyGithub: '为什么是 GitHub？',
       whyGithubBody1: '手机在外面，Mac 在家里，中间得有一个只属于你的地方。GitHub 的私有仓库和 Release 正好能当这个中转：正常个人用量免费，不用我们的服务器，也不用你配置端口。',
       whyGithubBody2: '图片先进入你的私有仓库，Mac 取回后立刻删掉；授权只存在本机，随时可以在 GitHub 设置里撤销。',
@@ -272,11 +279,18 @@ window.__ModuleLoader__.load({
       openGithub: 'Open GitHub authorization',
       provisioningGithub: 'Creating your private inbox…',
       connectedTitle: 'One more step',
-      connectedBody: 'Install the shortcut on your iPhone and your screenshots will find their way back.',
+      connectedBody: 'Install the shortcut on your iPhone, and screenshots and shared photos will find their way back.',
       installStep1: 'Open the downloaded file on iPhone',
       installStep2: 'Add it to Shortcuts',
-      installStep3: 'Try Back Tap or the Action Button on one shot',
+      installStep3: 'Then choose how to run it below',
       downloadedShortcut: 'Downloaded. Now open it on your iPhone.',
+      usageTitle: 'After installing',
+      usageShare: 'Share from Photos',
+      usageShareHint: 'Photos → Share → AuraCap',
+      usageAction: 'Action Button',
+      usageActionHint: 'Settings → Action Button → AuraCap',
+      usageBacktap: 'No Action Button?',
+      usageBacktapHint: 'Settings → Accessibility → Touch → Back Tap',
       whyGithub: 'Why GitHub?',
       whyGithubBody1: 'Your phone is outside; your Mac is at home. They need a place in between that belongs only to you. A private GitHub repository and Release make that relay: free for normal personal use, with no server of ours and no ports to configure.',
       whyGithubBody2: 'Images enter your private repository first; the Mac deletes them after fetching. The authorization stays on this Mac and can be revoked from GitHub settings at any time.',
@@ -736,6 +750,10 @@ window.__ModuleLoader__.load({
 .ac-onboard-node-icon { width: 18px; height: 18px; display: grid; place-items: center; color: var(--dsw-alias-label-secondary); opacity: .64; margin-top: 1px; }
 .ac-onboard-node-icon-brand { color: var(--dsw-alias-brand-primary); opacity: .52; }
 .ac-onboard-node div > strong { display: block; font-size: 13px; font-weight: 500; line-height: 1.35; color: var(--dsw-alias-label-primary); }
+.ac-onboard-usage { display: flex; flex-direction: column; gap: 19px; }
+.ac-onboard-usage-row { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: start; gap: 13px; }
+.ac-onboard-usage-row div > strong { display: block; font-size: 12.5px; font-weight: 500; line-height: 1.35; color: var(--dsw-alias-label-primary); }
+.ac-onboard-usage-row div > span { display: block; margin-top: 4px; font-size: 10.5px; line-height: 1.5; color: var(--dsw-alias-label-secondary); }
 .ac-onboard-node div > span { display: block; margin-top: 4px; font-size: 10.5px; line-height: 1.5; color: var(--dsw-alias-label-secondary); }
 .ac-onboarding-aside-note { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--dsw-alias-border-l1); font-size: 9.5px; color: var(--dsw-alias-label-secondary); line-height: 1.6; }
 .ac-onboarding-code-card { display: flex; flex-direction: column; align-items: flex-start; }
@@ -1060,6 +1078,26 @@ window.__ModuleLoader__.load({
       return h('svg', { viewBox: '0 0 16 16', width: 15, height: 15, fill: 'none', stroke: 'currentColor', strokeWidth: 1.2, 'aria-hidden': 'true' },
         h('rect', { x: 2.2, y: 2.5, width: 11.6, height: 8, rx: 1.5 }),
         h('path', { d: 'M1.2 12.4h13.6l-.8 1.4H2z' }))
+    }
+
+    function ShareIcon() {
+      return h('svg', { viewBox: '0 0 16 16', width: 15, height: 15, fill: 'none', stroke: 'currentColor', strokeWidth: 1.2, 'aria-hidden': 'true' },
+        h('path', { d: 'M8 10V2.2' }),
+        h('path', { d: 'M5.4 4.6 8 2l2.6 2.6' }),
+        h('path', { d: 'M3 7.5v6h10v-6' }))
+    }
+
+    function ActionButtonIcon() {
+      return h('svg', { viewBox: '0 0 16 16', width: 15, height: 15, fill: 'none', stroke: 'currentColor', strokeWidth: 1.2, 'aria-hidden': 'true' },
+        h('rect', { x: 4, y: 1.7, width: 8, height: 12.6, rx: 2 }),
+        h('path', { d: 'M13.5 5v4' }))
+    }
+
+    function TapIcon() {
+      return h('svg', { viewBox: '0 0 16 16', width: 15, height: 15, fill: 'none', stroke: 'currentColor', strokeWidth: 1.2, 'aria-hidden': 'true' },
+        h('path', { d: 'M8 3.2a4.8 4.8 0 0 1 0 9.6' }),
+        h('path', { d: 'M8 5.8a2.2 2.2 0 0 1 0 4.4' }),
+        h('circle', { cx: 8, cy: 8, r: .8, fill: 'currentColor', stroke: 'none' }))
     }
 
     function SettingsIcon() {
@@ -1986,15 +2024,18 @@ window.__ModuleLoader__.load({
                 h('span', null, text)))),
             h('button', { className: 'ac-onboarding-link', type: 'button', onClick: () => props.onLocalImport() }, t('localOnlyAction'))),
           h('div', { className: 'ac-onboarding-aside' },
-            h('div', { className: 'ac-onboarding-aside-label' }, t('onboardingNext')),
-            h('div', { className: 'ac-onboard-flow' },
-              h('div', { className: 'ac-onboard-node' },
-                h('span', { className: 'ac-onboard-node-icon' }, PhoneIcon()),
-                h('div', null, h('strong', null, t('flowIphone')), h('span', null, t('flowInstall')))),
-              h('div', { className: 'ac-onboard-node' },
-                h('span', { className: 'ac-onboard-node-icon' }, MacIcon()),
-                h('div', null, h('strong', null, t('flowMac')), h('span', null, t('flowMacArrive')))),
-            h('div', { className: 'ac-onboarding-aside-note' }, t('flowArrive'))))))
+            h('div', { className: 'ac-onboarding-aside-label' }, t('usageTitle')),
+            h('div', { className: 'ac-onboard-usage' },
+              h('div', { className: 'ac-onboard-usage-row' },
+                h('span', { className: 'ac-onboard-node-icon' }, ShareIcon()),
+                h('div', null, h('strong', null, t('usageShare')), h('span', null, t('usageShareHint')))),
+              h('div', { className: 'ac-onboard-usage-row' },
+                h('span', { className: 'ac-onboard-node-icon' }, ActionButtonIcon()),
+                h('div', null, h('strong', null, t('usageAction')), h('span', null, t('usageActionHint')))),
+              h('div', { className: 'ac-onboard-usage-row' },
+                h('span', { className: 'ac-onboard-node-icon' }, TapIcon()),
+                h('div', null, h('strong', null, t('usageBacktap')), h('span', null, t('usageBacktapHint'))))),
+            h('div', { className: 'ac-onboarding-aside-note' }, t('flowArrive')))))
     }
 
     function Empty(props) {
