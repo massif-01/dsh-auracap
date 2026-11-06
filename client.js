@@ -22,11 +22,15 @@ window.__ModuleLoader__.load({
       today: '今天',
       all: '全部',
       localOnly: 'GitHub 仅作免费中转；截图存于本机，读图由 DeepSeek 完成。',
-      dropTitle: '松手，收进碎片',
+      dropTitle: '松手，收进片刻',
       dropHint: '同源面板直接读取，不经过相册或云盘',
-      emptyTitle: '把碎片留在这里',
-      emptyHint: '拖入一张截图，或用手机快捷指令随手拍下；AuraCap 会读图并整理成可检索的碎片。',
-      emptyTodayTitle: '今天还没有新碎片',
+      emptyTitle: '把片刻留在这里',
+      emptyHint: '拖一张截图进来，或用手机随手截下；它们会在这里慢慢连成脉络。',
+      importGuideTitle: '三种收法',
+      importGuideDesktop: '电脑：拖入截图，或点「导入截图」。',
+      importGuidePhone: '相册：分享给「AuraCap」。',
+      importGuideAction: '随手：轻点背面或按操作按钮，截完即收。',
+      emptyTodayTitle: '今天还没有新的片刻',
       emptyTodayHint: '切到「全部」，看看之前收进来的内容。',
       viewAll: '查看全部',
       privacy: 'GitHub 只作为免费的文件中转：手机截图先上传到你自己的私有仓库 Release，Mac 取回后保存在本机；读图与总结会调用 DeepSeek 模型，生成结果和索引保存在本机，GitHub 上的原图在消费后立即删除。',
@@ -57,6 +61,11 @@ window.__ModuleLoader__.load({
       timeline: '时间线',
       allTime: '全部时间',
       backToToday: '回到今天',
+      rangeStart: '选择起始时间',
+      rangeEnd: '选择结束时间',
+      dragHint: '拖动两端选择时间段',
+      previousPeriod: '上一期',
+      nextPeriod: '下一期',
       longInsightEmptyTitle: '这段时间还没有洞察',
       longInsightEmptyHint: '生成一次，看看这段时间里反复出现的是什么。',
       generateLongInsight: '生成本期洞察',
@@ -126,10 +135,14 @@ window.__ModuleLoader__.load({
       today: 'Today',
       all: 'All',
       localOnly: 'GitHub is only a free relay; screenshots stay on this Mac and image reading is handled by DeepSeek.',
-      dropTitle: 'Drop to capture',
+      dropTitle: 'Drop it here',
       dropHint: 'Read in place — never uploaded to Photos or a cloud drive',
-      emptyTitle: 'Keep your fragments here',
-      emptyHint: 'Drop a screenshot, or capture one from the phone shortcut. AuraCap reads it and turns it into a searchable fragment.',
+      emptyTitle: 'Keep the moments here',
+      emptyHint: 'Drop a screenshot, or capture one from your phone; over time they become a thread you can look back on.',
+      importGuideTitle: 'Three ways to capture',
+      importGuideDesktop: 'Mac: drag a screenshot in, or click Import.',
+      importGuidePhone: 'Photos: share it to the AuraCap shortcut.',
+      importGuideAction: 'In hand: bind it to Back Tap or the Action Button and capture on the spot.',
       emptyTodayTitle: 'Nothing captured today',
       emptyTodayHint: 'Switch to All to see earlier fragments.',
       viewAll: 'View all',
@@ -161,6 +174,11 @@ window.__ModuleLoader__.load({
       timeline: 'Timeline',
       allTime: 'All time',
       backToToday: 'Back to today',
+      rangeStart: 'Select start',
+      rangeEnd: 'Select end',
+      dragHint: 'Drag both ends to choose a range',
+      previousPeriod: 'Previous period',
+      nextPeriod: 'Next period',
       longInsightEmptyTitle: 'No insight for this period yet',
       longInsightEmptyHint: 'Generate one to see what kept recurring in this stretch of time.',
       generateLongInsight: 'Generate period insight',
@@ -242,13 +260,24 @@ window.__ModuleLoader__.load({
 .ac-tab-count { margin-left: 5px; min-width: 15px; height: 15px; padding: 0 5px; border-radius: 999px; background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-secondary); font-size: 10px; display: inline-flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
 .ac-tab[aria-selected="true"] .ac-tab-count { color: var(--dsw-alias-label-primary); }
 .ac-tab-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--dsw-alias-brand-primary); margin-left: 5px; vertical-align: 1px; }
-.ac-timeline { flex: none; padding: 8px 20px 10px; border-bottom: 1px solid var(--dsw-alias-border-l1); display: flex; flex-direction: column; gap: 3px; }
-.ac-timeline-ticks { display: flex; justify-content: space-between; font-size: 10px; color: var(--dsw-alias-label-secondary); opacity: .7; font-variant-numeric: tabular-nums; }
-.ac-timeline input[type="range"] { width: 100%; height: 14px; margin: 0; accent-color: var(--dsw-alias-brand-primary); cursor: pointer; }
-.ac-timeline-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 10.5px; color: var(--dsw-alias-label-secondary); }
-.ac-timeline-reset { border: 0; background: transparent; color: var(--dsw-alias-label-secondary); font-size: 10.5px; cursor: pointer; padding: 0; font-family: inherit; }
-.ac-timeline-reset:hover { color: var(--dsw-alias-label-primary); }
-.ac-periods { display: flex; gap: 6px; margin-bottom: 24px; }
+.ac-flow { flex: none; padding: 10px 22px 12px; border-bottom: 1px solid var(--dsw-alias-border-l1); position: relative; }
+.ac-flow-months { position: relative; height: 16px; }
+.ac-flow-month { position: absolute; transform: translateX(-50%); font-family: 'Songti SC', 'Noto Serif SC', serif; font-size: 10px; letter-spacing: .08em; color: var(--dsw-alias-label-secondary); opacity: .55; white-space: nowrap; }
+.ac-flow-track { position: relative; height: 26px; margin: 1px 0 0; }
+.ac-flow-line { position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: linear-gradient(90deg, transparent, var(--dsw-alias-border-l2) 12%, var(--dsw-alias-border-l2) 88%, transparent); }
+.ac-flow-wash { position: absolute; top: 50%; height: 10px; transform: translateY(-50%); background: color-mix(in srgb, var(--dsw-alias-brand-primary) 9%, transparent); border-radius: 999px; pointer-events: none; }
+.ac-flow-tick { position: absolute; top: 50%; width: 2px; height: 2px; margin-left: -1px; margin-top: -1px; border-radius: 50%; background: var(--dsw-alias-label-secondary); pointer-events: none; }
+.ac-flow-handle { position: absolute; top: 50%; width: 22px; height: 22px; margin-left: -11px; margin-top: -11px; border: 0; background: transparent; padding: 0; cursor: grab; display: grid; place-items: center; touch-action: none; }
+.ac-flow-handle:active { cursor: grabbing; }
+.ac-flow-handle-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--dsw-alias-bg-base); border: 1.5px solid var(--dsw-alias-label-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsw-alias-label-primary) 8%, transparent); transition: transform .12s ease; }
+.ac-flow-handle:hover .ac-flow-handle-dot, .ac-flow-handle:focus-visible .ac-flow-handle-dot { transform: scale(1.15); }
+.ac-flow-handle:focus-visible { outline: none; }
+.ac-flow-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 10.5px; color: var(--dsw-alias-label-secondary); }
+.ac-flow-range { font-family: 'Songti SC', 'Noto Serif SC', serif; letter-spacing: .04em; color: var(--dsw-alias-label-secondary); }
+.ac-flow-reset { border: 0; background: transparent; color: var(--dsw-alias-label-secondary); font-size: 10.5px; cursor: pointer; padding: 0; font-family: inherit; }
+.ac-flow-reset:hover { color: var(--dsw-alias-label-primary); }
+.ac-flow-hint { opacity: .55; }
+.ac-periods {.ac-periods { display: flex; gap: 6px; margin-bottom: 24px; }
 .ac-period { height: 28px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--dsw-alias-border-l1); background: transparent; color: var(--dsw-alias-label-secondary); font-size: 12px; cursor: pointer; font-family: inherit; }
 .ac-period:hover { color: var(--dsw-alias-label-primary); }
 .ac-period[aria-selected="true"] { background: var(--dsw-alias-label-primary); color: var(--dsw-alias-bg-base); border-color: transparent; }
@@ -290,7 +319,8 @@ window.__ModuleLoader__.load({
 .ac-digest-inner { max-width: 860px; margin: 0 auto; }
 .ac-digest-head { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 26px; }
 .ac-digest-date { font-size: 12px; color: var(--dsw-alias-label-secondary); font-variant-numeric: tabular-nums; }
-.ac-digest-actions { margin-left: auto; }
+.ac-digest-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.ac-digest-nav { display: flex; gap: 1px; }
 .ac-digest-h1 { font-size: 24px; line-height: 1.35; font-weight: 600; letter-spacing: -.01em; margin: 0 0 10px; }
 .ac-digest-meta { font-size: 11.5px; color: var(--dsw-alias-label-secondary); margin-bottom: 26px; }
 .ac-digest-empty { padding: 70px 20px; text-align: center; }
@@ -340,6 +370,9 @@ window.__ModuleLoader__.load({
 .ac-empty h2 { font-size: 21px; font-weight: 600; letter-spacing: -.01em; margin: 0 0 8px; }
 .ac-empty p { margin: 0; max-width: 420px; color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 1.75; }
 .ac-empty .ac-primary { margin-top: 22px; height: 34px; padding: 0 17px; font-size: 13px; }
+.ac-import-guide { margin-top: 26px; display: flex; flex-direction: column; gap: 5px; font-size: 11.5px; line-height: 1.7; color: var(--dsw-alias-label-secondary); opacity: .82; }
+.ac-import-guide-title { font-family: 'Songti SC', 'Noto Serif SC', serif; font-size: 11px; letter-spacing: .12em; opacity: .65; margin-bottom: 2px; }
+.ac-import-guide-row { text-align: center; }
 .ac-footnote { margin-top: 18px; font-size: 11px; color: var(--dsw-alias-label-secondary); opacity: .75; }
 .ac-grid-wrap { flex: 1; overflow: auto; padding: 16px 18px 36px; }
 .ac-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
@@ -568,11 +601,26 @@ window.__ModuleLoader__.load({
     }
 
     function EmptyArt() {
-      return h('svg', { viewBox: '0 0 112 112', width: 128, height: 128, fill: 'none', 'aria-hidden': true },
-        h('rect', { x: 20, y: 34, width: 54, height: 54, rx: 13, stroke: 'currentColor', strokeOpacity: .2, strokeWidth: 1.6 }),
-        h('rect', { x: 38, y: 16, width: 54, height: 54, rx: 13, stroke: 'currentColor', strokeOpacity: .55, strokeWidth: 1.6 }),
-        h('circle', { cx: 73, cy: 28, r: 4, fill: 'var(--dsw-alias-brand-primary)' }),
-        h('path', { d: 'M50 42h28M50 52h18', stroke: 'currentColor', strokeOpacity: .4, strokeWidth: 1.6, strokeLinecap: 'round' }))
+      const size = 58
+      const mask = `url(${SIDEBAR_MARK})`
+      return h('span', {
+        'aria-hidden': true,
+        style: {
+          display: 'inline-block',
+          width: size + 'px',
+          height: size + 'px',
+          backgroundColor: 'currentColor',
+          opacity: .62,
+          WebkitMaskImage: mask,
+          WebkitMaskSize: 'contain',
+          WebkitMaskRepeat: 'no-repeat',
+          WebkitMaskPosition: 'center',
+          maskImage: mask,
+          maskSize: 'contain',
+          maskRepeat: 'no-repeat',
+          maskPosition: 'center',
+        },
+      })
     }
 
     function statusText(item, t) {
@@ -781,41 +829,99 @@ window.__ModuleLoader__.load({
           : null)
     }
 
-    function TimelineBar(props) {
+    function TimeFlow(props) {
       const t = props.t
       const today = todayKey()
       const itemDays = (props.items || []).map((item) => dayNumber(localDateKey(item.createdAt))).filter((value) => Number.isFinite(value))
       const todayDay = dayNumber(today)
-      const minDay = Math.min(todayDay - 60, ...(itemDays.length ? itemDays : [todayDay - 60]))
+      const minDay = Math.min(todayDay - 90, ...(itemDays.length ? itemDays : [todayDay - 90]))
       const maxDay = Math.max(todayDay, ...(itemDays.length ? itemDays : [todayDay]))
-      const current = Math.min(Math.max(dayNumber(props.anchor), minDay), maxDay)
-      const step = Math.max(1, Math.round((maxDay - minDay) / 4))
-      const ticks = [0, 1, 2, 3, 4].map((index) => {
-        const value = Math.min(maxDay, minDay + step * index)
-        const date = dateKeyFromDayNumber(value)
-        const [year, month] = date.split('-')
-        return { key: index, label: year + '.' + month }
-      })
-      const range = props.mode === 'browse'
-        ? (props.active ? weekBounds(props.anchor) : null)
-        : periodBounds(props.period, props.anchor)
-      const label = range ? rangeText(range.start, range.end) : t('allTime')
-      return h('div', { className: 'ac-timeline' },
-        h('div', { className: 'ac-timeline-ticks' }, ticks.map((tick) => h('span', { key: tick.key }, tick.label))),
-        h('input', {
-          type: 'range',
-          min: String(minDay),
-          max: String(maxDay),
-          step: '1',
-          value: String(current),
-          'aria-label': t('timeline'),
-          onChange: (event) => props.onChange(dateKeyFromDayNumber(Number(event.target.value))),
-          onPointerUp: (event) => props.onCommit(dateKeyFromDayNumber(Number(event.target.value))),
-          onKeyUp: (event) => props.onCommit(dateKeyFromDayNumber(Number(event.target.value))),
-        }),
-        h('div', { className: 'ac-timeline-foot' },
-          h('span', { className: 'ac-timeline-range' }, label),
-          props.mode === 'browse' && !props.active ? null : h('button', { type: 'button', className: 'ac-timeline-reset', onClick: props.onReset }, props.mode === 'browse' ? t('allTime') : t('backToToday'))))
+      const clampDay = (value) => Math.min(Math.max(value, minDay), maxDay)
+      const active = Boolean(props.start && props.end)
+      const startDay = active ? clampDay(dayNumber(props.start)) : minDay
+      const endDay = active ? clampDay(dayNumber(props.end)) : maxDay
+      const [drag, setDrag] = useState(null)
+      const trackRef = useRef(null)
+      const percent = (day) => ((day - minDay) / Math.max(1, maxDay - minDay)) * 100
+      const dayAt = (clientX) => {
+        const rect = trackRef.current ? trackRef.current.getBoundingClientRect() : null
+        if (!rect || !rect.width) return startDay
+        const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
+        return clampDay(minDay + Math.round(ratio * (maxDay - minDay)))
+      }
+      const emit = (which, day) => {
+        const nextStart = which === 'start' ? Math.min(day, endDay) : startDay
+        const nextEnd = which === 'end' ? Math.max(day, startDay) : endDay
+        props.onChange(dateKeyFromDayNumber(nextStart), dateKeyFromDayNumber(nextEnd))
+      }
+      const onMove = (event) => { if (drag) emit(drag, dayAt(event.clientX)) }
+      const onUp = () => setDrag(null)
+      const onDown = (which) => (event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        try { event.currentTarget.setPointerCapture(event.pointerId) } catch {}
+        setDrag(which)
+        emit(which, dayAt(event.clientX))
+      }
+      const onKey = (which) => (event) => {
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+        event.preventDefault()
+        const delta = event.key === 'ArrowLeft' ? -1 : 1
+        emit(which, clampDay((which === 'start' ? startDay : endDay) + delta))
+      }
+      const density = (props.items || []).reduce((map, item) => {
+        const key = localDateKey(item.createdAt)
+        map[key] = (map[key] || 0) + 1
+        return map
+      }, {})
+      const months = []
+      const cursor = new Date(Math.floor(minDay / 86400000) * 86400000)
+      cursor.setUTCDate(1)
+      while (cursor.getTime() <= maxDay * 86400000) {
+        const key = cursor.getUTCFullYear() + '-' + pad(cursor.getUTCMonth() + 1) + '-01'
+        months.push({ key, day: dayNumber(key), label: cursor.getUTCFullYear() + '.' + pad(cursor.getUTCMonth() + 1) })
+        cursor.setUTCMonth(cursor.getUTCMonth() + 1)
+      }
+      const visibleMonths = months.length <= 7 ? months : months.filter((_, index) => index % Math.ceil(months.length / 7) === 0)
+      const label = active ? rangeText(dateKeyFromDayNumber(startDay), dateKeyFromDayNumber(endDay)) : t('allTime')
+      return h('div', { className: 'ac-flow' },
+        h('div', { className: 'ac-flow-months' }, visibleMonths.map((month) => h('span', { key: month.key, className: 'ac-flow-month', style: { left: percent(month.day) + '%' } }, month.label))),
+        h('div', { className: 'ac-flow-track', ref: trackRef },
+          h('div', { className: 'ac-flow-line' }),
+          h('div', {
+            className: 'ac-flow-wash',
+            style: { left: percent(startDay) + '%', width: Math.max(0, percent(endDay) - percent(startDay)) + '%' },
+          }),
+          Object.entries(density).map(([key, count]) => h('span', {
+            key,
+            className: 'ac-flow-tick',
+            style: { left: percent(dayNumber(key)) + '%', opacity: Math.min(0.75, 0.18 + count * 0.14) },
+          })),
+          h('button', {
+            type: 'button',
+            className: 'ac-flow-handle',
+            style: { left: percent(startDay) + '%' },
+            'aria-label': t('rangeStart'),
+            onPointerDown: onDown('start'),
+            onPointerMove: onMove,
+            onPointerUp: onUp,
+            onPointerCancel: onUp,
+            onKeyDown: onKey('start'),
+          }, h('span', { className: 'ac-flow-handle-dot' })),
+          h('button', {
+            type: 'button',
+            className: 'ac-flow-handle',
+            style: { left: percent(endDay) + '%' },
+            'aria-label': t('rangeEnd'),
+            onPointerDown: onDown('end'),
+            onPointerMove: onMove,
+            onPointerUp: onUp,
+            onPointerCancel: onUp,
+            onKeyDown: onKey('end'),
+          }, h('span', { className: 'ac-flow-handle-dot' }))),
+        h('div', { className: 'ac-flow-foot' },
+          h('span', { className: 'ac-flow-range' }, label),
+          active ? h('button', { type: 'button', className: 'ac-flow-reset', onClick: props.onReset }, t('allTime')) : h('span', { className: 'ac-flow-hint' }, t('dragHint'))))
     }
 
     function DigestView(props) {
@@ -836,6 +942,9 @@ window.__ModuleLoader__.load({
           h('div', { className: 'ac-sec-label', style: { marginBottom: 3 } }, props.periodLabel || t('insightToday')),
           h('div', { className: 'ac-digest-date' }, props.rangeLabel || props.date)),
         h('div', { className: 'ac-digest-actions' },
+          h('div', { className: 'ac-digest-nav' },
+            h('button', { className: 'ac-icon-button', onClick: () => props.onShift(-1), title: t('previousPeriod'), 'aria-label': t('previousPeriod') }, '‹'),
+            h('button', { className: 'ac-icon-button', onClick: () => props.onShift(1), title: t('nextPeriod'), 'aria-label': t('nextPeriod') }, '›')),
           h('button', { className: 'ac-ghost', onClick: props.onGenerate, disabled: props.busy },
             RetryIcon(), props.busy ? t('generating') : (digest ? t('insightRegenerate') : t('generateInsight')))))
       let body
@@ -974,6 +1083,11 @@ window.__ModuleLoader__.load({
           ? h('button', { className: 'ac-primary', onClick: props.onShowAll }, t('viewAll'))
           : h('button', { className: 'ac-primary', onClick: props.onImport, disabled: props.busy },
             PlusIcon(), props.busy ? t('importing') : t('import')),
+        h('div', { className: 'ac-import-guide' },
+          h('div', { className: 'ac-import-guide-title' }, t('importGuideTitle')),
+          h('div', { className: 'ac-import-guide-row' }, t('importGuideDesktop')),
+          h('div', { className: 'ac-import-guide-row' }, t('importGuidePhone')),
+          h('div', { className: 'ac-import-guide-row' }, t('importGuideAction'))),
         h('div', { className: 'ac-footnote' }, t('privacy')))
     }
 
@@ -995,9 +1109,9 @@ window.__ModuleLoader__.load({
       const [digestError, setDigestError] = useState(null)
       const [digestLoaded, setDigestLoaded] = useState(false)
       const [period, setPeriod] = useState('day')
-      const [anchorDate, setAnchorDate] = useState(() => todayKey())
       const [appliedAnchor, setAppliedAnchor] = useState(() => todayKey())
-      const [timelineActive, setTimelineActive] = useState(false)
+      const [rangeStart, setRangeStart] = useState(null)
+      const [rangeEnd, setRangeEnd] = useState(null)
       const [insightStatus, setInsightStatus] = useState({})
       const [seenPeriods, setSeenPeriods] = useState(() => {
         try { return JSON.parse(localStorage.getItem('auracap.periodSeen') || '{}') || {} } catch { return {} }
@@ -1037,17 +1151,17 @@ window.__ModuleLoader__.load({
         return () => clearInterval(timer)
       }, [load])
 
-      const timelineRange = useMemo(() => (timelineActive ? weekBounds(anchorDate) : null), [timelineActive, anchorDate])
+      const rangeFilter = rangeStart && rangeEnd ? { start: rangeStart, end: rangeEnd } : null
       const visible = useMemo(() => {
         const base = scope === 'today' ? items.filter((item) => isToday(item.createdAt)) : items
-        if (scope === 'all' && timelineRange) {
+        if (scope === 'all' && rangeFilter) {
           return base.filter((item) => {
             const key = localDateKey(item.createdAt)
-            return key >= timelineRange.start && key <= timelineRange.end
+            return key >= rangeFilter.start && key <= rangeFilter.end
           })
         }
         return base
-      }, [items, scope, timelineRange])
+      }, [items, scope, rangeFilter])
       const todayCount = useMemo(() => items.filter((item) => isToday(item.createdAt)).length, [items])
       const digestUnread = Boolean(digest && digest.createdAt && digest.createdAt !== digestSeenAt)
       const periodUnread = ['day', 'week', 'month', 'year'].reduce((acc, type) => {
@@ -1357,22 +1471,23 @@ window.__ModuleLoader__.load({
       const openPicker = () => { if (fileRef.current) fileRef.current.click() }
       const hasOlder = scope === 'today' && visible.length === 0 && items.length > 0
 
-      const changePeriod = (next) => {
-        setPeriod(next)
-        setAppliedAnchor(anchorDate)
+      const changePeriod = (next) => setPeriod(next)
+      const changeRange = (start, end) => {
+        setRangeStart(start)
+        setRangeEnd(end)
       }
-      const changeTimeline = (next) => {
-        setAnchorDate(next)
-        if (scope === 'all') setTimelineActive(true)
+      const resetRange = () => {
+        setRangeStart(null)
+        setRangeEnd(null)
       }
-      const commitTimeline = (next) => {
-        if (scope === 'digest') setAppliedAnchor(next)
-      }
-      const resetTimeline = () => {
-        const today = todayKey()
-        setAnchorDate(today)
-        if (scope === 'all') setTimelineActive(false)
-        else setAppliedAnchor(today)
+      const shiftPeriod = (delta) => {
+        const [year, month, day] = appliedAnchor.split('-').map(Number)
+        const date = new Date(year, month - 1, day, 12)
+        if (period === 'day') date.setDate(date.getDate() + delta)
+        else if (period === 'week') date.setDate(date.getDate() + delta * 7)
+        else if (period === 'month') date.setMonth(date.getMonth() + delta)
+        else date.setFullYear(date.getFullYear() + delta)
+        setAppliedAnchor(date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate()))
       }
       const periodLabels = { day: t('periodDay'), week: t('periodWeek'), month: t('periodMonth'), year: t('periodYear') }
       const insightBounds = periodBounds(period, appliedAnchor)
@@ -1409,17 +1524,14 @@ window.__ModuleLoader__.load({
         h('div', { className: 'ac-grow' }),
         h('span', { className: 'ac-hint' }, t('localOnly')))
 
-      const timeline = scope === 'today' ? null : h(TimelineBar, {
+      const timeline = scope === 'all' ? h(TimeFlow, {
         t,
         items,
-        anchor: anchorDate,
-        period,
-        mode: scope === 'digest' ? 'insight' : 'browse',
-        active: scope === 'all' && timelineActive,
-        onChange: changeTimeline,
-        onCommit: commitTimeline,
-        onReset: resetTimeline,
-      })
+        start: rangeStart,
+        end: rangeEnd,
+        onChange: changeRange,
+        onReset: resetRange,
+      }) : null
 
       let content
       if (scope === 'digest') {
@@ -1433,6 +1545,7 @@ window.__ModuleLoader__.load({
           error: digestError,
           onGenerate: generateInsight,
           onPeriodChange: changePeriod,
+          onShift: shiftPeriod,
           unreadPeriods: periodUnread,
         })
       } else if (!visible.length) {
