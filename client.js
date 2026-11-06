@@ -93,6 +93,7 @@ window.__ModuleLoader__.load({
       flowMacArrive: '片刻自动到达',
       flowArrive: '装好后，截一张，它就会落进「今天」',
       githubCode: 'GitHub 验证码',
+      copyCode: '复制',
       importGuideTitle: '三种收法',
       importGuideDesktop: '电脑：拖入文件，或点「导入」。',
       importGuidePhone: '相册：分享给「AuraCap」。',
@@ -297,6 +298,7 @@ window.__ModuleLoader__.load({
       flowMacArrive: 'Moments arrive automatically',
       flowArrive: 'Once installed, a screenshot lands in Today',
       githubCode: 'GitHub code',
+      copyCode: 'Copy',
       importGuideTitle: 'Three ways to capture',
       importGuideDesktop: 'Mac: drag a file in, or click Import.',
       importGuidePhone: 'Photos: share it to the AuraCap shortcut.',
@@ -737,7 +739,10 @@ window.__ModuleLoader__.load({
 .ac-onboard-node div > span { display: block; margin-top: 4px; font-size: 10.5px; line-height: 1.5; color: var(--dsw-alias-label-secondary); }
 .ac-onboarding-aside-note { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--dsw-alias-border-l1); font-size: 9.5px; color: var(--dsw-alias-label-secondary); line-height: 1.6; }
 .ac-onboarding-code-card { display: flex; flex-direction: column; align-items: flex-start; }
-.ac-onboarding-code { margin: 0 0 18px; font-size: 24px; font-weight: 600; letter-spacing: .18em; font-variant-numeric: tabular-nums; }
+.ac-onboarding-code-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 18px; }
+.ac-onboarding-code { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: .18em; font-variant-numeric: tabular-nums; }
+.ac-onboarding-copy-code { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 8px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 7px; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-secondary); font-family: inherit; font-size: 10.5px; cursor: pointer; }
+.ac-onboarding-copy-code:hover { color: var(--dsw-alias-label-primary); border-color: var(--dsw-alias-border-l2); }
 .ac-onboarding-code-card .ac-onboarding-aside-note { width: 100%; margin-top: 18px; }
 .ac-onboarding-error { max-width: 360px; margin-top: 14px; color: #b45445; font-size: 11px; line-height: 1.6; }
 .ac-onboarding-success { max-width: 360px; margin-top: 10px; color: var(--dsw-alias-label-secondary); font-size: 11px; line-height: 1.6; }
@@ -1880,6 +1885,7 @@ window.__ModuleLoader__.load({
     function Onboarding(props) {
       const t = props.t
       const [whyOpen, setWhyOpen] = useState(false)
+      const [codeCopied, setCodeCopied] = useState(false)
       const connected = Boolean(props.github && props.github.connected)
       const waiting = props.device && (props.device.status === 'pending' || props.device.status === 'provisioning')
       const mark = h('div', { className: 'ac-onboarding-mark' }, EmptyArt())
@@ -1928,7 +1934,20 @@ window.__ModuleLoader__.load({
               props.error ? h('div', { className: 'ac-onboarding-error' }, props.error) : null),
             h('div', { className: 'ac-onboarding-aside ac-onboarding-code-card' },
               h('div', { className: 'ac-onboarding-aside-label' }, t('githubCode')),
-              h('div', { className: 'ac-onboarding-code' }, props.device.userCode || ''),
+              h('div', { className: 'ac-onboarding-code-row' },
+                h('div', { className: 'ac-onboarding-code' }, props.device.userCode || ''),
+                h('button', {
+                  className: 'ac-onboarding-copy-code',
+                  type: 'button',
+                  onClick: async () => {
+                    try {
+                      await navigator.clipboard.writeText(props.device.userCode || '')
+                      setCodeCopied(true)
+                      setTimeout(() => setCodeCopied(false), 1500)
+                    } catch {}
+                  },
+                  disabled: !props.device.userCode,
+                }, CopyIcon(), codeCopied ? t('copied') : t('copyCode'))),
               h('div', { className: 'ac-onboarding-aside-note' }, props.device.status === 'provisioning' ? t('provisioningGithub') : t('githubWaiting')))))
       }
 
