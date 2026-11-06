@@ -54,6 +54,7 @@ window.__ModuleLoader__.load({
       insightUpdated: '生成于',
       insightEmptyTitle: '今天还没有洞察',
       insightEmptyHint: '把今天的碎片放在一起，AuraCap 会从中找主题、未完成信号和值得跟进的事。',
+      viewOriginal: '查看原图',
     }
 
     const EN = {
@@ -102,6 +103,7 @@ window.__ModuleLoader__.load({
       insightUpdated: 'Generated',
       insightEmptyTitle: 'No insight yet',
       insightEmptyHint: 'Bring today’s fragments together and AuraCap will look for themes, loose ends, and things worth following up.',
+      viewOriginal: 'View original',
     }
 
     const CSS = `
@@ -128,25 +130,23 @@ window.__ModuleLoader__.load({
 .ac-tab[aria-selected="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1.5px; background: var(--dsw-alias-label-primary); }
 .ac-hint { font-size: 11px; color: var(--dsw-alias-label-secondary); opacity: .8; }
 .ac-body { flex: 1; display: flex; min-height: 0; }
-.ac-list { width: 360px; flex: none; border-right: 1px solid var(--dsw-alias-border-l1); overflow: auto; padding: 10px; }
-.ac-row { display: flex; gap: 12px; padding: 10px; border-radius: 10px; border: 1px solid transparent; cursor: pointer; transition: background .12s ease, border-color .12s ease; }
+.ac-list { width: 236px; flex: none; border-right: 1px solid var(--dsw-alias-border-l1); overflow: auto; padding: 8px; }
+.ac-row { display: flex; gap: 10px; padding: 6px 8px; border-radius: 8px; align-items: center; border: 1px solid transparent; cursor: pointer; transition: background .12s ease, border-color .12s ease; }
 .ac-row:hover { background: var(--dsw-alias-bg-layer-1); }
 .ac-row[data-active="true"] { background: var(--dsw-alias-bg-layer-1); border-color: var(--dsw-alias-border-l1); }
-.ac-thumb { width: 52px; height: 66px; flex: none; border-radius: 6px; object-fit: cover; object-position: top center; background: var(--dsw-alias-bg-layer-2); border: 1px solid var(--dsw-alias-border-l1); }
-.ac-row-main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.ac-thumb { width: 40px; height: 52px; flex: none; border-radius: 5px; object-fit: cover; object-position: top center; background: var(--dsw-alias-bg-layer-2); border: 1px solid var(--dsw-alias-border-l1); }
+.ac-row-main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
 .ac-row-title { font-size: 12.5px; font-weight: 500; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .ac-row-desc { font-size: 11.5px; color: var(--dsw-alias-label-secondary); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.ac-row-meta { display: flex; align-items: center; gap: 8px; font-size: 10.5px; color: var(--dsw-alias-label-secondary); margin-top: auto; padding-top: 2px; }
+.ac-row-meta { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--dsw-alias-label-secondary); margin-top: auto; padding-top: 2px; }
 .ac-status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--dsw-alias-label-secondary); }
 .ac-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dsw-alias-state-idle-primary); display: inline-block; flex: none; }
 .ac-dot[data-state="summarizing"] { background: var(--dsw-alias-brand-primary); animation: ac-pulse 1.4s ease-in-out infinite; }
 .ac-dot[data-state="ready"] { background: var(--dsw-alias-state-success-primary); }
 .ac-dot[data-state="failed"] { background: var(--dsw-alias-state-error-primary); }
 @keyframes ac-pulse { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
-.ac-detail { flex: 1; min-width: 0; overflow: auto; padding: 26px 30px 44px; }
-.ac-detail-grid { display: grid; grid-template-columns: minmax(260px, 360px) minmax(0, 1fr); gap: 36px; align-items: start; max-width: 1180px; margin: 0 auto; }
-.ac-figure { position: sticky; top: 0; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); border-radius: 12px; padding: 8px; box-shadow: 0 12px 32px color-mix(in srgb, var(--dsw-alias-label-primary) 7%, transparent); display: flex; justify-content: center; max-height: calc(100vh - 200px); overflow: hidden; cursor: zoom-in; }
-.ac-figure img { width: 100%; height: auto; max-height: calc(100vh - 210px); object-fit: contain; border-radius: 8px; display: block; }
+.ac-detail { flex: 1; min-width: 0; overflow: auto; padding: 32px 42px 64px; }
+.ac-detail-inner { max-width: 860px; margin: 0 auto; }
 .ac-h1 { font-size: 21px; line-height: 1.35; font-weight: 600; letter-spacing: -.01em; margin: 0 0 10px; }
 .ac-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 11.5px; color: var(--dsw-alias-label-secondary); margin-bottom: 18px; }
 .ac-section { margin-top: 22px; }
@@ -162,7 +162,7 @@ window.__ModuleLoader__.load({
 .ac-bullet { display: flex; gap: 10px; font-size: 13px; line-height: 1.65; }
 .ac-bullet-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--dsw-alias-label-secondary); flex: none; margin-top: 9px; }
 .ac-digest { flex: 1; overflow: auto; padding: 30px 28px 60px; }
-.ac-digest-inner { max-width: 780px; margin: 0 auto; }
+.ac-digest-inner { max-width: 860px; margin: 0 auto; }
 .ac-digest-head { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 26px; }
 .ac-digest-date { font-size: 12px; color: var(--dsw-alias-label-secondary); font-variant-numeric: tabular-nums; }
 .ac-digest-actions { margin-left: auto; }
@@ -202,8 +202,6 @@ window.__ModuleLoader__.load({
 .ac-modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 40px; background: color-mix(in srgb, var(--dsw-alias-bg-base) 55%, transparent); backdrop-filter: blur(10px); }
 .ac-modal-card { width: min(980px, 100%); max-height: 86vh; overflow: auto; background: var(--dsw-alias-bg-base); border: 1px solid var(--dsw-alias-border-l1); border-radius: 16px; box-shadow: 0 30px 80px color-mix(in srgb, var(--dsw-alias-label-primary) 18%, transparent); position: relative; }
 .ac-modal-card .ac-detail { padding: 26px; }
-.ac-modal-card .ac-figure { position: static; max-height: none; }
-.ac-modal-card .ac-figure img { max-height: 52vh; }
 .ac-modal-close { position: absolute; top: 12px; right: 12px; z-index: 2; width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-secondary); display: grid; place-items: center; cursor: pointer; }
 .ac-modal-close:hover { color: var(--dsw-alias-label-primary); }
 .ac-lightbox { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 32px; background: color-mix(in srgb, var(--dsw-alias-bg-base) 35%, transparent); backdrop-filter: blur(14px); cursor: zoom-out; }
@@ -214,10 +212,8 @@ window.__ModuleLoader__.load({
 .ac-drop-hint { font-size: 12px; color: var(--dsw-alias-label-secondary); margin-top: 6px; }
 .ac-drop-icon { width: 40px; height: 40px; border-radius: 12px; background: color-mix(in srgb, var(--dsw-alias-brand-primary) 14%, transparent); color: var(--dsw-alias-brand-primary); display: grid; place-items: center; margin: 0 auto; }
 @media (max-width: 900px) {
-  .ac-detail-grid { grid-template-columns: 1fr; }
-  .ac-figure { position: static; max-height: none; }
-  .ac-figure img { max-height: 46vh; }
-  .ac-list { width: 290px; }
+  .ac-list { width: 208px; }
+  .ac-detail { padding: 26px 24px 56px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ac-root *, .ac-root *::before, .ac-root *::after { animation: none !important; transition: none !important; }
@@ -335,6 +331,13 @@ window.__ModuleLoader__.load({
         h('path', { d: 'M13 2.8v3.4H9.6' }))
     }
 
+    function ImageIcon() {
+      return h('svg', { viewBox: '0 0 16 16', width: 13, height: 13, fill: 'none', stroke: 'currentColor', strokeWidth: 1.3, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+        h('rect', { x: 2, y: 3, width: 12, height: 10, rx: 2 }),
+        h('circle', { cx: 6, cy: 7, r: 1.1 }),
+        h('path', { d: 'M2.5 11.4l3.3-2.8 2.9 2.4 1.9-1.4 2.9 2.2' }))
+    }
+
     function TrashIcon() {
       return h('svg', { viewBox: '0 0 16 16', width: 13, height: 13, fill: 'none', stroke: 'currentColor', strokeWidth: 1.3, strokeLinecap: 'round', 'aria-hidden': true },
         h('path', { d: 'M2.8 4.3h10.4M6.4 4.3V3a1 1 0 0 1 1-1h1.2a1 1 0 0 1 1 1v1.3M4.2 4.3l.6 8.1a1 1 0 0 0 1 .9h4.4a1 1 0 0 0 1-.9l.6-8.1' }))
@@ -429,12 +432,8 @@ window.__ModuleLoader__.load({
         h('img', { className: 'ac-thumb', src: API + '/media/' + encodeURIComponent(item.id), alt: '', loading: 'lazy', draggable: false }),
         h('div', { className: 'ac-row-main' },
           h('div', { className: 'ac-row-title' }, summary && summary.title ? summary.title : t('untitled')),
-          h('div', { className: 'ac-row-desc' },
-            item.status === 'ready' ? (previewOf(item) || t('noSummary'))
-              : item.status === 'failed' ? (item.error || t('failed'))
-                : t('summarizing')),
           h('div', { className: 'ac-row-meta' },
-            h('span', { className: 'ac-status' }, h('i', { className: 'ac-dot', 'data-state': item.status }), statusText(item, t)),
+            h('span', { className: 'ac-status' }, h('i', { className: 'ac-dot', 'data-state': item.status })),
             h('span', null, timeText(item.createdAt)),
             summary && summary.tags && summary.tags.length ? h('span', null, '#' + summary.tags[0]) : null)))
     }
@@ -519,6 +518,7 @@ window.__ModuleLoader__.load({
         }
       }
       body.push(h('div', { className: 'ac-actions', key: 'actions' },
+        h('button', { className: 'ac-ghost', onClick: () => props.onOpenImage(item) }, ImageIcon(), t('viewOriginal')),
         h('button', { className: 'ac-ghost', onClick: copy, disabled: !copyText }, CopyIcon(), copied ? t('copied') : t('copy')),
         h('button', { className: 'ac-ghost', onClick: () => props.onRetry(item) }, RetryIcon(), t('retry')),
         h('button', {
@@ -527,13 +527,10 @@ window.__ModuleLoader__.load({
           onClick: () => { if (confirm) { props.onDelete(item); setConfirm(false) } else setConfirm(true) },
         }, TrashIcon(), confirm ? t('confirmDelete') : t('delete'))))
       return h('article', { className: 'ac-detail' },
-        h('div', { className: 'ac-detail-grid' },
-          h('figure', { className: 'ac-figure', onClick: () => props.onOpenImage(item) },
-            h('img', { src: API + '/media/' + encodeURIComponent(item.id), alt: summary && summary.title ? summary.title : '', draggable: false })),
-          h('div', { className: 'ac-detail-main' },
-            h('h1', { className: 'ac-h1' }, summary && summary.title ? summary.title : t('untitled')),
-            h('div', { className: 'ac-meta' }, meta),
-            body)))
+        h('div', { className: 'ac-detail-inner' },
+          h('h1', { className: 'ac-h1' }, summary && summary.title ? summary.title : t('untitled')),
+          h('div', { className: 'ac-meta' }, meta),
+          body))
     }
 
     function Card(props) {
