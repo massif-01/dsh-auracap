@@ -1519,9 +1519,10 @@ function loadMemoryProfile() {
 }
 
 const usageFile = () => join(memoryDir(), 'usage.json')
+const USD_TO_CNY = 7.2
 const MODEL_PRICING = {
-  'deepseek-flash': { input: 0.3, output: 1.2, cacheRead: 0.006, cacheWrite: 0, currency: 'USD' },
-  'deepseek-v4-pro': { input: 1.32, output: 3.96, cacheRead: 0.044, cacheWrite: 0, currency: 'USD' },
+  'deepseek-flash': { input: 0.3, output: 1.2, cacheRead: 0.006, cacheWrite: 0, currency: 'CNY' },
+  'deepseek-v4-pro': { input: 1.32, output: 3.96, cacheRead: 0.044, cacheWrite: 0, currency: 'CNY' },
 }
 
 function loadUsage() {
@@ -1574,10 +1575,10 @@ function costOfModels(models) {
   for (const [model, parts] of Object.entries(models || {})) {
     const price = MODEL_PRICING[model]
     if (!price) continue
-    cost += (Number(parts.input) || 0) / 1_000_000 * price.input
-    cost += (Number(parts.output) || 0) / 1_000_000 * price.output
-    cost += (Number(parts.cacheRead) || 0) / 1_000_000 * price.cacheRead
-    cost += (Number(parts.cacheWrite) || 0) / 1_000_000 * price.cacheWrite
+    cost += (Number(parts.input) || 0) / 1_000_000 * price.input * USD_TO_CNY
+    cost += (Number(parts.output) || 0) / 1_000_000 * price.output * USD_TO_CNY
+    cost += (Number(parts.cacheRead) || 0) / 1_000_000 * price.cacheRead * USD_TO_CNY
+    cost += (Number(parts.cacheWrite) || 0) / 1_000_000 * price.cacheWrite * USD_TO_CNY
   }
   return cost
 }
@@ -1609,7 +1610,7 @@ function usageSummary() {
   const days = data.days || {}
   const today = todayKey()
   const weekStart = addDays(today, -6)
-  const result = { today: 0, week: 0, total: 0, calls: 0, models: {}, kinds: {}, cost: { currency: 'USD', today: 0, week: 0, total: 0 } }
+  const result = { today: 0, week: 0, total: 0, calls: 0, models: {}, kinds: {}, cost: { currency: 'CNY', today: 0, week: 0, total: 0 } }
   const allModels = {}
   const weekModels = {}
   const todayModels = {}

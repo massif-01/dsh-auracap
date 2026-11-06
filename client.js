@@ -780,9 +780,9 @@ window.__ModuleLoader__.load({
 
     function formatCost(value) {
       const number = Number(value) || 0
-      if (!number) return '$0.00'
-      if (number < 0.01) return '< $0.01'
-      return '$' + number.toFixed(number < 1 ? 3 : 2)
+      if (!number) return '¥0.00'
+      if (number < 0.01) return '< ¥0.01'
+      return '¥' + number.toFixed(number < 1 ? 3 : 2)
     }
 
     function usageKindLabel(kind, t) {
