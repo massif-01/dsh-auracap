@@ -345,7 +345,7 @@ window.__ModuleLoader__.load({
 .ac-header { flex: none; display: flex; align-items: center; gap: 10px; height: 58px; padding: 0 18px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
 .ac-mark { width: 28px; height: 28px; border-radius: 9px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); display: grid; place-items: center; color: var(--dsw-alias-brand-primary); flex: none; }
 .ac-titles { display: flex; flex-direction: column; line-height: 1.15; }
-.ac-title-line { display: flex; align-items: center; gap: 5px; }
+.ac-title-line { display: flex; align-items: center; gap: 8px; }
 .ac-github { display: inline-flex; align-items: center; justify-content: center; color: var(--dsw-alias-label-secondary); opacity: .42; text-decoration: none; transition: opacity .15s ease, color .15s ease; }
 .ac-github:hover, .ac-github:focus-visible { opacity: 1; color: var(--dsw-alias-label-primary); }
 .ac-name { font-size: 13.5px; font-weight: 600; letter-spacing: .01em; }
