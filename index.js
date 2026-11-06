@@ -493,8 +493,8 @@ async function generateShortcutFile(ctx, github) {
     .split('__AURACAP_TOKEN__').join(token)
   mkdirSync(dataDir(), { recursive: true })
   const id = randomUUID()
-  const tmp = join(dataDir(), `shortcut-${id}.plist`)
-  const out = join(dataDir(), `shortcut-${id}.shortcut`)
+  const tmp = join(dataDir(), `shortcut-${id}-input.shortcut`)
+  const out = join(dataDir(), `shortcut-${id}-signed.shortcut`)
   try {
     writeFileSync(tmp, filled)
     execFileSync('/usr/bin/shortcuts', ['sign', '--mode', 'anyone', '--input', tmp, '--output', out], { timeout: 30_000, stdio: 'pipe' })
