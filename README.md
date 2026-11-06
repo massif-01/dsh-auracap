@@ -1,7 +1,15 @@
-# AuraCap · 拾穗
+<p align="center">
+  <img src="assets/icon-mark.png" width="84" alt="AuraCap · 拾穗">
+</p>
+
+<h1 align="center">AuraCap · 拾穗</h1>
+
+<p align="center">
+  <em>把散落的片刻轻轻拾起，让它们在回头时连成脉络。</em>
+</p>
 
 > 一个长在 DeepSeek Harness 里的个人记忆插件。  
-> 把手机截图、相册照片和电脑里的文件收进同一个地方，让模型读图、整理，再把散落的片刻慢慢连成脉络。
+> 手机截图、相册照片、电脑文件，收进同一个地方。
 
 AuraCap 不是另一个笔记软件，也不是知识图谱。  
 它只做三件事：**收进来、读明白、在需要的时候想起来。**
