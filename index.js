@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { randomUUID } from 'node:crypto'
@@ -285,7 +285,10 @@ export function apply(ctx) {
   const remove = (req, res, id) => {
     const index = items.findIndex((entry) => entry.id === id)
     if (index < 0) return sendError(res, 404, 'not found')
-    items.splice(index, 1)
+    const [removed] = items.splice(index, 1)
+    if (removed && removed.imageFile) {
+      try { unlinkSync(join(dataDir(), removed.imageFile)) } catch {}
+    }
     saveItems(items)
     sendJson(res, 200, { ok: true })
   }

@@ -210,6 +210,20 @@ window.__ModuleLoader__.load({
       }
     }
 
+    function mediaTypeOf(file) {
+      if (file && typeof file.type === 'string' && file.type.indexOf('image/') === 0) return file.type
+      const name = ((file && file.name) || '').toLowerCase()
+      if (name.endsWith('.png')) return 'image/png'
+      if (name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'image/jpeg'
+      if (name.endsWith('.webp')) return 'image/webp'
+      if (name.endsWith('.gif')) return 'image/gif'
+      return ''
+    }
+
+    function isImageFile(file) {
+      return Boolean(mediaTypeOf(file))
+    }
+
     async function request(path, options) {
       const response = await fetch(path, Object.assign({ cache: 'no-store' }, options || {}))
       let payload = null
@@ -492,7 +506,7 @@ window.__ModuleLoader__.load({
       }
 
       const importFiles = useCallback(async (fileList) => {
-        const files = Array.from(fileList || []).filter((file) => file && typeof file.type === 'string' && file.type.indexOf('image/') === 0)
+        const files = Array.from(fileList || []).filter((file) => file && isImageFile(file))
         if (!files.length) { setError(t('onlyImages')); return }
         setBusy(true)
         setError(null)
@@ -501,7 +515,7 @@ window.__ModuleLoader__.load({
             const payload = await request(API + '/ingest', {
               method: 'POST',
               headers: {
-                'content-type': file.type,
+                'content-type': mediaTypeOf(file),
                 'x-auracap-name': encodeURIComponent(file.name || 'screenshot'),
               },
               body: file,
@@ -580,7 +594,7 @@ window.__ModuleLoader__.load({
           multiple: true,
           style: { display: 'none' },
           onChange: (event) => {
-            const files = event.target.files
+            const files = Array.from(event.target.files || [])
             event.target.value = ''
             importFiles(files)
           },
