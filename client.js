@@ -2112,6 +2112,7 @@ window.__ModuleLoader__.load({
         setRangeStart(null)
         setRangeEnd(null)
         setSelectedId(null)
+        setModalId(null)
       }
       const openItemById = (id) => {
         setEntityId(null)
@@ -2122,6 +2123,7 @@ window.__ModuleLoader__.load({
         if (view === 'grid') setModalId(id)
       }
       const openEntity = async (id) => {
+        setModalId(null)
         setEntityId(id)
         setEntityDetail(null)
         setEntityBusy(true)
