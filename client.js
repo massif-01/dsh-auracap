@@ -2209,9 +2209,13 @@ window.__ModuleLoader__.load({
       }
       const openItemById = (id) => {
         setEntityId(null)
-        setScope('all')
-        setRangeStart(null)
-        setRangeEnd(null)
+        const keepScope = scope !== 'digest' && visible.some((item) => item.id === id)
+        if (!keepScope) {
+          setScope('all')
+          setRangeStart(null)
+          setRangeEnd(null)
+          setTagFilter(null)
+        }
         setSelectedId(id)
         if (view === 'grid') setModalId(id)
       }
