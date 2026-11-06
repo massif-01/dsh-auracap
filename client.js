@@ -54,6 +54,8 @@ window.__ModuleLoader__.load({
       emptyTitle: '把片刻留在这里',
       emptyHint: '拖一张截图进来，或用手机随手截下；它们会在这里慢慢连成脉络。',
       onboardingTitle: '先让手机认得这里',
+      brandName: 'AuraCap',
+      brandZh: '拾穗',
       onboardingTagline1: '把散落的片刻轻轻拾起，',
       onboardingTagline2: '让它们在回头时连成脉络。',
       onboardingBody: '先让手机认得这里。之后截下的画面、分享来的照片，都会自己回来。',
@@ -256,6 +258,8 @@ window.__ModuleLoader__.load({
       emptyTitle: 'Keep the moments here',
       emptyHint: 'Drop a screenshot, or capture one from your phone; over time they become a thread you can look back on.',
       onboardingTitle: 'Let this place know your phone',
+      brandName: 'AuraCap',
+      brandZh: 'Gleanings',
       onboardingTagline1: 'Gather the scattered moments,',
       onboardingTagline2: 'so they form a thread when you look back.',
       onboardingBody: 'Let this place know your phone. Screenshots and shared photos will find their way back here.',
@@ -708,6 +712,9 @@ window.__ModuleLoader__.load({
 .ac-onboarding { padding: 38px 56px 56px; }
 .ac-onboarding-frame { width: min(920px, 100%); display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 62px; align-items: center; }
 .ac-onboarding-copy { min-width: 0; text-align: left; }
+.ac-onboarding-brand { display: flex; align-items: baseline; gap: 9px; margin-bottom: 18px; }
+.ac-onboarding-brand-name { font-size: 20px; font-weight: 600; letter-spacing: -.025em; line-height: 1; }
+.ac-onboarding-brand-zh { font-family: 'Songti SC', 'Noto Serif SC', serif; font-size: 11px; letter-spacing: .16em; color: var(--dsw-alias-label-secondary); opacity: .7; }
 .ac-onboarding-kicker { font-size: 9.5px; letter-spacing: .18em; color: var(--dsw-alias-label-secondary); opacity: .62; margin-bottom: 15px; text-transform: uppercase; }
 .ac-onboarding-title { font-size: 31px; line-height: 1.2; letter-spacing: -.025em; margin: 0 0 12px; }
 .ac-onboarding-tagline { font-family: 'Songti SC', 'Noto Serif SC', serif; font-size: 28px; line-height: 1.55; letter-spacing: .01em; font-weight: 600; }
@@ -1870,6 +1877,7 @@ window.__ModuleLoader__.load({
       const connected = Boolean(props.github && props.github.connected)
       const waiting = props.device && (props.device.status === 'pending' || props.device.status === 'provisioning')
       const mark = h('div', { className: 'ac-onboarding-mark' }, EmptyArt())
+      const brand = h('div', { className: 'ac-onboarding-brand' }, h('span', { className: 'ac-onboarding-brand-name' }, t('brandName')), h('span', { className: 'ac-onboarding-brand-zh' }, t('brandZh')))
 
       const why = h('div', { className: 'ac-onboarding-why' },
         h('button', { className: 'ac-onboarding-why-toggle', type: 'button', onClick: () => setWhyOpen(!whyOpen) },
@@ -1900,6 +1908,7 @@ window.__ModuleLoader__.load({
         return h('div', { className: 'ac-onboarding' },
           h('div', { className: 'ac-onboarding-frame' },
             h('div', { className: 'ac-onboarding-copy' },
+              brand,
               h('div', { className: 'ac-onboarding-kicker' }, t('onboardingKickerConnect')),
               h('h1', { className: 'ac-onboarding-title' }, t('deviceTitle')),
               h('p', { className: 'ac-onboarding-body' }, t('deviceBody')),
@@ -1921,7 +1930,7 @@ window.__ModuleLoader__.load({
         return h('div', { className: 'ac-onboarding' },
           h('div', { className: 'ac-onboarding-frame' },
             h('div', { className: 'ac-onboarding-copy' },
-              h('div', { className: 'ac-onboarding-kicker' }, t('onboardingKickerFirst')),
+              brand,
               h('h1', { className: 'ac-onboarding-title ac-onboarding-tagline' },
                 h('span', null, t('onboardingTagline1')),
                 h('span', null, t('onboardingTagline2'))),
@@ -1937,6 +1946,7 @@ window.__ModuleLoader__.load({
       return h('div', { className: 'ac-onboarding' },
         h('div', { className: 'ac-onboarding-frame' },
           h('div', { className: 'ac-onboarding-copy' },
+            brand,
             h('div', { className: 'ac-onboarding-kicker' }, t('onboardingKickerConnected')),
             h('h1', { className: 'ac-onboarding-title' }, t('connectedTitle')),
             h('p', { className: 'ac-onboarding-body' }, t('connectedBody')),
