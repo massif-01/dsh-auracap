@@ -54,7 +54,9 @@ window.__ModuleLoader__.load({
       emptyTitle: '把片刻留在这里',
       emptyHint: '拖一张截图进来，或用手机随手截下；它们会在这里慢慢连成脉络。',
       onboardingTitle: '先让手机认得这里',
-      onboardingBody: '往后截下的画面、分享来的照片，都会自己回来。',
+      onboardingTagline1: '把散落的片刻轻轻拾起，',
+      onboardingTagline2: '让它们在回头时连成脉络。',
+      onboardingBody: '先让手机认得这里。之后截下的画面、分享来的照片，都会自己回来。',
       connectPhone: '连接手机',
       connecting: '连接中…',
       localOnlyAction: '先在电脑上试试',
@@ -254,7 +256,9 @@ window.__ModuleLoader__.load({
       emptyTitle: 'Keep the moments here',
       emptyHint: 'Drop a screenshot, or capture one from your phone; over time they become a thread you can look back on.',
       onboardingTitle: 'Let this place know your phone',
-      onboardingBody: 'Screenshots and shared photos will find their way back here.',
+      onboardingTagline1: 'Gather the scattered moments,',
+      onboardingTagline2: 'so they form a thread when you look back.',
+      onboardingBody: 'Let this place know your phone. Screenshots and shared photos will find their way back here.',
       connectPhone: 'Connect phone',
       connecting: 'Connecting…',
       localOnlyAction: 'Try it on this Mac first',
@@ -706,6 +710,9 @@ window.__ModuleLoader__.load({
 .ac-onboarding-copy { min-width: 0; text-align: left; }
 .ac-onboarding-kicker { font-size: 9.5px; letter-spacing: .18em; color: var(--dsw-alias-label-secondary); opacity: .62; margin-bottom: 15px; text-transform: uppercase; }
 .ac-onboarding-title { font-size: 31px; line-height: 1.2; letter-spacing: -.025em; margin: 0 0 12px; }
+.ac-onboarding-tagline { font-family: 'Songti SC', 'Noto Serif SC', serif; font-size: 28px; line-height: 1.55; letter-spacing: .01em; font-weight: 600; }
+.ac-onboarding-tagline span { display: block; }
+.ac-onboarding-tagline + .ac-onboarding-body { margin-top: 12px; }
 .ac-onboarding-body { max-width: 350px; font-size: 13px; line-height: 1.9; }
 .ac-onboarding-actions { display: flex; flex-direction: row; align-items: center; gap: 18px; margin-top: 26px; }
 .ac-onboarding-primary { min-width: 0; height: 38px; padding: 0 20px; border-radius: 10px; border-color: var(--dsw-alias-brand-primary); background: var(--dsw-alias-brand-primary); color: var(--dsw-alias-bg-base); font-size: 12.5px; }
@@ -1915,7 +1922,9 @@ window.__ModuleLoader__.load({
           h('div', { className: 'ac-onboarding-frame' },
             h('div', { className: 'ac-onboarding-copy' },
               h('div', { className: 'ac-onboarding-kicker' }, t('onboardingKickerFirst')),
-              h('h1', { className: 'ac-onboarding-title' }, t('onboardingTitle')),
+              h('h1', { className: 'ac-onboarding-title ac-onboarding-tagline' },
+                h('span', null, t('onboardingTagline1')),
+                h('span', null, t('onboardingTagline2'))),
               h('p', { className: 'ac-onboarding-body' }, t('onboardingBody')),
               h('div', { className: 'ac-onboarding-actions' },
                 h('button', { className: 'ac-primary ac-onboarding-primary', type: 'button', onClick: () => props.onConnect(), disabled: props.githubBusy }, props.githubBusy ? t('connecting') : t('connectPhone')),
