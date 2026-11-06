@@ -597,57 +597,111 @@ function makeExcerpt(markdown) {
     .slice(0, 240)
 }
 
-function parseSummary(text) {
+function balancedJsonObjects(text) {
+  const objects = []
+  let depth = 0
+  let start = -1
+  let inString = false
+  let escaped = false
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index]
+    if (inString) {
+      if (escaped) escaped = false
+      else if (char === '\\') escaped = true
+      else if (char === '"') inString = false
+      continue
+    }
+    if (char === '"') { inString = true; continue }
+    if (char === '{') {
+      if (depth === 0) start = index
+      depth += 1
+    } else if (char === '}') {
+      if (depth > 0) {
+        depth -= 1
+        if (depth === 0 && start >= 0) {
+          objects.push(text.slice(start, index + 1))
+          start = -1
+        }
+      }
+    }
+  }
+  return objects
+}
+
+function regexField(text, key) {
+  const pattern = new RegExp('"' + key + '"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"')
+  const match = text.match(pattern)
+  if (!match) return ''
+  try { return JSON.parse('"' + match[1] + '"') } catch { return match[1] }
+}
+
+function regexTags(text) {
+  const match = text.match(/"tags"\s*:\s*\[([^\]]*)\]/)
+  if (!match) return []
+  const tags = []
+  for (const item of match[1].matchAll(/"((?:\\.|[^"\\])*)"/g)) {
+    try { tags.push(JSON.parse('"' + item[1] + '"')) } catch { tags.push(item[1]) }
+  }
+  return tags.filter((tag) => typeof tag === 'string' && tag).slice(0, 4)
+}
+
+export function parseSummary(text) {
   const cleaned = String(text || '')
     .replace(/^\s*```(?:json)?/i, '')
     .replace(/```\s*$/, '')
     .trim()
-  const start = cleaned.indexOf('{')
-  const end = cleaned.lastIndexOf('}')
-  if (start >= 0 && end > start) {
-    try {
-      const parsed = JSON.parse(cleaned.slice(start, end + 1))
-      const content = typeof parsed.content === 'string' ? parsed.content.trim() : ''
-      const tags = asStringArray(parsed.tags, 4)
-      const contentType = typeof parsed.contentType === 'string' ? parsed.contentType : 'other'
-      const language = typeof parsed.language === 'string' ? parsed.language : 'zh'
-      if (content) {
-        const normalized = ensureCoreSection(content)
-        return {
-          title: typeof parsed.title === 'string' && parsed.title.trim() ? parsed.title.trim() : makeExcerpt(normalized).slice(0, 24),
-          content: normalized,
-          excerpt: makeExcerpt(normalized),
-          tags,
-          contentType,
-          language,
-        }
-      }
-      const title = typeof parsed.title === 'string' ? parsed.title.trim() : ''
-      const summary = typeof parsed.summary === 'string' ? parsed.summary.trim() : ''
-      if (title || summary) {
-        if (/^\s*#{1,6}\s/m.test(summary)) {
-          return { title: title || makeExcerpt(summary).slice(0, 24), content: summary, excerpt: makeExcerpt(summary), tags, contentType, language }
-        }
-        return {
-          title: title || summary.split(/[。.!?\n]/)[0].slice(0, 24),
-          summary: summary || title,
-          keyPoints: asStringArray(parsed.keyPoints, 8),
-          todos: asStringArray(parsed.todos, 8),
-          tags,
-          contentType,
-          language,
-        }
-      }
-    } catch {
-      // fall through to plain text
+
+  const merged = {}
+  for (const raw of balancedJsonObjects(cleaned)) {
+    try { Object.assign(merged, JSON.parse(raw)) } catch {}
+  }
+
+  let content = typeof merged.content === 'string' ? merged.content.trim() : ''
+  let title = typeof merged.title === 'string' ? merged.title.trim() : ''
+  let tags = asStringArray(merged.tags, 4)
+  let contentType = typeof merged.contentType === 'string' ? merged.contentType : 'other'
+  let language = typeof merged.language === 'string' ? merged.language : 'zh'
+
+  if (!content) {
+    content = regexField(cleaned, 'content').trim()
+    title = title || regexField(cleaned, 'title').trim()
+    tags = tags.length ? tags : regexTags(cleaned)
+  }
+
+  if (content) {
+    const normalized = ensureCoreSection(content)
+    return {
+      title: title || makeExcerpt(normalized).slice(0, 24),
+      content: normalized,
+      excerpt: makeExcerpt(normalized),
+      tags,
+      contentType,
+      language,
     }
   }
+
+  const summary = typeof merged.summary === 'string' ? merged.summary.trim() : ''
+  if (summary) {
+    if (/^\s*#{1,6}\s/m.test(summary)) {
+      return { title: title || makeExcerpt(summary).slice(0, 24), content: ensureCoreSection(summary), excerpt: makeExcerpt(summary), tags, contentType, language }
+    }
+    return {
+      title: title || summary.split(/[。.!?\n]/)[0].slice(0, 24),
+      summary,
+      keyPoints: asStringArray(merged.keyPoints, 8),
+      todos: asStringArray(merged.todos, 8),
+      tags,
+      contentType,
+      language,
+    }
+  }
+
   const lines = cleaned.split('\n').map((line) => line.trim()).filter(Boolean)
-  const content = ensureCoreSection(cleaned || lines[0] || '未命名碎片')
+  const fallbackContent = ensureCoreSection(cleaned || lines[0] || '未命名碎片')
   return {
     title: (lines[0] || '未命名碎片').replace(/^#+\s*/, '').slice(0, 24),
-    content,
-    excerpt: makeExcerpt(content),
+    content: fallbackContent,
+    excerpt: makeExcerpt(fallbackContent),
     tags: [],
     contentType: 'other',
     language: 'zh',
