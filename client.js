@@ -55,6 +55,27 @@ window.__ModuleLoader__.load({
       insightEmptyTitle: '今天还没有洞察',
       insightEmptyHint: '把今天的碎片放在一起，AuraCap 会从中找主题、未完成信号和值得跟进的事。',
       viewOriginal: '查看原图',
+      settings: '设置',
+      githubQueue: 'GitHub 队列',
+      githubHint: '连接后自动创建一个私有仓库和收件箱 Release；手机快捷指令把截图传进去，插件消费后立即删除。',
+      connectGithub: '连接 GitHub',
+      githubWaiting: '等待 GitHub 授权…',
+      deviceCode: '在 GitHub 输入此代码',
+      openDevice: '打开 GitHub 授权页',
+      githubConnected: '已连接',
+      githubNotConnected: '未连接',
+      githubRepo: '仓库',
+      githubQueueCount: '待处理',
+      githubLastSync: '上次同步',
+      githubSyncNow: '立即同步',
+      githubRepair: '检查 / 修复',
+      githubDisconnect: '断开连接',
+      shortcutTitle: '手机快捷指令配置',
+      shortcutHint: '在快捷指令里用一个文本变量保存这行配置；上传时先按 | 拆分，再按 / 拆分仓库。',
+      copyConfig: '复制配置',
+      configCopied: '已复制',
+      githubError: 'GitHub 操作失败',
+      itemsUnit: '条',
     }
 
     const EN = {
@@ -104,6 +125,27 @@ window.__ModuleLoader__.load({
       insightEmptyTitle: 'No insight yet',
       insightEmptyHint: 'Bring today’s fragments together and AuraCap will look for themes, loose ends, and things worth following up.',
       viewOriginal: 'View original',
+      settings: 'Settings',
+      githubQueue: 'GitHub queue',
+      githubHint: 'Connecting creates a private inbox repo and release. The phone shortcut uploads screenshots; the plugin consumes and deletes them.',
+      connectGithub: 'Connect GitHub',
+      githubWaiting: 'Waiting for GitHub authorization…',
+      deviceCode: 'Enter this code on GitHub',
+      openDevice: 'Open GitHub authorization',
+      githubConnected: 'Connected',
+      githubNotConnected: 'Not connected',
+      githubRepo: 'Repository',
+      githubQueueCount: 'Pending',
+      githubLastSync: 'Last sync',
+      githubSyncNow: 'Sync now',
+      githubRepair: 'Check / repair',
+      githubDisconnect: 'Disconnect',
+      shortcutTitle: 'Phone shortcut configuration',
+      shortcutHint: 'Store this line in a Text variable. Split by |, then split the repository by /.',
+      copyConfig: 'Copy config',
+      configCopied: 'Copied',
+      githubError: 'GitHub request failed',
+      itemsUnit: 'items',
     }
 
     const CSS = `
@@ -171,6 +213,23 @@ window.__ModuleLoader__.load({
 .ac-digest-empty { padding: 70px 20px; text-align: center; }
 .ac-digest-hint { max-width: 420px; margin: 0 auto 20px; font-size: 13px; line-height: 1.75; color: var(--dsw-alias-label-secondary); }
 .ac-digest .ac-body-text { margin-bottom: 0; }
+.ac-icon-button { width: 30px; height: 30px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--dsw-alias-label-secondary); display: grid; place-items: center; cursor: pointer; }
+.ac-icon-button:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-1); border-color: var(--dsw-alias-border-l1); }
+.ac-settings { width: min(680px, 100%); max-height: 86vh; overflow: auto; background: var(--dsw-alias-bg-base); border: 1px solid var(--dsw-alias-border-l1); border-radius: 16px; box-shadow: 0 30px 80px color-mix(in srgb, var(--dsw-alias-label-primary) 18%, transparent); padding: 26px 28px 32px; position: relative; }
+.ac-settings-head { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.ac-settings-title { font-size: 17px; font-weight: 600; }
+.ac-settings-section { padding-top: 20px; border-top: 1px solid var(--dsw-alias-border-l1); margin-top: 22px; }
+.ac-set-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.ac-set-label { font-size: 12px; color: var(--dsw-alias-label-secondary); min-width: 92px; }
+.ac-set-value { font-size: 12.5px; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.ac-set-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.ac-device { margin-top: 14px; padding: 16px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; background: var(--dsw-alias-bg-layer-1); }
+.ac-device-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 26px; letter-spacing: .12em; font-weight: 600; margin: 8px 0 12px; }
+.ac-device-link { color: var(--dsw-alias-brand-primary); font-size: 12.5px; text-decoration: none; }
+.ac-device-link:hover { text-decoration: underline; }
+.ac-config { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; padding: 10px 12px; background: var(--dsw-alias-bg-layer-2); border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; word-break: break-all; line-height: 1.6; }
+.ac-settings-hint { font-size: 12px; color: var(--dsw-alias-label-secondary); line-height: 1.7; margin: 10px 0 0; }
+
 .ac-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .ac-tag { font-size: 10.5px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-secondary); }
 .ac-actions { display: flex; gap: 8px; margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--dsw-alias-border-l1); flex-wrap: wrap; }
@@ -341,6 +400,12 @@ window.__ModuleLoader__.load({
     function TrashIcon() {
       return h('svg', { viewBox: '0 0 16 16', width: 13, height: 13, fill: 'none', stroke: 'currentColor', strokeWidth: 1.3, strokeLinecap: 'round', 'aria-hidden': true },
         h('path', { d: 'M2.8 4.3h10.4M6.4 4.3V3a1 1 0 0 1 1-1h1.2a1 1 0 0 1 1 1v1.3M4.2 4.3l.6 8.1a1 1 0 0 0 1 .9h4.4a1 1 0 0 0 1-.9l.6-8.1' }))
+    }
+
+    function SettingsIcon() {
+      return h('svg', { viewBox: '0 0 16 16', width: 15, height: 15, fill: 'none', stroke: 'currentColor', strokeWidth: 1.3, strokeLinecap: 'round', 'aria-hidden': true },
+        h('circle', { cx: 8, cy: 8, r: 2.1 }),
+        h('path', { d: 'M8 1.8v1.6M8 12.6v1.6M1.8 8h1.6M12.6 8h1.6M3.6 3.6l1.1 1.1M11.3 11.3l1.1 1.1M12.4 3.6l-1.1 1.1M4.7 11.3l-1.1 1.1' }))
     }
 
     function CloseIcon() {
@@ -598,6 +663,70 @@ window.__ModuleLoader__.load({
         h('div', { className: 'ac-digest-inner' }, head, body))
     }
 
+    function SettingsModal(props) {
+      const t = props.t
+      const github = props.github
+      const device = props.device
+      const shortcut = props.shortcut
+      const connected = Boolean(github && github.connected)
+      const status = github
+        ? (connected ? t('githubConnected') : t('githubNotConnected'))
+        : '—'
+      let body
+      if (!github) {
+        body = h('div', { className: 'ac-settings-hint' }, t('githubWaiting'))
+      } else if (!connected) {
+        body = h('div', null,
+          h('div', { className: 'ac-set-row' },
+            h('span', { className: 'ac-set-label' }, t('githubQueue')),
+            h('span', { className: 'ac-set-value' }, status)),
+          h('p', { className: 'ac-settings-hint' }, t('githubHint')),
+          device && (device.status === 'pending' || device.status === 'provisioning')
+            ? h('div', { className: 'ac-device' },
+                h('div', { className: 'ac-set-label' }, t('deviceCode')),
+                h('div', { className: 'ac-device-code' }, device.userCode || ''),
+                h('a', { className: 'ac-device-link', href: device.verificationUri || 'https://github.com/login/device', target: '_blank', rel: 'noreferrer' }, t('openDevice')),
+                h('div', { className: 'ac-footnote', style: { marginTop: 10 } },
+                  device.status === 'provisioning' ? '正在创建私有仓库与收件箱 Release…' : t('githubWaiting')))
+            : h('div', { className: 'ac-set-actions' },
+                h('button', { className: 'ac-primary', onClick: props.onConnect, disabled: props.busy }, t('connectGithub'))))
+      } else {
+        body = h('div', null,
+          h('div', { className: 'ac-set-row' },
+            h('span', { className: 'ac-set-label' }, t('githubRepo')),
+            h('span', { className: 'ac-set-value' },
+              h('a', { className: 'ac-device-link', href: github.repo.url, target: '_blank', rel: 'noreferrer' }, github.repo.owner + '/' + github.repo.name))),
+          h('div', { className: 'ac-set-row' },
+            h('span', { className: 'ac-set-label' }, t('githubQueueCount')),
+            h('span', { className: 'ac-set-value' }, String(github.queueCount || 0) + ' ' + t('itemsUnit'))),
+          h('div', { className: 'ac-set-row' },
+            h('span', { className: 'ac-set-label' }, t('githubLastSync')),
+            h('span', { className: 'ac-set-value' }, github.lastSyncAt ? timeText(github.lastSyncAt) : '—')),
+          h('div', { className: 'ac-set-actions' },
+            h('button', { className: 'ac-ghost', onClick: props.onSync, disabled: props.busy }, RetryIcon(), t('githubSyncNow')),
+            h('button', { className: 'ac-ghost', onClick: props.onRepair, disabled: props.busy }, t('githubRepair')),
+            h('button', { className: 'ac-ghost', 'data-danger': true, onClick: props.onDisconnect }, t('githubDisconnect'))),
+          shortcut && shortcut.config
+            ? h('div', { className: 'ac-settings-section' },
+                h('div', { className: 'ac-sec-label' }, t('shortcutTitle')),
+                h('div', { className: 'ac-config' }, shortcut.config),
+                h('div', { className: 'ac-set-actions' },
+                  h('button', { className: 'ac-ghost', onClick: props.onCopyConfig }, CopyIcon(), props.copied ? t('configCopied') : t('copyConfig'))),
+                h('p', { className: 'ac-settings-hint', style: { marginTop: 10 } }, t('shortcutHint')))
+            : null)
+      }
+      return h('div', { className: 'ac-modal', onMouseDown: (event) => { if (event.target === event.currentTarget) props.onClose() } },
+        h('div', { className: 'ac-settings' },
+          h('div', { className: 'ac-settings-head' },
+            h('div', { className: 'ac-settings-title' }, t('settings')),
+            h('div', { className: 'ac-grow' }),
+            h('button', { className: 'ac-icon-button', onClick: props.onClose, 'aria-label': t('close') }, CloseIcon())),
+          props.error ? h('div', { className: 'ac-error', style: { marginBottom: 16 } }, props.error) : null,
+          body,
+          h('div', { className: 'ac-settings-section' },
+            h('p', { className: 'ac-settings-hint' }, t('githubHint')))))
+    }
+
     function Empty(props) {
       const t = props.t
       return h('div', { className: 'ac-empty' },
@@ -628,6 +757,13 @@ window.__ModuleLoader__.load({
       const [digestBusy, setDigestBusy] = useState(false)
       const [digestError, setDigestError] = useState(null)
       const [digestLoaded, setDigestLoaded] = useState(false)
+      const [settingsOpen, setSettingsOpen] = useState(false)
+      const [github, setGithub] = useState(null)
+      const [githubBusy, setGithubBusy] = useState(false)
+      const [githubError, setGithubError] = useState(null)
+      const [device, setDevice] = useState(null)
+      const [shortcut, setShortcut] = useState(null)
+      const [configCopied, setConfigCopied] = useState(false)
       const fileRef = useRef(null)
       const dragDepth = useRef(0)
 
@@ -676,6 +812,108 @@ window.__ModuleLoader__.load({
       useEffect(() => {
         if (scope === 'digest' && !digestLoaded) loadDigest()
       }, [scope, digestLoaded, loadDigest])
+
+      const loadGithub = useCallback(async () => {
+        try {
+          const payload = await request(API + '/github/status')
+          setGithub(payload)
+          if (payload.connected) {
+            try { setShortcut(await request(API + '/github/shortcut')) } catch { setShortcut(null) }
+          } else {
+            setShortcut(null)
+          }
+        } catch (githubLoadError) {
+          setGithubError(githubLoadError.message)
+        }
+      }, [t])
+
+      const openSettings = () => {
+        setSettingsOpen(true)
+        setGithubError(null)
+        loadGithub()
+      }
+
+      useEffect(() => {
+        if (!device || !device.id) return undefined
+        if (device.status !== 'pending' && device.status !== 'provisioning') return undefined
+        const timer = setInterval(async () => {
+          try {
+            const payload = await request(API + '/github/device/' + encodeURIComponent(device.id))
+            setDevice((current) => (current && current.id === device.id ? Object.assign({}, current, payload) : current))
+            if (payload.status === 'ready') {
+              setDevice(null)
+              setGithubError(null)
+              await loadGithub()
+            } else if (payload.status === 'failed' || payload.status === 'expired') {
+              setGithubError(payload.error || t('githubError'))
+            }
+          } catch (pollError) {
+            setGithubError(pollError.message)
+          }
+        }, 2000)
+        return () => clearInterval(timer)
+      }, [device && device.id, device && device.status, loadGithub, t])
+
+      const connectGithub = async () => {
+        setGithubBusy(true)
+        setGithubError(null)
+        try {
+          const payload = await request(API + '/github/device', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+          setDevice(Object.assign({ status: 'pending' }, payload))
+        } catch (connectError) {
+          setGithubError(connectError.message)
+        } finally {
+          setGithubBusy(false)
+        }
+      }
+
+      const syncGithub = async () => {
+        setGithubBusy(true)
+        setGithubError(null)
+        try {
+          setGithub(await request(API + '/github/sync', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }))
+          await loadGithub()
+        } catch (syncError) {
+          setGithubError(syncError.message)
+        } finally {
+          setGithubBusy(false)
+        }
+      }
+
+      const repairGithub = async () => {
+        setGithubBusy(true)
+        setGithubError(null)
+        try {
+          setGithub(await request(API + '/github/repair', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }))
+          await loadGithub()
+        } catch (repairError) {
+          setGithubError(repairError.message)
+        } finally {
+          setGithubBusy(false)
+        }
+      }
+
+      const disconnectGithub = async () => {
+        setGithubBusy(true)
+        setGithubError(null)
+        try {
+          setGithub(await request(API + '/github/disconnect', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }))
+          setShortcut(null)
+        } catch (disconnectError) {
+          setGithubError(disconnectError.message)
+        } finally {
+          setGithubBusy(false)
+        }
+      }
+
+      const copyConfig = async () => {
+        if (!shortcut || !shortcut.config) return
+        try {
+          await navigator.clipboard.writeText(shortcut.config)
+          setConfigCopied(true)
+          setTimeout(() => setConfigCopied(false), 1600)
+        } catch {}
+      }
 
       const generateInsight = async () => {
         setDigestBusy(true)
@@ -772,6 +1010,7 @@ window.__ModuleLoader__.load({
           h('div', { className: 'ac-sub' }, t('fragments'))),
         h('span', { className: 'ac-count' }, String(items.length)),
         h('div', { className: 'ac-grow' }),
+        h('button', { className: 'ac-icon-button', onClick: openSettings, title: t('settings'), 'aria-label': t('settings') }, SettingsIcon()),
         h('div', { className: 'ac-seg', role: 'group', 'aria-label': t('layout') },
           h('button', { type: 'button', 'aria-pressed': view === 'split', title: t('split'), onClick: () => chooseView('split') }, SplitIcon()),
           h('button', { type: 'button', 'aria-pressed': view === 'grid', title: t('grid'), onClick: () => chooseView('grid') }, GridIcon())),
@@ -842,6 +1081,21 @@ window.__ModuleLoader__.load({
           h('div', { className: 'ac-modal-card' },
             h('button', { className: 'ac-modal-close', onClick: () => setModalId(null), 'aria-label': t('close') }, CloseIcon()),
             h(Detail, { item: modalItem, t, onRetry: retry, onDelete: remove, onOpenImage: openImage }))) : null,
+        settingsOpen ? h(SettingsModal, {
+          t,
+          github,
+          device,
+          shortcut,
+          busy: githubBusy,
+          error: githubError,
+          copied: configCopied,
+          onClose: () => setSettingsOpen(false),
+          onConnect: connectGithub,
+          onSync: syncGithub,
+          onRepair: repairGithub,
+          onDisconnect: disconnectGithub,
+          onCopyConfig: copyConfig,
+        }) : null,
         lightbox ? h('div', { className: 'ac-lightbox', onClick: () => setLightbox(null) },
           h('img', {
             src: API + '/media/' + encodeURIComponent(lightbox.id),
