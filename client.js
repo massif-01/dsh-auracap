@@ -140,6 +140,9 @@ window.__ModuleLoader__.load({
 .ac-todos { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .ac-todo { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.65; }
 .ac-todo-dot { width: 13px; height: 13px; border-radius: 50%; border: 1px solid var(--dsw-alias-border-l2); flex: none; margin-top: 3px; }
+.ac-bullets { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.ac-bullet { display: flex; gap: 10px; font-size: 13px; line-height: 1.65; }
+.ac-bullet-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--dsw-alias-label-secondary); flex: none; margin-top: 9px; }
 .ac-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .ac-tag { font-size: 10.5px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-secondary); }
 .ac-actions { display: flex; gap: 8px; margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--dsw-alias-border-l1); flex-wrap: wrap; }
@@ -323,6 +326,59 @@ window.__ModuleLoader__.load({
       return t('ready')
     }
 
+    function plainTextOf(summary) {
+      if (!summary) return ''
+      const source = typeof summary.content === 'string' && summary.content.trim()
+        ? summary.content
+        : (typeof summary.summary === 'string' ? summary.summary : '')
+      return String(source)
+        .replace(/^#{1,6}\s+.*$/gm, ' ')
+        .replace(/^\s*[-*]\s+/gm, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+    }
+
+    function previewOf(item) {
+      const summary = item.summary
+      if (!summary) return ''
+      if (typeof summary.excerpt === 'string' && summary.excerpt) return summary.excerpt
+      return plainTextOf(summary).slice(0, 160)
+    }
+
+    function splitSections(markdown) {
+      const lines = String(markdown || '').replace(/\r\n/g, '\n').split('\n')
+      const sections = []
+      let current = null
+      const flush = () => {
+        if (!current) return
+        const bodyText = current.body.join('\n').trim()
+        if (bodyText || current.items.length) sections.push({ label: current.label, bodyText, items: current.items })
+        current = null
+      }
+      for (const raw of lines) {
+        const line = raw.trim()
+        const heading = line.match(/^#{1,6}\s+(.*)$/)
+        if (heading) {
+          flush()
+          current = { label: heading[1].trim(), body: [], items: [] }
+          continue
+        }
+        if (!current) current = { label: '', body: [], items: [] }
+        const bullet = line.match(/^[-*]\s+(.*)$/)
+        if (bullet) {
+          current.items.push(bullet[1].trim())
+          continue
+        }
+        if (!line) {
+          if (current.body.length) current.body.push('')
+          continue
+        }
+        current.body.push(raw)
+      }
+      flush()
+      return sections
+    }
+
     function Row(props) {
       const item = props.item
       const t = props.t
@@ -341,7 +397,7 @@ window.__ModuleLoader__.load({
         h('div', { className: 'ac-row-main' },
           h('div', { className: 'ac-row-title' }, summary && summary.title ? summary.title : t('untitled')),
           h('div', { className: 'ac-row-desc' },
-            item.status === 'ready' ? (summary && summary.summary ? summary.summary : t('noSummary'))
+            item.status === 'ready' ? (previewOf(item) || t('noSummary'))
               : item.status === 'failed' ? (item.error || t('failed'))
                 : t('summarizing')),
           h('div', { className: 'ac-row-meta' },
@@ -363,7 +419,9 @@ window.__ModuleLoader__.load({
       useEffect(() => { setCopied(false) }, [item.id])
       const summary = item.summary
       const copyText = summary
-        ? [summary.title, summary.summary].concat(summary.keyPoints || [], (summary.todos || []).map((todo) => '□ ' + todo)).filter(Boolean).join('\n\n')
+        ? (typeof summary.content === 'string' && summary.content.trim()
+            ? [summary.title, summary.content].filter(Boolean).join('\n\n')
+            : [summary.title, summary.summary].concat(summary.keyPoints || [], (summary.todos || []).map((todo) => '□ ' + todo)).filter(Boolean).join('\n\n'))
         : ''
       const copy = async () => {
         try {
@@ -390,20 +448,36 @@ window.__ModuleLoader__.load({
         body.push(h('div', { className: 'ac-section', key: 'error' }, h('div', { className: 'ac-error' }, item.error || t('failed'))))
       }
       if (summary) {
-        if (summary.summary) body.push(h('div', { className: 'ac-section', key: 'summary' }, h('div', { className: 'ac-body-text' }, summary.summary)))
-        if (summary.keyPoints && summary.keyPoints.length) {
-          body.push(h('div', { className: 'ac-section', key: 'points' },
-            h('div', { className: 'ac-sec-label' }, t('keyPoints')),
-            h('ol', { className: 'ac-points' }, summary.keyPoints.map((point, index) => h('li', { className: 'ac-point', key: index },
-              h('span', { className: 'ac-point-no' }, pad(index + 1)),
-              h('span', null, point))))))
-        }
-        if (summary.todos && summary.todos.length) {
-          body.push(h('div', { className: 'ac-section', key: 'todos' },
-            h('div', { className: 'ac-sec-label' }, t('todos')),
-            h('ul', { className: 'ac-todos' }, summary.todos.map((todo, index) => h('li', { className: 'ac-todo', key: index },
-              h('span', { className: 'ac-todo-dot' }),
-              h('span', null, todo))))))
+        const markdown = typeof summary.content === 'string' && summary.content.trim()
+          ? summary.content
+          : (typeof summary.summary === 'string' && /^\s*#{1,6}\s/m.test(summary.summary) ? summary.summary : '')
+        if (markdown) {
+          splitSections(markdown).forEach((section, index) => {
+            body.push(h('div', { className: 'ac-section', key: 'section-' + index },
+              section.label ? h('div', { className: 'ac-sec-label' }, section.label) : null,
+              section.bodyText ? h('div', { className: 'ac-body-text' }, section.bodyText) : null,
+              section.items.length
+                ? h('ul', { className: 'ac-bullets' }, section.items.map((entry, itemIndex) => h('li', { className: 'ac-bullet', key: itemIndex },
+                    h('span', { className: 'ac-bullet-dot' }),
+                    h('span', null, entry))))
+                : null))
+          })
+        } else {
+          if (summary.summary) body.push(h('div', { className: 'ac-section', key: 'summary' }, h('div', { className: 'ac-body-text' }, summary.summary)))
+          if (summary.keyPoints && summary.keyPoints.length) {
+            body.push(h('div', { className: 'ac-section', key: 'points' },
+              h('div', { className: 'ac-sec-label' }, t('keyPoints')),
+              h('ol', { className: 'ac-points' }, summary.keyPoints.map((point, index) => h('li', { className: 'ac-point', key: index },
+                h('span', { className: 'ac-point-no' }, pad(index + 1)),
+                h('span', null, point))))))
+          }
+          if (summary.todos && summary.todos.length) {
+            body.push(h('div', { className: 'ac-section', key: 'todos' },
+              h('div', { className: 'ac-sec-label' }, t('todos')),
+              h('ul', { className: 'ac-todos' }, summary.todos.map((todo, index) => h('li', { className: 'ac-todo', key: index },
+                h('span', { className: 'ac-todo-dot' }),
+                h('span', null, todo))))))
+          }
         }
         if (summary.tags && summary.tags.length) {
           body.push(h('div', { className: 'ac-section', key: 'tags' },
@@ -438,7 +512,7 @@ window.__ModuleLoader__.load({
         h('div', { className: 'ac-card-body' },
           h('div', { className: 'ac-card-title' }, summary && summary.title ? summary.title : t('untitled')),
           h('div', { className: 'ac-card-desc' },
-            item.status === 'ready' ? (summary && summary.summary ? summary.summary : '')
+            item.status === 'ready' ? (previewOf(item) || '')
               : item.status === 'failed' ? (item.error || t('failed'))
                 : t('summarizing')),
           h('div', { className: 'ac-card-meta' },

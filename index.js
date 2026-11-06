@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { randomUUID } from 'node:crypto'
@@ -8,7 +8,21 @@ export const name = 'auracap'
 export const inject = ['webServer', 'llm', 'attachments']
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url))
-const PROMPT = readFileSync(join(ROOT, 'prompts', 'screenshot-zh.md'), 'utf8')
+let promptCache = { mtimeMs: -1, text: '' }
+
+function promptText() {
+  const file = join(ROOT, 'prompts', 'screenshot-zh.md')
+  try {
+    const stat = statSync(file)
+    if (stat.mtimeMs !== promptCache.mtimeMs) {
+      promptCache = { mtimeMs: stat.mtimeMs, text: readFileSync(file, 'utf8') }
+    }
+  } catch {
+    // keep the last good prompt
+  }
+  return promptCache.text
+}
+
 const BASE = '/auracap'
 const MAX_BYTES = 30 * 1024 * 1024
 const MEDIA = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif'])
@@ -121,6 +135,16 @@ function asStringArray(value, max) {
     .slice(0, max)
 }
 
+function makeExcerpt(markdown) {
+  return String(markdown || '')
+    .replace(/^#{1,6}\s+.*$/gm, ' ')
+    .replace(/^\s*[-*]\s+/gm, ' ')
+    .replace(/```/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 240)
+}
+
 function parseSummary(text) {
   const cleaned = String(text || '')
     .replace(/^\s*```(?:json)?/i, '')
@@ -131,17 +155,34 @@ function parseSummary(text) {
   if (start >= 0 && end > start) {
     try {
       const parsed = JSON.parse(cleaned.slice(start, end + 1))
-      const title = typeof parsed.title === 'string' && parsed.title.trim() ? parsed.title.trim() : ''
+      const content = typeof parsed.content === 'string' ? parsed.content.trim() : ''
+      const tags = asStringArray(parsed.tags, 4)
+      const contentType = typeof parsed.contentType === 'string' ? parsed.contentType : 'other'
+      const language = typeof parsed.language === 'string' ? parsed.language : 'zh'
+      if (content) {
+        return {
+          title: typeof parsed.title === 'string' && parsed.title.trim() ? parsed.title.trim() : makeExcerpt(content).slice(0, 24),
+          content,
+          excerpt: makeExcerpt(content),
+          tags,
+          contentType,
+          language,
+        }
+      }
+      const title = typeof parsed.title === 'string' ? parsed.title.trim() : ''
       const summary = typeof parsed.summary === 'string' ? parsed.summary.trim() : ''
       if (title || summary) {
+        if (/^\s*#{1,6}\s/m.test(summary)) {
+          return { title: title || makeExcerpt(summary).slice(0, 24), content: summary, excerpt: makeExcerpt(summary), tags, contentType, language }
+        }
         return {
           title: title || summary.split(/[。.!?\n]/)[0].slice(0, 24),
           summary: summary || title,
           keyPoints: asStringArray(parsed.keyPoints, 8),
           todos: asStringArray(parsed.todos, 8),
-          tags: asStringArray(parsed.tags, 4),
-          contentType: typeof parsed.contentType === 'string' ? parsed.contentType : 'other',
-          language: typeof parsed.language === 'string' ? parsed.language : 'zh',
+          tags,
+          contentType,
+          language,
         }
       }
     } catch {
@@ -149,13 +190,11 @@ function parseSummary(text) {
     }
   }
   const lines = cleaned.split('\n').map((line) => line.trim()).filter(Boolean)
-  const title = (lines[0] || '未命名碎片').replace(/^#+\s*/, '').slice(0, 24)
-  const summary = lines.slice(1).join('\n') || lines[0] || cleaned
+  const content = cleaned || lines[0] || '未命名碎片'
   return {
-    title,
-    summary: summary.slice(0, 2000),
-    keyPoints: [],
-    todos: [],
+    title: (lines[0] || '未命名碎片').replace(/^#+\s*/, '').slice(0, 24),
+    content,
+    excerpt: makeExcerpt(content),
     tags: [],
     contentType: 'other',
     language: 'zh',
@@ -171,7 +210,7 @@ async function summarize(llm, items, item) {
       model: MODEL.model,
       reasoningEffort: 'off',
       maxTokens: 2000,
-      system: PROMPT,
+      system: promptText(),
       messages: [
         {
           role: 'user',
