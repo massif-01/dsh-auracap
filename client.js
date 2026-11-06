@@ -1004,6 +1004,8 @@ window.__ModuleLoader__.load({
       const [busy, setBusy] = useState(false)
       const [active, setActive] = useState(0)
       const inputRef = useRef(null)
+      const composingRef = useRef(false)
+      const composeEndedAt = useRef(0)
 
       useEffect(() => {
         if (!props.open) return
@@ -1042,6 +1044,8 @@ window.__ModuleLoader__.load({
         else props.onOpenInsight(result)
       }
       const onKeyDown = (event) => {
+        if (event.isComposing || composingRef.current || (event.nativeEvent && event.nativeEvent.isComposing) || event.keyCode === 229) return
+        if (event.key === 'Enter' && Date.now() - composeEndedAt.current < 120) return
         if (event.key === 'Escape') { event.preventDefault(); props.onClose(); return }
         if (event.key === 'ArrowDown') { event.preventDefault(); setActive((index) => Math.min(results.length - 1, index + 1)); return }
         if (event.key === 'ArrowUp') { event.preventDefault(); setActive((index) => Math.max(0, index - 1)); return }
@@ -1084,6 +1088,8 @@ window.__ModuleLoader__.load({
               placeholder: t('searchPlaceholder'),
               onChange: (event) => setQuery(event.target.value),
               onKeyDown,
+              onCompositionStart: () => { composingRef.current = true },
+              onCompositionEnd: () => { composingRef.current = false; composeEndedAt.current = Date.now() },
             }),
             h('kbd', { className: 'ac-search-kbd' }, 'esc')),
           body,
