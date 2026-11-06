@@ -1224,6 +1224,18 @@ function canonicalEntityInfo(name, type) {
   if (/奔驰|迈巴赫/.test(display)) {
     return { name: '奔驰', type: 'product', aliases: display === '奔驰' ? [] : [display] }
   }
+  if (/^蔚来/.test(display)) {
+    return { name: '蔚来', type: 'org', aliases: display === '蔚来' ? [] : [display] }
+  }
+  if (/^宝马/.test(display)) {
+    return { name: '宝马', type: 'org', aliases: display === '宝马' ? [] : [display] }
+  }
+  if (/^奥迪/.test(display)) {
+    return { name: '奥迪', type: 'org', aliases: display === '奥迪' ? [] : [display] }
+  }
+  if (/^兰博基尼/.test(display)) {
+    return { name: '兰博基尼', type: 'org', aliases: display === '兰博基尼' ? [] : [display] }
+  }
   return { name: display, type: ENTITY_TYPES.has(type) ? type : 'other', aliases: [] }
 }
 
