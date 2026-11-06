@@ -79,7 +79,7 @@ window.__ModuleLoader__.load({
       onboardingNext: '接下来',
       flowPhone: '手机',
       flowPhoneHint: '截屏、相册',
-      flowInbox: '只属于你的收件箱',
+      flowInbox: '你的收件箱',
       flowInboxHint: '只有你能打开',
       flowMac: '这台 Mac',
       flowMacHint: '取回后清空',
@@ -279,7 +279,7 @@ window.__ModuleLoader__.load({
       onboardingNext: 'Next',
       flowPhone: 'Phone',
       flowPhoneHint: 'Screenshots, photos',
-      flowInbox: 'Your own inbox',
+      flowInbox: 'Your inbox',
       flowInboxHint: 'Only you can open it',
       flowMac: 'This Mac',
       flowMacHint: 'Cleared after fetching',
@@ -702,7 +702,7 @@ window.__ModuleLoader__.load({
 .ac-onboarding-step { display: flex; align-items: baseline; gap: 10px; font-size: 12px; line-height: 1.6; color: var(--dsw-alias-label-secondary); }
 .ac-onboarding-step-no { width: 18px; height: 18px; flex: none; display: grid; place-items: center; border: 1px solid var(--dsw-alias-border-l1); border-radius: 50%; font-size: 9px; color: var(--dsw-alias-label-secondary); }
 .ac-onboarding { padding: 38px 56px 56px; }
-.ac-onboarding-frame { width: min(900px, 100%); display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 58px; align-items: center; }
+.ac-onboarding-frame { width: min(920px, 100%); display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 62px; align-items: center; }
 .ac-onboarding-copy { min-width: 0; text-align: left; }
 .ac-onboarding-kicker { font-size: 9.5px; letter-spacing: .18em; color: var(--dsw-alias-label-secondary); opacity: .62; margin-bottom: 15px; text-transform: uppercase; }
 .ac-onboarding-title { font-size: 31px; line-height: 1.2; letter-spacing: -.025em; margin: 0 0 12px; }
@@ -713,15 +713,14 @@ window.__ModuleLoader__.load({
 .ac-onboarding-link { font-size: 11.5px; text-decoration: none; }
 .ac-onboarding-link:hover { text-decoration: underline; }
 .ac-onboarding-why { width: auto; max-width: 360px; margin-top: 32px; padding-top: 15px; text-align: left; }
-.ac-onboarding-aside { width: 100%; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l1); border-radius: 18px; padding: 24px 22px; }
-.ac-onboarding-aside-label { font-size: 9.5px; letter-spacing: .14em; color: var(--dsw-alias-label-secondary); opacity: .66; margin-bottom: 20px; }
-.ac-flow { display: flex; flex-direction: column; }
-.ac-flow-node { display: flex; align-items: flex-start; gap: 10px; }
-.ac-flow-icon { width: 17px; height: 18px; flex: none; display: grid; place-items: center; color: var(--dsw-alias-label-secondary); opacity: .66; }
-.ac-flow-icon-brand { color: var(--dsw-alias-brand-primary); }
-.ac-flow-node div > strong { display: block; font-size: 12.5px; font-weight: 500; line-height: 1.3; color: var(--dsw-alias-label-primary); }
-.ac-flow-node div > span { display: block; margin-top: 2px; font-size: 10.5px; color: var(--dsw-alias-label-secondary); }
-.ac-flow-line { width: 1px; height: 16px; margin: 4px 0 4px 8px; background: var(--dsw-alias-border-l1); }
+.ac-onboarding-aside { width: 100%; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l1); border-radius: 18px; padding: 28px 26px; overflow: hidden; }
+.ac-onboarding-aside-label { font-size: 9.5px; letter-spacing: .14em; color: var(--dsw-alias-label-secondary); opacity: .66; margin-bottom: 24px; }
+.ac-onboard-flow { display: flex; flex-direction: column; gap: 19px; }
+.ac-onboard-node { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: start; gap: 13px; }
+.ac-onboard-node-icon { width: 18px; height: 18px; display: grid; place-items: center; color: var(--dsw-alias-label-secondary); opacity: .64; margin-top: 1px; }
+.ac-onboard-node-icon-brand { color: var(--dsw-alias-brand-primary); opacity: .52; }
+.ac-onboard-node div > strong { display: block; font-size: 13px; font-weight: 500; line-height: 1.35; color: var(--dsw-alias-label-primary); }
+.ac-onboard-node div > span { display: block; margin-top: 4px; font-size: 10.5px; line-height: 1.5; color: var(--dsw-alias-label-secondary); }
 .ac-onboarding-aside-note { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--dsw-alias-border-l1); font-size: 9.5px; color: var(--dsw-alias-label-secondary); line-height: 1.6; }
 .ac-onboarding-code-card { display: flex; flex-direction: column; align-items: flex-start; }
 .ac-onboarding-code { margin: 0 0 18px; font-size: 24px; font-weight: 600; letter-spacing: .18em; font-variant-numeric: tabular-nums; }
@@ -1878,17 +1877,15 @@ window.__ModuleLoader__.load({
 
       const flow = h('div', { className: 'ac-onboarding-aside' },
         h('div', { className: 'ac-onboarding-aside-label' }, t('onboardingAfter')),
-        h('div', { className: 'ac-flow' },
-          h('div', { className: 'ac-flow-node' },
-            h('span', { className: 'ac-flow-icon' }, PhoneIcon()),
+        h('div', { className: 'ac-onboard-flow' },
+          h('div', { className: 'ac-onboard-node' },
+            h('span', { className: 'ac-onboard-node-icon' }, PhoneIcon()),
             h('div', null, h('strong', null, t('flowPhone')), h('span', null, t('flowPhoneHint')))),
-          h('div', { className: 'ac-flow-line' }),
-          h('div', { className: 'ac-flow-node' },
-            h('span', { className: 'ac-flow-icon' }, GitHubIcon()),
+          h('div', { className: 'ac-onboard-node' },
+            h('span', { className: 'ac-onboard-node-icon' }, GitHubIcon()),
             h('div', null, h('strong', null, t('flowInbox')), h('span', null, t('flowInboxHint')))),
-          h('div', { className: 'ac-flow-line' }),
-          h('div', { className: 'ac-flow-node' },
-            h('span', { className: 'ac-flow-icon ac-flow-icon-brand' }, BrandMark()),
+          h('div', { className: 'ac-onboard-node' },
+            h('span', { className: 'ac-onboard-node-icon ac-onboard-node-icon-brand' }, BrandMark()),
             h('div', null, h('strong', null, t('flowMac')), h('span', null, t('flowMacHint')))),
           h('div', { className: 'ac-onboarding-aside-note' }, t('flowFree'))))
 
@@ -1946,13 +1943,12 @@ window.__ModuleLoader__.load({
             h('button', { className: 'ac-onboarding-link', type: 'button', onClick: () => props.onLocalImport() }, t('localOnlyAction'))),
           h('div', { className: 'ac-onboarding-aside' },
             h('div', { className: 'ac-onboarding-aside-label' }, t('onboardingNext')),
-            h('div', { className: 'ac-flow' },
-              h('div', { className: 'ac-flow-node' },
-                h('span', { className: 'ac-flow-icon' }, PhoneIcon()),
+            h('div', { className: 'ac-onboard-flow' },
+              h('div', { className: 'ac-onboard-node' },
+                h('span', { className: 'ac-onboard-node-icon' }, PhoneIcon()),
                 h('div', null, h('strong', null, t('flowIphone')), h('span', null, t('flowInstall')))),
-              h('div', { className: 'ac-flow-line' }),
-              h('div', { className: 'ac-flow-node' },
-                h('span', { className: 'ac-flow-icon ac-flow-icon-brand' }, BrandMark()),
+              h('div', { className: 'ac-onboard-node' },
+                h('span', { className: 'ac-onboard-node-icon ac-onboard-node-icon-brand' }, BrandMark()),
                 h('div', null, h('strong', null, t('flowMac')), h('span', null, t('flowMacArrive')))),
             h('div', { className: 'ac-onboarding-aside-note' }, t('flowArrive'))))))
     }
