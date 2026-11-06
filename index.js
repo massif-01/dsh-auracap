@@ -102,6 +102,13 @@ function addDocumentItem(ctx, items, { data, mediaType, name, text, source }) {
     error.status = 422
     throw error
   }
+  const hash = createHash('sha256').update(content).digest('hex')
+  const existing = items.find((entry) => {
+    if (!entry || entry.kind !== 'document') return false
+    if (entry.document && entry.document.hash === hash) return true
+    return Boolean(entry.text) && createHash('sha256').update(String(entry.text).trim()).digest('hex') === hash
+  })
+  if (existing) return existing
   const item = {
     id: randomUUID(),
     kind: 'document',
@@ -109,7 +116,7 @@ function addDocumentItem(ctx, items, { data, mediaType, name, text, source }) {
     updatedAt: new Date().toISOString(),
     status: 'summarizing',
     image: null,
-    document: { name: name || '未命名文件', mediaType, bytes: data ? data.length : Buffer.byteLength(content), chars: content.length },
+    document: { name: name || '未命名文件', mediaType, bytes: data ? data.length : Buffer.byteLength(content), chars: content.length, hash },
     text: content.slice(0, 240000),
     summary: null,
     error: null,
