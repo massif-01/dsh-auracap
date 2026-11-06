@@ -1095,7 +1095,7 @@ window.__ModuleLoader__.load({
           body,
           h('div', { className: 'ac-search-foot' },
             h('span', null, t('searchHint')),
-            h('span', { className: 'ac-search-kbd' }, '⌘K'))))
+            h('span', { className: 'ac-search-kbd' }, '/'))))
     }
 
     function DigestView(props) {
@@ -1337,15 +1337,16 @@ window.__ModuleLoader__.load({
 
       useEffect(() => {
         const onKeyDown = (event) => {
-          if ((event.metaKey || event.ctrlKey) && String(event.key).toLowerCase() === 'k') {
-            event.preventDefault()
-            event.stopPropagation()
-            event.stopImmediatePropagation()
-            setSearchOpen((open) => !open)
-          }
+          if (event.isComposing || event.metaKey || event.ctrlKey || event.altKey) return
+          if (event.key !== '/') return
+          const target = event.target
+          const tag = target && target.tagName ? String(target.tagName).toLowerCase() : ''
+          if (tag === 'input' || tag === 'textarea' || tag === 'select' || (target && target.isContentEditable)) return
+          event.preventDefault()
+          setSearchOpen(true)
         }
-        window.addEventListener('keydown', onKeyDown, true)
-        return () => window.removeEventListener('keydown', onKeyDown, true)
+        window.addEventListener('keydown', onKeyDown)
+        return () => window.removeEventListener('keydown', onKeyDown)
       }, [])
 
       const load = useCallback(async () => {
@@ -1747,7 +1748,7 @@ window.__ModuleLoader__.load({
         h('button', { className: 'ac-tab', 'aria-selected': scope === 'today', onClick: () => setScope('today') }, t('today'), h('span', { className: 'ac-tab-count' }, String(todayCount))),
         h('button', { className: 'ac-tab', 'aria-selected': scope === 'all', onClick: () => setScope('all') }, t('all'), h('span', { className: 'ac-tab-count' }, String(items.length))),
         h('button', { className: 'ac-tab', 'aria-selected': scope === 'digest', onClick: () => setScope('digest') }, t('insights'), (anyPeriodUnread || digestUnread) ? h('span', { className: 'ac-tab-dot', 'aria-hidden': true }) : null),
-        h('button', { className: 'ac-search-trigger', type: 'button', onClick: () => setSearchOpen(true), title: t('search') + '  ⌘K' }, SearchIcon(), h('span', null, t('search')), h('kbd', null, '⌘K')),
+        h('button', { className: 'ac-search-trigger', type: 'button', onClick: () => setSearchOpen(true), title: t('search') + '  /' }, SearchIcon(), h('span', null, t('search')), h('kbd', null, '/')),
         h('div', { className: 'ac-grow' }),
         h('span', { className: 'ac-hint' }, t('localOnly')))
 
