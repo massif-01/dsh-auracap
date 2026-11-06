@@ -310,15 +310,15 @@ window.__ModuleLoader__.load({
 .ac-empty p { margin: 0; max-width: 420px; color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 1.75; }
 .ac-empty .ac-primary { margin-top: 22px; height: 34px; padding: 0 17px; font-size: 13px; }
 .ac-footnote { margin-top: 18px; font-size: 11px; color: var(--dsw-alias-label-secondary); opacity: .75; }
-.ac-grid-wrap { flex: 1; overflow: auto; padding: 22px 26px 44px; }
-.ac-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(228px, 1fr)); gap: 16px; }
-.ac-card { border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); border-radius: 12px; overflow: hidden; cursor: pointer; transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease; display: flex; flex-direction: column; text-align: left; padding: 0; font-family: inherit; color: inherit; }
+.ac-grid-wrap { flex: 1; overflow: auto; padding: 16px 18px 36px; }
+.ac-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.ac-card { border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); border-radius: 10px; overflow: hidden; cursor: pointer; transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease; display: flex; flex-direction: column; text-align: left; padding: 0; font-family: inherit; color: inherit; }
 .ac-card:hover { transform: translateY(-2px); border-color: var(--dsw-alias-border-l2); box-shadow: 0 10px 30px color-mix(in srgb, var(--dsw-alias-label-primary) 9%, transparent); }
-.ac-card-img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; object-position: top center; background: var(--dsw-alias-bg-layer-2); border-bottom: 1px solid var(--dsw-alias-border-l1); }
-.ac-card-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 5px; }
-.ac-card-title { font-size: 13px; font-weight: 500; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.ac-card-desc { font-size: 11.5px; color: var(--dsw-alias-label-secondary); line-height: 1.55; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.ac-card-meta { font-size: 10.5px; color: var(--dsw-alias-label-secondary); margin-top: 4px; display: flex; gap: 8px; }
+.ac-card-img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; object-position: top center; background: var(--dsw-alias-bg-layer-2); border-bottom: 1px solid var(--dsw-alias-border-l1); }
+.ac-card-body { padding: 9px 10px 10px; display: flex; flex-direction: column; gap: 3px; }
+.ac-card-title { font-size: 12.5px; font-weight: 500; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ac-card-desc { font-size: 10.5px; color: var(--dsw-alias-label-secondary); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.ac-card-meta { font-size: 10px; color: var(--dsw-alias-label-secondary); margin-top: 2px; display: flex; gap: 6px; }
 .ac-modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 40px; background: color-mix(in srgb, var(--dsw-alias-bg-base) 55%, transparent); backdrop-filter: blur(10px); }
 .ac-modal-card { width: min(980px, 100%); max-height: 86vh; overflow: auto; background: var(--dsw-alias-bg-base); border: 1px solid var(--dsw-alias-border-l1); border-radius: 16px; box-shadow: 0 30px 80px color-mix(in srgb, var(--dsw-alias-label-primary) 18%, transparent); position: relative; }
 .ac-modal-card .ac-detail { padding: 26px; }
