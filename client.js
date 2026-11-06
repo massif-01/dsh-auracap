@@ -90,6 +90,10 @@ window.__ModuleLoader__.load({
       insightEmptyHint: '把今天的碎片放在一起，AuraCap 会从中找主题、未完成信号和值得跟进的事。',
       viewOriginal: '查看原图',
       settings: '设置',
+      appearance: '外观',
+      themeSystem: '跟随 DSH',
+      themePaper: '纸张',
+      themeHint: '纸张只改变内容区，侧栏与工具栏保持 DSH 原生。',
       githubQueue: 'GitHub 队列',
       githubHint: '连接后自动创建一个私有仓库和收件箱 Release；手机快捷指令把截图传进去，插件消费后立即删除。',
       connectGithub: '连接 GitHub',
@@ -213,6 +217,10 @@ window.__ModuleLoader__.load({
       insightEmptyHint: 'Bring today’s fragments together and AuraCap will look for themes, loose ends, and things worth following up.',
       viewOriginal: 'View original',
       settings: 'Settings',
+      appearance: 'Appearance',
+      themeSystem: 'Follow DSH',
+      themePaper: 'Paper',
+      themeHint: 'Paper changes only the content area; the shell stays native.',
       githubQueue: 'GitHub queue',
       githubHint: 'Connecting creates a private inbox repo and release. The phone shortcut uploads screenshots; the plugin consumes and deletes them.',
       connectGithub: 'Connect GitHub',
@@ -260,6 +268,35 @@ window.__ModuleLoader__.load({
 @font-face { font-family: 'Geist'; src: url(${GEIST_FONT}) format('woff2'); font-weight: 100 900; font-style: normal; font-display: swap; }
 .ac-root { height: 100%; display: flex; flex-direction: column; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font-family: 'Geist', 'PingFang SC', 'Noto Sans SC', sans-serif; font-size: 13px; line-height: 1.55; overflow: hidden; position: relative; }
 .ac-root * { box-sizing: border-box; }
+.ac-surface { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.ac-paper {
+  --dsw-alias-bg-base: #F7F1E5;
+  --dsw-alias-bg-layer-1: #FBF7EE;
+  --dsw-alias-bg-layer-2: #EFE5D3;
+  --dsw-alias-label-primary: #2B2822;
+  --dsw-alias-label-secondary: #6F6759;
+  --dsw-alias-border-l1: #E4D8C2;
+  --dsw-alias-border-l2: #D6C7AC;
+  --dsw-alias-brand-primary: #C26445;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+}
+@media (prefers-color-scheme: dark) {
+  .ac-paper {
+    --dsw-alias-bg-base: #1C1A16;
+    --dsw-alias-bg-layer-1: #25211B;
+    --dsw-alias-bg-layer-2: #302A22;
+    --dsw-alias-label-primary: #EDE6D8;
+    --dsw-alias-label-secondary: #A99E8C;
+    --dsw-alias-border-l1: #3A342A;
+    --dsw-alias-border-l2: #4A4236;
+    --dsw-alias-brand-primary: #D97955;
+  }
+}
+.ac-theme-options { display: flex; gap: 8px; margin-top: 10px; }
+.ac-theme-option { height: 30px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-secondary); font-family: inherit; font-size: 12px; cursor: pointer; }
+.ac-theme-option:hover { color: var(--dsw-alias-label-primary); border-color: var(--dsw-alias-border-l2); }
+.ac-theme-option[aria-pressed="true"] { background: var(--dsw-alias-label-primary); color: var(--dsw-alias-bg-base); border-color: transparent; }
 .ac-header { flex: none; display: flex; align-items: center; gap: 10px; height: 58px; padding: 0 18px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
 .ac-mark { width: 28px; height: 28px; border-radius: 9px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); display: grid; place-items: center; color: var(--dsw-alias-brand-primary); flex: none; }
 .ac-titles { display: flex; flex-direction: column; line-height: 1.15; }
@@ -1289,6 +1326,7 @@ window.__ModuleLoader__.load({
 
     function SettingsModal(props) {
       const t = props.t
+      const theme = props.theme
       const github = props.github
       const device = props.device
       const shortcut = props.shortcut
@@ -1381,7 +1419,13 @@ window.__ModuleLoader__.load({
             h('div', { className: 'ac-grow' }),
             h('button', { className: 'ac-icon-button', onClick: props.onClose, 'aria-label': t('close') }, CloseIcon())),
           props.error ? h('div', { className: 'ac-error', style: { marginBottom: 16 } }, props.error) : null,
-          status))
+          status,
+          h('div', { className: 'ac-settings-section', style: { borderTop: '1px solid var(--dsw-alias-border-l1)', marginTop: 22, paddingTop: 18 } },
+            h('div', { className: 'ac-set-label' }, t('appearance')),
+            h('div', { className: 'ac-theme-options' },
+              h('button', { type: 'button', className: 'ac-theme-option', 'aria-pressed': theme === 'system', onClick: () => props.onThemeChange('system') }, t('themeSystem')),
+              h('button', { type: 'button', className: 'ac-theme-option', 'aria-pressed': theme === 'paper', onClick: () => props.onThemeChange('paper') }, t('themePaper'))),
+            h('p', { className: 'ac-settings-hint', style: { marginTop: 8 } }, t('themeHint')))))
     }
 
     function Empty(props) {
@@ -1436,6 +1480,9 @@ window.__ModuleLoader__.load({
       })
       const [settingsOpen, setSettingsOpen] = useState(false)
       const [searchOpen, setSearchOpen] = useState(false)
+      const [theme, setTheme] = useState(() => {
+        try { return localStorage.getItem('auracap.theme') === 'paper' ? 'paper' : 'system' } catch { return 'system' }
+      })
       const [github, setGithub] = useState(null)
       const [githubBusy, setGithubBusy] = useState(false)
       const [githubError, setGithubError] = useState(null)
@@ -1509,6 +1556,11 @@ window.__ModuleLoader__.load({
       const chooseView = (next) => {
         setView(next)
         try { localStorage.setItem('auracap.view', next) } catch {}
+      }
+
+      const chooseTheme = (next) => {
+        setTheme(next)
+        try { localStorage.setItem('auracap.theme', next) } catch {}
       }
 
       const loadInsight = useCallback(async (type, anchor) => {
@@ -1933,7 +1985,7 @@ window.__ModuleLoader__.load({
         tabs,
         timeline,
         error ? h('div', { className: 'ac-banner' }, h('span', null, error), h('button', { onClick: () => setError(null), 'aria-label': t('close') }, CloseIcon())) : null,
-        content,
+        h('div', { className: 'ac-surface' + (theme === 'paper' ? ' ac-paper' : '') }, content),
         searchOpen ? h(SearchPalette, {
           t,
           open: true,
@@ -1973,6 +2025,8 @@ window.__ModuleLoader__.load({
           shortcutFileBusy,
           shortcutFileMessage,
           onDownloadShortcut: downloadShortcut,
+          theme,
+          onThemeChange: chooseTheme,
         }) : null,
         lightbox ? h('div', { className: 'ac-lightbox', onClick: () => setLightbox(null) },
           h('img', {
