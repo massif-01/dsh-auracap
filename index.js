@@ -135,6 +135,13 @@ function asStringArray(value, max) {
     .slice(0, max)
 }
 
+function ensureCoreSection(content) {
+  const text = String(content || '').trim()
+  if (!text) return '### 核心内容\n（画面中没有可提取的信息）'
+  if (/^\s*#{1,6}\s+/m.test(text)) return text
+  return '### 核心内容\n' + text
+}
+
 function makeExcerpt(markdown) {
   return String(markdown || '')
     .replace(/^#{1,6}\s+.*$/gm, ' ')
@@ -160,10 +167,11 @@ function parseSummary(text) {
       const contentType = typeof parsed.contentType === 'string' ? parsed.contentType : 'other'
       const language = typeof parsed.language === 'string' ? parsed.language : 'zh'
       if (content) {
+        const normalized = ensureCoreSection(content)
         return {
-          title: typeof parsed.title === 'string' && parsed.title.trim() ? parsed.title.trim() : makeExcerpt(content).slice(0, 24),
-          content,
-          excerpt: makeExcerpt(content),
+          title: typeof parsed.title === 'string' && parsed.title.trim() ? parsed.title.trim() : makeExcerpt(normalized).slice(0, 24),
+          content: normalized,
+          excerpt: makeExcerpt(normalized),
           tags,
           contentType,
           language,
@@ -190,7 +198,7 @@ function parseSummary(text) {
     }
   }
   const lines = cleaned.split('\n').map((line) => line.trim()).filter(Boolean)
-  const content = cleaned || lines[0] || '未命名碎片'
+  const content = ensureCoreSection(cleaned || lines[0] || '未命名碎片')
   return {
     title: (lines[0] || '未命名碎片').replace(/^#+\s*/, '').slice(0, 24),
     content,
@@ -205,6 +213,9 @@ async function summarize(llm, items, item) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 180_000)
   try {
+    const captured = new Date(item.createdAt).toLocaleString('zh-CN', {
+      year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+    })
     const stream = llm.stream({
       provider: MODEL.provider,
       model: MODEL.model,
@@ -216,7 +227,7 @@ async function summarize(llm, items, item) {
           role: 'user',
           content: [
             { type: 'image', attachment: item.image },
-            { type: 'text', text: '请阅读这张截图，按系统提示只输出 JSON。' },
+            { type: 'text', text: '截图时间：' + captured + '。请阅读这张截图，按系统提示只输出 JSON。' },
           ],
         },
       ],
