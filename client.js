@@ -330,9 +330,21 @@ window.__ModuleLoader__.load({
 .ac-period-row-sub { margin-left: auto; font-size: 11px; color: var(--dsw-alias-label-secondary); font-family: 'Songti SC', 'Noto Serif SC', serif; }
 .ac-period-dot { display: inline-block; flex: none; width: 5px; height: 5px; border-radius: 50%; background: var(--dsw-alias-brand-primary); }
 .ac-period-menu-divider { height: 1px; margin: 6px 4px; background: var(--dsw-alias-border-l1); }
-.ac-period-date { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 10px 9px; font-size: 12px; }
-.ac-period-date input { border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); border-radius: 7px; padding: 4px 6px; font-family: inherit; font-size: 11px; }
-.ac-period-date input:focus { outline: none; border-color: var(--dsw-alias-border-l2); }
+.ac-period-date { width: 100%; display: flex; align-items: center; gap: 8px; padding: 7px 10px 9px; border: 0; background: transparent; color: inherit; font-family: inherit; font-size: 12px; text-align: left; cursor: pointer; }
+.ac-period-date:hover { background: var(--dsw-alias-bg-layer-1); border-radius: 8px; }
+.ac-period-date-value { margin-left: auto; font-family: 'Songti SC', 'Noto Serif SC', serif; font-size: 11px; color: var(--dsw-alias-label-secondary); }
+.ac-calendar { padding: 0 8px 8px; }
+.ac-calendar-head { display: flex; align-items: center; justify-content: space-between; padding: 2px 0 6px; }
+.ac-calendar-head button { width: 22px; height: 22px; border: 0; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; font-size: 16px; line-height: 1; font-family: inherit; }
+.ac-calendar-head button:hover { background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); }
+.ac-calendar-title { font-family: 'Songti SC', 'Noto Serif SC', serif; font-size: 11.5px; letter-spacing: .06em; color: var(--dsw-alias-label-secondary); }
+.ac-calendar-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 2px; font-size: 9px; color: var(--dsw-alias-label-secondary); opacity: .55; text-align: center; }
+.ac-calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.ac-calendar-day { height: 27px; border: 0; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 10.5px; cursor: pointer; }
+.ac-calendar-day:hover { background: var(--dsw-alias-bg-layer-1); }
+.ac-calendar-day[data-today="true"] { box-shadow: inset 0 0 0 1px var(--dsw-alias-border-l2); }
+.ac-calendar-day[data-selected="true"] { background: var(--dsw-alias-label-primary); color: var(--dsw-alias-bg-base); }
+.ac-calendar-day:disabled { opacity: .24; cursor: default; }
 .ac-period-backdrop { position: fixed; inset: 0; z-index: 30; background: transparent; }
 .ac-hint { font-size: 11px; color: var(--dsw-alias-label-secondary); opacity: .8; }
 .ac-body { flex: 1; display: flex; min-height: 0; }
@@ -1103,6 +1115,37 @@ window.__ModuleLoader__.load({
       const digest = props.digest
       const sections = digest && digest.content ? splitSections(digest.content) : []
       const [menuOpen, setMenuOpen] = useState(false)
+      const [calendarOpen, setCalendarOpen] = useState(false)
+      const [calendarMonth, setCalendarMonth] = useState(() => String(props.anchor || todayKey()).slice(0, 7))
+      useEffect(() => {
+        if (menuOpen) setCalendarMonth(String(props.anchor || todayKey()).slice(0, 7))
+      }, [menuOpen, props.anchor])
+      const today = todayKey()
+      const [calendarYear, calendarMonthNumber] = calendarMonth.split('-').map(Number)
+      const firstDay = new Date(calendarYear, calendarMonthNumber - 1, 1, 12)
+      const startOffset = (firstDay.getDay() + 6) % 7
+      const daysInMonth = new Date(calendarYear, calendarMonthNumber, 0).getDate()
+      const calendarCells = []
+      for (let index = 0; index < startOffset; index += 1) calendarCells.push(null)
+      for (let day = 1; day <= daysInMonth; day += 1) {
+        const key = calendarYear + '-' + pad(calendarMonthNumber) + '-' + pad(day)
+        calendarCells.push({
+          key,
+          day,
+          selected: key === props.anchor,
+          today: key === today,
+          disabled: key > today,
+        })
+      }
+      const shiftCalendar = (delta) => {
+        const date = new Date(calendarYear, calendarMonthNumber - 1 + delta, 1, 12)
+        setCalendarMonth(date.getFullYear() + '-' + pad(date.getMonth() + 1))
+      }
+      const chooseDate = (key) => {
+        props.onAnchorChange(key)
+        setMenuOpen(false)
+        setCalendarOpen(false)
+      }
       const periods = [
         ['day', 'periodDay', '今日'],
         ['week', 'periodWeek', '本周'],
@@ -1118,26 +1161,39 @@ window.__ModuleLoader__.load({
             type: 'button',
             className: 'ac-period-row',
             'aria-selected': props.period === id,
-            onClick: () => { props.onPeriodChange(id); setMenuOpen(false) },
+            onClick: () => { props.onPeriodChange(id); setMenuOpen(false); setCalendarOpen(false) },
           },
             h('span', { className: 'ac-period-row-label' }, t(key) || fallback),
             h('span', { className: 'ac-period-row-sub' }, sub),
             props.unreadPeriods && props.unreadPeriods[id] ? h('span', { className: 'ac-period-dot', 'aria-hidden': true }) : null)
         }),
         h('div', { className: 'ac-period-menu-divider' }),
-        h('div', { className: 'ac-period-date' },
+        h('button', { type: 'button', className: 'ac-period-date', onClick: () => setCalendarOpen((open) => !open) },
           h('span', { className: 'ac-period-row-label' }, t('jumpToDate')),
-          h('input', {
-            type: 'date',
-            value: props.anchor,
-            max: todayKey(),
-            onChange: (event) => { if (event.target.value) { props.onAnchorChange(event.target.value); setMenuOpen(false) } },
-          }))) : null
+          h('span', { className: 'ac-period-date-value' }, props.anchor),
+          ChevronDownIcon()),
+        calendarOpen ? h('div', { className: 'ac-calendar' },
+          h('div', { className: 'ac-calendar-head' },
+            h('button', { type: 'button', onClick: () => shiftCalendar(-1), 'aria-label': t('previousPeriod') }, '‹'),
+            h('span', { className: 'ac-calendar-title' }, calendarYear + ' 年 ' + calendarMonthNumber + ' 月'),
+            h('button', { type: 'button', onClick: () => shiftCalendar(1), 'aria-label': t('nextPeriod') }, '›')),
+          h('div', { className: 'ac-calendar-week' }, ['一', '二', '三', '四', '五', '六', '日'].map((day) => h('span', { key: day }, day))),
+          h('div', { className: 'ac-calendar-grid' }, calendarCells.map((cell, index) => cell
+            ? h('button', {
+                key: cell.key,
+                type: 'button',
+                className: 'ac-calendar-day',
+                'data-selected': cell.selected,
+                'data-today': cell.today,
+                disabled: cell.disabled,
+                onClick: () => chooseDate(cell.key),
+              }, String(cell.day))
+            : h('span', { key: 'empty-' + index })))) : null) : null
       const head = h('div', { className: 'ac-insight-head' },
         h('div', { className: 'ac-insight-heading' },
           h('div', { className: 'ac-insight-kicker' }, t('insights')),
           h('div', { className: 'ac-period-picker' },
-            h('button', { type: 'button', className: 'ac-period-trigger', onClick: () => setMenuOpen((open) => !open) },
+            h('button', { type: 'button', className: 'ac-period-trigger', onClick: () => { if (menuOpen) { setMenuOpen(false); setCalendarOpen(false) } else setMenuOpen(true) } },
               h('span', { className: 'ac-period-name' }, props.periodLabel || t('insightToday')),
               h('span', { className: 'ac-period-range' }, props.rangeLabel || props.date),
               ChevronDownIcon()),
