@@ -50,6 +50,16 @@ window.__ModuleLoader__.load({
       source: '来源',
       insights: '洞察',
       insightToday: '今日洞察',
+      periodDay: '今日',
+      periodWeek: '周迹',
+      periodMonth: '月迹',
+      periodYear: '岁迹',
+      timeline: '时间线',
+      allTime: '全部时间',
+      backToToday: '回到今天',
+      longInsightEmptyTitle: '这段时间还没有洞察',
+      longInsightEmptyHint: '生成一次，看看这段时间里反复出现的是什么。',
+      generateLongInsight: '生成本期洞察',
       generateInsight: '生成今日洞察',
       generating: '正在归纳…',
       preparing: '正在生成…',
@@ -144,6 +154,16 @@ window.__ModuleLoader__.load({
       source: 'Source',
       insights: 'Insights',
       insightToday: 'Today’s insight',
+      periodDay: 'Today',
+      periodWeek: 'Weekly traces',
+      periodMonth: 'Monthly traces',
+      periodYear: 'Yearly traces',
+      timeline: 'Timeline',
+      allTime: 'All time',
+      backToToday: 'Back to today',
+      longInsightEmptyTitle: 'No insight for this period yet',
+      longInsightEmptyHint: 'Generate one to see what kept recurring in this stretch of time.',
+      generateLongInsight: 'Generate period insight',
       generateInsight: 'Generate insight',
       generating: 'Reading the day…',
       preparing: 'Preparing…',
@@ -222,6 +242,17 @@ window.__ModuleLoader__.load({
 .ac-tab-count { margin-left: 5px; min-width: 15px; height: 15px; padding: 0 5px; border-radius: 999px; background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-secondary); font-size: 10px; display: inline-flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
 .ac-tab[aria-selected="true"] .ac-tab-count { color: var(--dsw-alias-label-primary); }
 .ac-tab-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--dsw-alias-brand-primary); margin-left: 5px; vertical-align: 1px; }
+.ac-timeline { flex: none; padding: 8px 20px 10px; border-bottom: 1px solid var(--dsw-alias-border-l1); display: flex; flex-direction: column; gap: 3px; }
+.ac-timeline-ticks { display: flex; justify-content: space-between; font-size: 10px; color: var(--dsw-alias-label-secondary); opacity: .7; font-variant-numeric: tabular-nums; }
+.ac-timeline input[type="range"] { width: 100%; height: 14px; margin: 0; accent-color: var(--dsw-alias-brand-primary); cursor: pointer; }
+.ac-timeline-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 10.5px; color: var(--dsw-alias-label-secondary); }
+.ac-timeline-reset { border: 0; background: transparent; color: var(--dsw-alias-label-secondary); font-size: 10.5px; cursor: pointer; padding: 0; font-family: inherit; }
+.ac-timeline-reset:hover { color: var(--dsw-alias-label-primary); }
+.ac-periods { display: flex; gap: 6px; margin-bottom: 24px; }
+.ac-period { height: 28px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--dsw-alias-border-l1); background: transparent; color: var(--dsw-alias-label-secondary); font-size: 12px; cursor: pointer; font-family: inherit; }
+.ac-period:hover { color: var(--dsw-alias-label-primary); }
+.ac-period[aria-selected="true"] { background: var(--dsw-alias-label-primary); color: var(--dsw-alias-bg-base); border-color: transparent; }
+.ac-period-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--dsw-alias-brand-primary); margin-left: 5px; vertical-align: 1px; }
 .ac-hint { font-size: 11px; color: var(--dsw-alias-label-secondary); opacity: .8; }
 .ac-body { flex: 1; display: flex; min-height: 0; }
 .ac-list { width: 236px; flex: none; border-right: 1px solid var(--dsw-alias-border-l1); overflow: auto; padding: 8px; }
@@ -390,6 +421,49 @@ window.__ModuleLoader__.load({
     function todayKey() {
       const now = new Date()
       return now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate())
+    }
+    function localDateKey(iso) {
+      const date = new Date(iso)
+      return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate())
+    }
+
+    function dayNumber(dateKey) {
+      const [year, month, day] = String(dateKey).split('-').map(Number)
+      return Math.floor(Date.UTC(year, month - 1, day) / 86400000)
+    }
+
+    function dateKeyFromDayNumber(value) {
+      const date = new Date(value * 86400000)
+      return date.getUTCFullYear() + '-' + pad(date.getUTCMonth() + 1) + '-' + pad(date.getUTCDate())
+    }
+
+    function weekBounds(anchorKey) {
+      const [year, month, day] = String(anchorKey).split('-').map(Number)
+      const date = new Date(year, month - 1, day, 12)
+      date.setDate(date.getDate() - ((date.getDay() + 6) % 7))
+      const end = new Date(date)
+      end.setDate(end.getDate() + 6)
+      return { start: localDateKey(date.toISOString()), end: localDateKey(end.toISOString()) }
+    }
+
+    function periodBounds(period, anchorKey) {
+      const [year, month, day] = String(anchorKey).split('-').map(Number)
+      if (period === 'day') return { start: anchorKey, end: anchorKey }
+      if (period === 'week') return weekBounds(anchorKey)
+      if (period === 'month') {
+        const start = new Date(year, month - 1, 1, 12)
+        const end = new Date(year, month, 0, 12)
+        return { start: localDateKey(start.toISOString()), end: localDateKey(end.toISOString()) }
+      }
+      return { start: year + '-01-01', end: year + '-12-31' }
+    }
+
+    function rangeText(start, end) {
+      const [sy, sm, sd] = String(start).split('-').map(Number)
+      const [ey, em, ed] = String(end).split('-').map(Number)
+      if (sy === ey && sm === em && sd === ed) return sm + '月' + sd + '日'
+      if (sy === ey) return sm + '月' + sd + '日 – ' + em + '月' + ed + '日'
+      return sy + '年' + sm + '月 – ' + ey + '年' + em + '月'
     }
 
     function timeText(iso) {
@@ -707,14 +781,60 @@ window.__ModuleLoader__.load({
           : null)
     }
 
+    function TimelineBar(props) {
+      const t = props.t
+      const today = todayKey()
+      const itemDays = (props.items || []).map((item) => dayNumber(localDateKey(item.createdAt))).filter((value) => Number.isFinite(value))
+      const todayDay = dayNumber(today)
+      const minDay = Math.min(todayDay - 60, ...(itemDays.length ? itemDays : [todayDay - 60]))
+      const maxDay = Math.max(todayDay, ...(itemDays.length ? itemDays : [todayDay]))
+      const current = Math.min(Math.max(dayNumber(props.anchor), minDay), maxDay)
+      const step = Math.max(1, Math.round((maxDay - minDay) / 4))
+      const ticks = [0, 1, 2, 3, 4].map((index) => {
+        const value = Math.min(maxDay, minDay + step * index)
+        const date = dateKeyFromDayNumber(value)
+        const [year, month] = date.split('-')
+        return { key: index, label: year + '.' + month }
+      })
+      const range = props.mode === 'browse'
+        ? (props.active ? weekBounds(props.anchor) : null)
+        : periodBounds(props.period, props.anchor)
+      const label = range ? rangeText(range.start, range.end) : t('allTime')
+      return h('div', { className: 'ac-timeline' },
+        h('div', { className: 'ac-timeline-ticks' }, ticks.map((tick) => h('span', { key: tick.key }, tick.label))),
+        h('input', {
+          type: 'range',
+          min: String(minDay),
+          max: String(maxDay),
+          step: '1',
+          value: String(current),
+          'aria-label': t('timeline'),
+          onChange: (event) => props.onChange(dateKeyFromDayNumber(Number(event.target.value))),
+          onPointerUp: (event) => props.onCommit(dateKeyFromDayNumber(Number(event.target.value))),
+          onKeyUp: (event) => props.onCommit(dateKeyFromDayNumber(Number(event.target.value))),
+        }),
+        h('div', { className: 'ac-timeline-foot' },
+          h('span', { className: 'ac-timeline-range' }, label),
+          props.mode === 'browse' && !props.active ? null : h('button', { type: 'button', className: 'ac-timeline-reset', onClick: props.onReset }, props.mode === 'browse' ? t('allTime') : t('backToToday'))))
+    }
+
     function DigestView(props) {
       const t = props.t
       const digest = props.digest
       const sections = digest && digest.content ? splitSections(digest.content) : []
+      const periodTabs = h('div', { className: 'ac-periods' },
+        [['day', 'periodDay'], ['week', 'periodWeek'], ['month', 'periodMonth'], ['year', 'periodYear']].map(([id, key]) =>
+          h('button', {
+            key: id,
+            type: 'button',
+            className: 'ac-period',
+            'aria-selected': props.period === id,
+            onClick: () => props.onPeriodChange(id),
+          }, t(key), props.unreadPeriods && props.unreadPeriods[id] ? h('span', { className: 'ac-period-dot', 'aria-hidden': true }) : null)))
       const head = h('div', { className: 'ac-digest-head' },
         h('div', { className: 'ac-digest-heading' },
-          h('div', { className: 'ac-sec-label', style: { marginBottom: 3 } }, t('insightToday')),
-          h('div', { className: 'ac-digest-date' }, props.date)),
+          h('div', { className: 'ac-sec-label', style: { marginBottom: 3 } }, props.periodLabel || t('insightToday')),
+          h('div', { className: 'ac-digest-date' }, props.rangeLabel || props.date)),
         h('div', { className: 'ac-digest-actions' },
           h('button', { className: 'ac-ghost', onClick: props.onGenerate, disabled: props.busy },
             RetryIcon(), props.busy ? t('generating') : (digest ? t('insightRegenerate') : t('generateInsight')))))
@@ -730,17 +850,17 @@ window.__ModuleLoader__.load({
         body = h('div', { className: 'ac-error' }, props.error)
       } else if (digest) {
         body = h('div', null,
-          h('h1', { className: 'ac-digest-h1' }, digest.title || t('insightToday')),
+          h('h1', { className: 'ac-digest-h1' }, digest.title || props.periodLabel || t('insightToday')),
           h('div', { className: 'ac-digest-meta' }, t('insightBasedOn') + ' ' + digest.itemCount + ' 条 · ' + t('insightUpdated') + ' ' + timeText(digest.createdAt)),
           sections.map((section, index) => h(SectionBlock, { key: index, section })))
       } else {
         body = h('div', { className: 'ac-digest-empty' },
-          h('h2', { className: 'ac-digest-h1' }, t('insightEmptyTitle')),
-          h('p', { className: 'ac-digest-hint' }, t('insightEmptyHint')),
-          h('button', { className: 'ac-primary', onClick: props.onGenerate }, PlusIcon(), t('generateInsight')))
+          h('h2', { className: 'ac-digest-h1' }, props.period === 'day' ? t('insightEmptyTitle') : t('longInsightEmptyTitle')),
+          h('p', { className: 'ac-digest-hint' }, props.period === 'day' ? t('insightEmptyHint') : t('longInsightEmptyHint')),
+          h('button', { className: 'ac-primary', onClick: props.onGenerate }, PlusIcon(), props.period === 'day' ? t('generateInsight') : t('generateLongInsight')))
       }
       return h('div', { className: 'ac-digest' },
-        h('div', { className: 'ac-digest-inner' }, head, body))
+        h('div', { className: 'ac-digest-inner' }, periodTabs, head, body))
     }
 
     function maskedConfig(config) {
@@ -874,6 +994,14 @@ window.__ModuleLoader__.load({
       const [digestBusy, setDigestBusy] = useState(false)
       const [digestError, setDigestError] = useState(null)
       const [digestLoaded, setDigestLoaded] = useState(false)
+      const [period, setPeriod] = useState('day')
+      const [anchorDate, setAnchorDate] = useState(() => todayKey())
+      const [appliedAnchor, setAppliedAnchor] = useState(() => todayKey())
+      const [timelineActive, setTimelineActive] = useState(false)
+      const [insightStatus, setInsightStatus] = useState({})
+      const [seenPeriods, setSeenPeriods] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('auracap.periodSeen') || '{}') || {} } catch { return {} }
+      })
       const [digestSeenAt, setDigestSeenAt] = useState(() => {
         try {
           const saved = JSON.parse(localStorage.getItem('auracap.digestSeen') || 'null')
@@ -909,9 +1037,25 @@ window.__ModuleLoader__.load({
         return () => clearInterval(timer)
       }, [load])
 
-      const visible = useMemo(() => (scope === 'today' ? items.filter((item) => isToday(item.createdAt)) : items), [items, scope])
+      const timelineRange = useMemo(() => (timelineActive ? weekBounds(anchorDate) : null), [timelineActive, anchorDate])
+      const visible = useMemo(() => {
+        const base = scope === 'today' ? items.filter((item) => isToday(item.createdAt)) : items
+        if (scope === 'all' && timelineRange) {
+          return base.filter((item) => {
+            const key = localDateKey(item.createdAt)
+            return key >= timelineRange.start && key <= timelineRange.end
+          })
+        }
+        return base
+      }, [items, scope, timelineRange])
       const todayCount = useMemo(() => items.filter((item) => isToday(item.createdAt)).length, [items])
       const digestUnread = Boolean(digest && digest.createdAt && digest.createdAt !== digestSeenAt)
+      const periodUnread = ['day', 'week', 'month', 'year'].reduce((acc, type) => {
+        const at = insightStatus[type] && insightStatus[type].createdAt
+        if (at && at !== seenPeriods[type]) acc[type] = true
+        return acc
+      }, {})
+      const anyPeriodUnread = Object.keys(periodUnread).length > 0
 
       useEffect(() => {
         if (!visible.length) { if (selectedId !== null) setSelectedId(null); return }
@@ -926,10 +1070,12 @@ window.__ModuleLoader__.load({
         try { localStorage.setItem('auracap.view', next) } catch {}
       }
 
-      const loadDigest = useCallback(async () => {
+      const loadInsight = useCallback(async (type, anchor) => {
         try {
-          const payload = await request(API + '/digest?date=' + encodeURIComponent(todayKey()))
-          setDigest(payload.digest || null)
+          let payload
+          if (type === 'day') payload = await request(API + '/digest?date=' + encodeURIComponent(anchor))
+          else payload = await request(API + '/insights?type=' + encodeURIComponent(type) + '&anchor=' + encodeURIComponent(anchor))
+          setDigest((type === 'day' ? payload.digest : payload.insight) || null)
           setDigestError(null)
         } catch (digestLoadError) {
           setDigestError(digestLoadError.message)
@@ -939,10 +1085,35 @@ window.__ModuleLoader__.load({
       }, [t])
 
       useEffect(() => {
-        loadDigest()
-        const timer = setInterval(loadDigest, 60_000)
+        loadInsight(period, appliedAnchor)
+        const timer = setInterval(() => loadInsight(period, appliedAnchor), 60_000)
         return () => clearInterval(timer)
-      }, [loadDigest])
+      }, [loadInsight, period, appliedAnchor])
+
+      useEffect(() => {
+        let alive = true
+        const loadStatus = async () => {
+          try {
+            const payload = await request(API + '/insights/status')
+            if (alive) setInsightStatus(payload || {})
+          } catch {}
+        }
+        loadStatus()
+        const timer = setInterval(loadStatus, 60_000)
+        return () => { alive = false; clearInterval(timer) }
+      }, [])
+
+      useEffect(() => {
+        if (scope !== 'digest') return
+        const at = insightStatus[period] && insightStatus[period].createdAt
+        if (!at) return
+        setSeenPeriods((previous) => {
+          if (previous[period] === at) return previous
+          const next = Object.assign({}, previous, { [period]: at })
+          try { localStorage.setItem('auracap.periodSeen', JSON.stringify(next)) } catch {}
+          return next
+        })
+      }, [scope, period, insightStatus])
 
       useEffect(() => {
         if (scope !== 'digest' || !digest || !digest.createdAt) return
@@ -1102,12 +1273,12 @@ window.__ModuleLoader__.load({
         setDigestBusy(true)
         setDigestError(null)
         try {
-          const payload = await request(API + '/digest', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ date: todayKey() }),
-          })
-          setDigest(payload.digest || null)
+          const type = period
+          const anchor = appliedAnchor
+          const payload = type === 'day'
+            ? await request(API + '/digest', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ date: anchor }) })
+            : await request(API + '/insights', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type, anchor }) })
+          setDigest((type === 'day' ? payload.digest : payload.insight) || null)
           setDigestLoaded(true)
         } catch (insightError) {
           setDigestError(insightError.message)
@@ -1186,6 +1357,26 @@ window.__ModuleLoader__.load({
       const openPicker = () => { if (fileRef.current) fileRef.current.click() }
       const hasOlder = scope === 'today' && visible.length === 0 && items.length > 0
 
+      const changePeriod = (next) => {
+        setPeriod(next)
+        setAppliedAnchor(anchorDate)
+      }
+      const changeTimeline = (next) => {
+        setAnchorDate(next)
+        if (scope === 'all') setTimelineActive(true)
+      }
+      const commitTimeline = (next) => {
+        if (scope === 'digest') setAppliedAnchor(next)
+      }
+      const resetTimeline = () => {
+        const today = todayKey()
+        setAnchorDate(today)
+        if (scope === 'all') setTimelineActive(false)
+        else setAppliedAnchor(today)
+      }
+      const periodLabels = { day: t('periodDay'), week: t('periodWeek'), month: t('periodMonth'), year: t('periodYear') }
+      const insightBounds = periodBounds(period, appliedAnchor)
+
       const header = h('header', { className: 'ac-header' },
         h('div', { className: 'ac-mark' }, BrandMark()),
         h('div', { className: 'ac-titles' },
@@ -1214,19 +1405,35 @@ window.__ModuleLoader__.load({
       const tabs = h('div', { className: 'ac-tabs' },
         h('button', { className: 'ac-tab', 'aria-selected': scope === 'today', onClick: () => setScope('today') }, t('today'), h('span', { className: 'ac-tab-count' }, String(todayCount))),
         h('button', { className: 'ac-tab', 'aria-selected': scope === 'all', onClick: () => setScope('all') }, t('all'), h('span', { className: 'ac-tab-count' }, String(items.length))),
-        h('button', { className: 'ac-tab', 'aria-selected': scope === 'digest', onClick: () => setScope('digest') }, t('insights'), digestUnread ? h('span', { className: 'ac-tab-dot', 'aria-hidden': true }) : null),
+        h('button', { className: 'ac-tab', 'aria-selected': scope === 'digest', onClick: () => setScope('digest') }, t('insights'), (anyPeriodUnread || digestUnread) ? h('span', { className: 'ac-tab-dot', 'aria-hidden': true }) : null),
         h('div', { className: 'ac-grow' }),
         h('span', { className: 'ac-hint' }, t('localOnly')))
+
+      const timeline = scope === 'today' ? null : h(TimelineBar, {
+        t,
+        items,
+        anchor: anchorDate,
+        period,
+        mode: scope === 'digest' ? 'insight' : 'browse',
+        active: scope === 'all' && timelineActive,
+        onChange: changeTimeline,
+        onCommit: commitTimeline,
+        onReset: resetTimeline,
+      })
 
       let content
       if (scope === 'digest') {
         content = h(DigestView, {
           t,
-          date: todayKey(),
+          period,
+          periodLabel: periodLabels[period],
+          rangeLabel: rangeText(insightBounds.start, insightBounds.end),
           digest,
           busy: digestBusy,
           error: digestError,
           onGenerate: generateInsight,
+          onPeriodChange: changePeriod,
+          unreadPeriods: periodUnread,
         })
       } else if (!visible.length) {
         content = h(Empty, { t, busy, hasOlder, onImport: openPicker, onShowAll: () => setScope('all') })
@@ -1249,6 +1456,7 @@ window.__ModuleLoader__.load({
         h('style', null, CSS),
         header,
         tabs,
+        timeline,
         error ? h('div', { className: 'ac-banner' }, h('span', null, error), h('button', { onClick: () => setError(null), 'aria-label': t('close') }, CloseIcon())) : null,
         content,
         drag ? h('div', { className: 'ac-drop' },

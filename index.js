@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { createHash, randomUUID } from 'node:crypto'
@@ -128,6 +128,214 @@ function localDateKey(iso) {
 
 function todayKey() {
   return localDateKey(new Date().toISOString())
+}
+
+function localDateKeyOfDate(date) {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
+}
+
+function localMidday(dateKey) {
+  const [year, month, day] = String(dateKey).split('-').map(Number)
+  return new Date(year, month - 1, day, 12, 0, 0, 0)
+}
+
+function addDays(dateKey, days) {
+  const date = localMidday(dateKey)
+  date.setDate(date.getDate() + days)
+  return localDateKeyOfDate(date)
+}
+
+function isoWeekKey(date) {
+  const utc = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+  const day = (utc.getUTCDay() + 6) % 7
+  utc.setUTCDate(utc.getUTCDate() - day + 3)
+  const firstThursday = new Date(Date.UTC(utc.getUTCFullYear(), 0, 4))
+  const week = 1 + Math.round((utc.getTime() - firstThursday.getTime()) / 604800000)
+  return `${utc.getUTCFullYear()}-W${pad2(week)}`
+}
+
+export function periodInfo(type, anchorISO) {
+  const base = anchorISO ? localMidday(localDateKey(anchorISO)) : localMidday(todayKey())
+  if (type === 'day') {
+    const key = localDateKeyOfDate(base)
+    return { type, key, start: key, end: key }
+  }
+  if (type === 'week') {
+    const monday = new Date(base)
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7))
+    const sunday = new Date(monday)
+    sunday.setDate(sunday.getDate() + 6)
+    return { type, key: isoWeekKey(monday), start: localDateKeyOfDate(monday), end: localDateKeyOfDate(sunday) }
+  }
+  if (type === 'month') {
+    const start = new Date(base.getFullYear(), base.getMonth(), 1, 12)
+    const end = new Date(base.getFullYear(), base.getMonth() + 1, 0, 12)
+    return { type, key: `${start.getFullYear()}-${pad2(start.getMonth() + 1)}`, start: localDateKeyOfDate(start), end: localDateKeyOfDate(end) }
+  }
+  if (type === 'year') {
+    return { type, key: String(base.getFullYear()), start: `${base.getFullYear()}-01-01`, end: `${base.getFullYear()}-12-31` }
+  }
+  const error = new Error('周期类型应为 day / week / month / year')
+  error.status = 400
+  throw error
+}
+
+function insightPath(type, key) {
+  if (type === 'day') return digestPath(key)
+  return join(dataDir(), 'insights', type, `${key}.json`)
+}
+
+function loadPeriodInsight(type, key) {
+  try {
+    return JSON.parse(readFileSync(insightPath(type, key), 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+function savePeriodInsight(insight) {
+  const file = insightPath(insight.type, insight.key)
+  mkdirSync(join(file, '..'), { recursive: true })
+  const tmp = `${file}.${process.pid}.tmp`
+  writeFileSync(tmp, JSON.stringify(insight, null, 2))
+  renameSync(tmp, file)
+}
+
+function itemsInRange(items, start, end) {
+  return items.filter((item) => {
+    const key = localDateKey(item.createdAt)
+    return key >= start && key <= end
+  })
+}
+
+function sourceInsightBlocks(type, start, end) {
+  const blocks = []
+  const seen = new Set()
+  const push = (nextType, dateKey) => {
+    const info = periodInfo(nextType, dateKey)
+    if (seen.has(info.type + info.key)) return
+    seen.add(info.type + info.key)
+    const insight = loadPeriodInsight(nextType, info.key)
+    if (insight && insight.content) blocks.push(`## ${info.key}\n${insight.content}`)
+  }
+  let keys = []
+  for (let cursor = start; cursor <= end; cursor = addDays(cursor, 1)) keys.push(cursor)
+  if (type === 'week') {
+    for (const key of keys) push('day', key)
+  } else if (type === 'month') {
+    for (const key of keys) push('week', key)
+    if (blocks.length < 2) for (const key of keys) push('day', key)
+  } else if (type === 'year') {
+    for (const key of keys) push('month', key)
+    if (blocks.length < 3) for (const key of keys) push('week', key)
+    if (blocks.length < 3) for (const key of keys) push('day', key)
+  }
+  return blocks.slice(0, 16)
+}
+
+function periodMaterial(type, items, info) {
+  const inRange = itemsInRange(items, info.start, info.end).sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+  const sources = sourceInsightBlocks(type, info.start, info.end)
+  const limit = type === 'year' ? 36 : type === 'month' ? 20 : 14
+  const itemsText = inRange.slice(-limit).map((item) => {
+    const summary = item.summary || {}
+    const title = summary.title || '未命名'
+    const content = plainTextOfSummary(summary).slice(0, 420)
+    return `- ${new Date(item.createdAt).toLocaleString('zh-CN', { hour12: false })} | ${title} | ${content}`
+  }).join('\n')
+  const parts = []
+  parts.push(`周期类型：${type}`, `日期范围：${info.start} ~ ${info.end}`)
+  if (sources.length) parts.push('# 已有洞察', sources.join('\n\n'))
+  if (itemsText) parts.push('# 原始片段', itemsText)
+  return { text: parts.join('\n\n').slice(0, 30_000), itemCount: inRange.length, sourceCount: sources.length }
+}
+
+async function generatePeriodInsight(ctx, items, type, anchorISO, force) {
+  const info = periodInfo(type, anchorISO)
+  const existing = loadPeriodInsight(type, info.key)
+  if (existing && !force) return existing
+  const material = periodMaterial(type, items, info)
+  if (!material.itemCount) {
+    const error = new Error('这个周期还没有可用碎片')
+    error.status = 409
+    throw error
+  }
+  const prompt = readPrompt('long-insights-zh.md')
+  if (!prompt) throw new Error('长洞察提示词缺失')
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 240_000)
+  try {
+    const stream = ctx.llm.stream({
+      provider: MODEL.provider,
+      model: MODEL.model,
+      reasoningEffort: 'low',
+      maxTokens: type === 'year' ? 4800 : 3400,
+      system: prompt,
+      messages: [{ role: 'user', content: [{ type: 'text', text: material.text }] }],
+      signal: controller.signal,
+    })
+    let text = ''
+    for await (const chunk of stream) {
+      if (chunk.type === 'text-delta') text += chunk.text
+      else if (chunk.type === 'finish') {
+        if (chunk.reason && chunk.reason.kind === 'error') throw new Error(chunk.reason.failure && chunk.reason.failure.message ? chunk.reason.failure.message : '模型调用失败')
+        if (chunk.reason && chunk.reason.kind === 'aborted') throw new Error('生成已取消')
+      }
+    }
+    const parsed = parseDigest(text)
+    const insight = {
+      type,
+      key: info.key,
+      start: info.start,
+      end: info.end,
+      title: parsed.title || `${info.start} ~ ${info.end}`,
+      content: parsed.content,
+      itemCount: material.itemCount,
+      sourceCount: material.sourceCount,
+      createdAt: new Date().toISOString(),
+      model: MODEL.model,
+    }
+    savePeriodInsight(insight)
+    return insight
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+function latestInsightStatus(type) {
+  const files = []
+  const push = (file, key) => {
+    try {
+      const parsed = JSON.parse(readFileSync(file, 'utf8'))
+      if (parsed && parsed.createdAt) files.push({ key: parsed.key || key, createdAt: parsed.createdAt })
+    } catch {}
+  }
+  if (type === 'day') {
+    try {
+      for (const name of readdirSync(join(dataDir(), 'digests'))) {
+        if (!/^\d{4}-\d{2}-\d{2}\.json$/.test(name)) continue
+        push(join(dataDir(), 'digests', name), name.replace(/\.json$/, ''))
+      }
+    } catch {}
+  } else {
+    try {
+      for (const name of readdirSync(join(dataDir(), 'insights', type))) {
+        if (!name.endsWith('.json')) continue
+        push(join(dataDir(), 'insights', type, name), name.replace(/\.json$/, ''))
+      }
+    } catch {}
+  }
+  return files.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] || null
+}
+
+function previousPeriodAnchors() {
+  const today = todayKey()
+  const date = localMidday(today)
+  const week = new Date(date)
+  week.setDate(week.getDate() - 7)
+  const month = new Date(date.getFullYear(), date.getMonth(), 0, 12)
+  const year = new Date(date.getFullYear() - 1, 11, 31, 12)
+  return { week: localDateKeyOfDate(week), month: localDateKeyOfDate(month), year: localDateKeyOfDate(year) }
 }
 
 function plainTextOfSummary(summary) {
@@ -584,6 +792,36 @@ async function syncGithub(ctx, github) {
   }
 }
 
+async function refreshLongInsights(ctx, github) {
+  if (github.longBusy) return
+  github.longBusy = true
+  try {
+    const anchors = previousPeriodAnchors()
+    const plans = [['week', anchors.week, 2], ['month', anchors.month, 4], ['year', anchors.year, 12]]
+    for (const [type, anchor, minimum] of plans) {
+      const info = periodInfo(type, anchor)
+      if (loadPeriodInsight(type, info.key)) continue
+      if (itemsInRange(github.items, info.start, info.end).length < minimum) continue
+      await generatePeriodInsight(ctx, github.items, type, anchor, false)
+    }
+  } catch {}
+  finally {
+    github.longBusy = false
+  }
+}
+
+function startLongInsightLoop(ctx, github) {
+  const check = () => { refreshLongInsights(ctx, github).catch(() => {}) }
+  const timer = setInterval(check, 30 * 60 * 1000)
+  if (typeof timer.unref === 'function') timer.unref()
+  const startup = setTimeout(check, 45_000)
+  if (typeof startup.unref === 'function') startup.unref()
+  ctx.effect(() => () => {
+    clearInterval(timer)
+    clearTimeout(startup)
+  })
+}
+
 function startGithubLoop(ctx, github) {
   if (!github.state.github) return
   const timer = setInterval(() => { syncGithub(ctx, github).catch(() => {}) }, GITHUB_POLL_MS)
@@ -831,9 +1069,10 @@ async function summarize(llm, items, item) {
 
 export function apply(ctx) {
   const items = loadItems()
-  const github = { items, state: loadState(), flows: new Map(), syncing: false, digestBusy: false }
+  const github = { items, state: loadState(), flows: new Map(), syncing: false, digestBusy: false, longBusy: false }
   startGithubLoop(ctx, github)
   startDigestLoop(ctx, github)
+  startLongInsightLoop(ctx, github)
 
   const ingest = async (req, res) => {
     if (!trusted(req)) return sendError(res, 403, 'forbidden')
@@ -922,6 +1161,42 @@ export function apply(ctx) {
       const url = new URL(req.url || '/', 'http://localhost')
       const path = url.pathname
       try {
+        if (path === `${BASE}/api/insights/status`) {
+          if (req.method !== 'GET') return sendError(res, 405, 'method not allowed')
+          return sendJson(res, 200, {
+            day: latestInsightStatus('day'),
+            week: latestInsightStatus('week'),
+            month: latestInsightStatus('month'),
+            year: latestInsightStatus('year'),
+          })
+        }
+        if (path === `${BASE}/api/insights`) {
+          const type = String(url.searchParams.get('type') || 'week')
+          const anchor = url.searchParams.get('anchor') || todayKey()
+          if (!['week', 'month', 'year'].includes(type)) return sendError(res, 400, '周期类型应为 week / month / year')
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(anchor)) return sendError(res, 400, '日期格式应为 YYYY-MM-DD')
+          let info
+          try { info = periodInfo(type, anchor) } catch (error) { return sendError(res, error.status || 400, error.message) }
+          if (req.method === 'GET') {
+            return sendJson(res, 200, { type, key: info.key, start: info.start, end: info.end, insight: loadPeriodInsight(type, info.key) })
+          }
+          if (req.method === 'POST') {
+            if (!trusted(req)) return sendError(res, 403, 'forbidden')
+            let body = {}
+            try { body = await readJsonBody(req, 64 * 1024) } catch { return sendError(res, 400, '请求体不是合法 JSON') }
+            try {
+              const targetType = body.type || type
+              const targetAnchor = body.anchor || anchor
+              if (!['week', 'month', 'year'].includes(targetType)) return sendError(res, 400, '周期类型应为 week / month / year')
+              const insight = await generatePeriodInsight(ctx, items, targetType, targetAnchor, Boolean(body.force))
+              const targetInfo = periodInfo(targetType, targetAnchor)
+              return sendJson(res, 200, { type: targetType, key: targetInfo.key, start: targetInfo.start, end: targetInfo.end, insight })
+            } catch (error) {
+              return sendError(res, error.status || 500, error.message || '生成失败')
+            }
+          }
+          return sendError(res, 405, 'method not allowed')
+        }
         if (path === `${BASE}/api/digest`) {
           if (req.method === 'GET') {
             const date = url.searchParams.get('date') || todayKey()
