@@ -104,14 +104,23 @@ window.__ModuleLoader__.load({
       githubSyncNow: '立即同步',
       githubRepair: '检查 / 修复',
       githubDisconnect: '断开连接',
-      shortcutTitle: '手机快捷指令配置',
+      shortcutTitle: '调试配置（一般不用）',
       shortcutHint: '在快捷指令里用一个文本变量保存这行配置；上传时先按 | 拆分，再按 / 拆分仓库。',
       copyConfig: '复制配置',
       configCopied: '已复制',
       githubError: 'GitHub 操作失败',
       itemsUnit: '条',
       phoneEntry: '手机入口',
-      phoneIntro: '连接已完成。下面三步把手机接进来；快捷指令我们最后再做。',
+      phoneIntro: '已连接 GitHub。下面把手机接进来。',
+      phoneSection: '把手机接进来',
+      syncSection: '同步',
+      connectedTo: '已连接',
+      diagnostics: '连接诊断',
+      connectionCheck: '检查连接',
+      showDebug: '调试配置',
+      hideDebug: '收起调试配置',
+      disconnectHint: '断开后手机上传会停止，已收下的片刻不受影响。',
+      disconnectConfirm: '再次点击确认断开',
       stepDownload: '下载专属快捷指令',
       stepDownloadHint: '文件里已经写好你的仓库和 token，安装时不需要编辑任何内容。',
       downloadShortcut: '下载快捷指令',
@@ -122,12 +131,13 @@ window.__ModuleLoader__.load({
       stepConfigHint: '先复制配置；安装快捷指令时，导入问题会让你粘贴它。',
       copyConfigDone: '已复制，等快捷指令做好后粘贴到唯一的文本变量。',
       stepTest: '发送测试图',
+      stepTestOptional: '发送测试图（可选）',
       stepTestHint: '用插件内置的测试图走一遍 上传 → 消费 → 总结，确认链路通了。',
       testUpload: '发送测试图',
       testing: '正在发送…',
       testSuccess: '已上传并消费，看看「今天」列表。',
-      advanced: '高级',
-      hideAdvanced: '收起高级',
+      advanced: '高级设置',
+      hideAdvanced: '收起高级设置',
       showConfig: '显示配置',
       hideConfig: '隐藏配置',
       templateSoon: '模板准备中',
@@ -227,14 +237,23 @@ window.__ModuleLoader__.load({
       githubSyncNow: 'Sync now',
       githubRepair: 'Check / repair',
       githubDisconnect: 'Disconnect',
-      shortcutTitle: 'Phone shortcut configuration',
+      shortcutTitle: 'Debug config (rarely needed)',
       shortcutHint: 'Store this line in a Text variable. Split by |, then split the repository by /.',
       copyConfig: 'Copy config',
       configCopied: 'Copied',
       githubError: 'GitHub request failed',
       itemsUnit: 'items',
       phoneEntry: 'Phone',
-      phoneIntro: 'Connected. Three steps to bring your phone in; the shortcut comes last.',
+      phoneIntro: 'GitHub is connected. Let’s bring your phone in.',
+      phoneSection: 'Bring your phone in',
+      syncSection: 'Sync',
+      connectedTo: 'Connected',
+      diagnostics: 'Connection diagnostics',
+      connectionCheck: 'Check connection',
+      showDebug: 'Debug config',
+      hideDebug: 'Hide debug config',
+      disconnectHint: 'Phone uploads stop after disconnecting; moments already captured stay untouched.',
+      disconnectConfirm: 'Click again to confirm',
       stepDownload: 'Download your shortcut',
       stepDownloadHint: 'The file already contains your repo and token; nothing to edit when installing.',
       downloadShortcut: 'Download shortcut',
@@ -245,12 +264,13 @@ window.__ModuleLoader__.load({
       stepConfigHint: 'Copy it first; the import question asks for it when you install the shortcut.',
       copyConfigDone: 'Copied. Paste it into the single Text variable once the shortcut exists.',
       stepTest: 'Send a test capture',
+      stepTestOptional: 'Send a test capture (optional)',
       stepTestHint: 'Runs a built-in test image through upload → consume → summary to prove the pipeline.',
       testUpload: 'Send test capture',
       testing: 'Sending…',
       testSuccess: 'Uploaded and consumed. Check Today.',
-      advanced: 'Advanced',
-      hideAdvanced: 'Hide advanced',
+      advanced: 'Advanced settings',
+      hideAdvanced: 'Hide advanced settings',
       showConfig: 'Show config',
       hideConfig: 'Hide config',
       templateSoon: 'Template soon',
@@ -275,6 +295,9 @@ window.__ModuleLoader__.load({
 .ac-primary { height: 30px; padding: 0 13px; border-radius: 8px; border: 1px solid var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font-size: 12.5px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-family: inherit; }
 .ac-primary:hover { background: var(--dsw-alias-bg-layer-1); border-color: var(--dsw-alias-label-primary); }
 .ac-primary:disabled { opacity: .38; cursor: default; }
+.ac-secondary { height: 30px; padding: 0 13px; border-radius: 8px; border: 1px solid var(--dsw-alias-border-l1); background: transparent; color: var(--dsw-alias-label-secondary); font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-family: inherit; }
+.ac-secondary:hover { color: var(--dsw-alias-label-primary); border-color: var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-1); }
+.ac-secondary:disabled { opacity: .38; cursor: default; }
 .ac-tabs { flex: none; display: flex; align-items: center; gap: 18px; height: 40px; padding: 0 20px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
 .ac-tab { border: 0; background: transparent; padding: 0; font-size: 12.5px; color: var(--dsw-alias-label-secondary); cursor: pointer; height: 40px; position: relative; font-family: inherit; }
 .ac-tab:hover { color: var(--dsw-alias-label-primary); }
@@ -402,10 +425,16 @@ window.__ModuleLoader__.load({
 .ac-digest .ac-body-text { margin-bottom: 0; }
 .ac-icon-button { width: 30px; height: 30px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--dsw-alias-label-secondary); display: grid; place-items: center; cursor: pointer; }
 .ac-icon-button:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-1); border-color: var(--dsw-alias-border-l1); }
-.ac-settings { width: min(680px, 100%); max-height: 86vh; overflow: auto; background: var(--dsw-alias-bg-base); border: 1px solid var(--dsw-alias-border-l1); border-radius: 16px; box-shadow: 0 30px 80px color-mix(in srgb, var(--dsw-alias-label-primary) 18%, transparent); padding: 26px 28px 32px; position: relative; }
-.ac-settings-head { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-.ac-settings-title { font-size: 17px; font-weight: 600; }
+.ac-settings { width: min(620px, 100%); max-height: 86vh; overflow: auto; background: var(--dsw-alias-bg-base); border: 1px solid var(--dsw-alias-border-l1); border-radius: 16px; box-shadow: 0 30px 80px color-mix(in srgb, var(--dsw-alias-label-primary) 18%, transparent); padding: 26px 28px 32px; position: relative; }
+.ac-settings-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 20px; }
+.ac-settings-title { font-size: 17px; font-weight: 600; line-height: 1.3; }
+.ac-settings-sub { margin-top: 3px; font-size: 11px; color: var(--dsw-alias-label-secondary); }
+.ac-settings-status { display: flex; align-items: center; gap: 7px; margin-top: 4px; margin-bottom: 2px; font-size: 12px; color: var(--dsw-alias-label-secondary); }
+.ac-settings-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dsw-alias-state-success-primary); flex: none; }
+.ac-settings-status-repo { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+.ac-section-eyebrow { font-size: 10px; letter-spacing: .12em; color: var(--dsw-alias-label-secondary); opacity: .7; margin-bottom: 10px; }
 .ac-settings-section { padding-top: 20px; border-top: 1px solid var(--dsw-alias-border-l1); margin-top: 22px; }
+.ac-settings-status + .ac-settings-section { margin-top: 18px; }
 .ac-set-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
 .ac-set-label { font-size: 12px; color: var(--dsw-alias-label-secondary); min-width: 92px; }
 .ac-set-value { font-size: 12.5px; flex: 1; min-width: 0; overflow-wrap: anywhere; }
@@ -423,7 +452,15 @@ window.__ModuleLoader__.load({
 .ac-step-title { font-size: 13px; font-weight: 500; line-height: 1.4; }
 .ac-step-hint { font-size: 12px; color: var(--dsw-alias-label-secondary); line-height: 1.6; margin-top: 2px; }
 .ac-step-actions { display: flex; gap: 8px; margin-top: 8px; }
-.ac-advanced { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--dsw-alias-border-l1); }
+.ac-advanced { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--dsw-alias-border-l1); }
+.ac-advanced-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 0; background: transparent; color: var(--dsw-alias-label-secondary); font-family: inherit; font-size: 12px; padding: 0; cursor: pointer; }
+.ac-advanced-toggle:hover { color: var(--dsw-alias-label-primary); }
+.ac-advanced-chevron { display: inline-flex; transition: transform .15s ease; }
+.ac-advanced-chevron[data-open="true"] { transform: rotate(180deg); }
+.ac-advanced-body { margin-top: 16px; }
+.ac-danger-zone { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--dsw-alias-border-l1); }
+.ac-danger-zone .ac-ghost { color: var(--dsw-alias-state-error-primary); border-color: color-mix(in srgb, var(--dsw-alias-state-error-primary) 30%, var(--dsw-alias-border-l1)); }
+.ac-debug { margin-top: 10px; }
 .ac-success { font-size: 12px; color: var(--dsw-alias-state-success-primary); line-height: 1.6; }
 
 .ac-tags { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -1293,16 +1330,32 @@ window.__ModuleLoader__.load({
       const device = props.device
       const shortcut = props.shortcut
       const [advanced, setAdvanced] = useState(false)
+      const [debugOpen, setDebugOpen] = useState(false)
       const [showConfig, setShowConfig] = useState(false)
+      const [confirmDisconnect, setConfirmDisconnect] = useState(false)
       const connected = Boolean(github && github.connected)
       const waiting = device && (device.status === 'pending' || device.status === 'provisioning')
+      useEffect(() => {
+        if (!confirmDisconnect) return undefined
+        const timer = setTimeout(() => setConfirmDisconnect(false), 4000)
+        return () => clearTimeout(timer)
+      }, [confirmDisconnect])
+
+      const step = (index, title, hint, actions, extra) => h('div', { className: 'ac-step' },
+        h('div', { className: 'ac-step-no' }, String(index)),
+        h('div', { className: 'ac-step-body' },
+          h('div', { className: 'ac-step-title' }, title),
+          h('div', { className: 'ac-step-hint' }, hint),
+          actions ? h('div', { className: 'ac-step-actions' }, actions) : null,
+          extra || null))
 
       let status
       if (!github) {
         status = h('p', { className: 'ac-settings-hint' }, t('githubWaiting'))
       } else if (!connected) {
         status = h('div', null,
-          h('p', { className: 'ac-settings-hint' }, t('githubHint')),
+          h('div', { className: 'ac-section-eyebrow' }, t('connectGithub')),
+          h('p', { className: 'ac-settings-hint', style: { marginTop: 0 } }, t('githubHint')),
           waiting
             ? h('div', { className: 'ac-device' },
                 h('div', { className: 'ac-set-label' }, t('deviceCode')),
@@ -1314,70 +1367,70 @@ window.__ModuleLoader__.load({
                 h('button', { className: 'ac-primary', onClick: props.onConnect, disabled: props.busy }, t('connectGithub'))))
       } else {
         status = h('div', null,
-          h('div', { className: 'ac-settings-section', style: { borderTop: 0, paddingTop: 0, marginTop: 0 } },
-            h('p', { className: 'ac-settings-hint', style: { marginTop: 0, marginBottom: 2 } }, t('phoneIntro')),
+          h('div', { className: 'ac-settings-status' },
+            h('span', { className: 'ac-settings-status-dot' }),
+            h('span', null, t('connectedTo')),
+            h('span', { className: 'ac-settings-status-repo' }, github.repo.owner + '/' + github.repo.name)),
+
+          h('section', { className: 'ac-settings-section' },
+            h('div', { className: 'ac-section-eyebrow' }, t('phoneSection')),
             h('div', { className: 'ac-steps' },
-              h('div', { className: 'ac-step' },
-                h('div', { className: 'ac-step-no' }, '1'),
-                h('div', { className: 'ac-step-body' },
-                  h('div', { className: 'ac-step-title' }, t('stepDownload')),
-                  h('div', { className: 'ac-step-hint' }, t('stepDownloadHint')),
-                  h('div', { className: 'ac-step-actions' },
-                    h('button', { className: 'ac-primary', onClick: props.onDownloadShortcut, disabled: props.shortcutFileBusy },
-                      props.shortcutFileBusy ? t('preparing') : t('downloadShortcut'))),
-                  props.shortcutFileMessage
-                    ? h('div', { className: props.shortcutFileMessage.ok ? 'ac-success' : 'ac-error', style: { marginTop: 8 } },
-                        props.shortcutFileMessage.ok ? t('shortcutDownloaded') : props.shortcutFileMessage.text)
-                    : null)),
-              h('div', { className: 'ac-step' },
-                h('div', { className: 'ac-step-no' }, '2'),
-                h('div', { className: 'ac-step-body' },
-                  h('div', { className: 'ac-step-title' }, t('stepInstall')),
-                  h('div', { className: 'ac-step-hint' }, t('stepInstallHint')))),
-              h('div', { className: 'ac-step' },
-                h('div', { className: 'ac-step-no' }, '3'),
-                h('div', { className: 'ac-step-body' },
-                  h('div', { className: 'ac-step-title' }, t('stepTest')),
-                  h('div', { className: 'ac-step-hint' }, t('stepTestHint')),
-                  h('div', { className: 'ac-step-actions' },
-                    h('button', { className: 'ac-primary', onClick: props.onTestUpload, disabled: props.testBusy },
-                      props.testBusy ? t('testing') : t('testUpload'))),
-                  props.testMessage
-                    ? h('div', { className: props.testMessage.ok ? 'ac-success' : 'ac-error', style: { marginTop: 10 } },
-                        props.testMessage.ok ? t('testSuccess') : props.testMessage.text)
-                    : null)))),
+              step(1, t('stepDownload'), t('stepDownloadHint'),
+                h('button', { className: 'ac-primary', onClick: props.onDownloadShortcut, disabled: props.shortcutFileBusy },
+                  props.shortcutFileBusy ? t('preparing') : t('downloadShortcut')),
+                props.shortcutFileMessage
+                  ? h('div', { className: props.shortcutFileMessage.ok ? 'ac-success' : 'ac-error', style: { marginTop: 8 } },
+                      props.shortcutFileMessage.ok ? t('shortcutDownloaded') : props.shortcutFileMessage.text)
+                  : null),
+              step(2, t('stepInstall'), t('stepInstallHint'), null, null),
+              step(3, t('stepTestOptional'), t('stepTestHint'),
+                h('button', { className: 'ac-secondary', onClick: props.onTestUpload, disabled: props.testBusy },
+                  props.testBusy ? t('testing') : t('testUpload')),
+                props.testMessage
+                  ? h('div', { className: props.testMessage.ok ? 'ac-success' : 'ac-error', style: { marginTop: 8 } },
+                      props.testMessage.ok ? t('testSuccess') : props.testMessage.text)
+                  : null))),
+
+          h('section', { className: 'ac-settings-section' },
+            h('div', { className: 'ac-section-eyebrow' }, t('syncSection')),
+            h('div', { className: 'ac-set-row' },
+              h('span', { className: 'ac-set-label' }, t('githubQueueCount')),
+              h('span', { className: 'ac-set-value' }, String(github.queueCount || 0) + ' ' + t('itemsUnit'))),
+            h('div', { className: 'ac-set-row' },
+              h('span', { className: 'ac-set-label' }, t('githubLastSync')),
+              h('span', { className: 'ac-set-value' }, github.lastSyncAt ? timeText(github.lastSyncAt) : '—')),
+            h('div', { className: 'ac-set-actions' },
+              h('button', { className: 'ac-ghost', onClick: props.onSync, disabled: props.busy }, RetryIcon(), t('githubSyncNow')))),
+
           h('div', { className: 'ac-advanced' },
-            h('button', { className: 'ac-ghost', onClick: () => setAdvanced(!advanced) }, advanced ? t('hideAdvanced') : t('advanced')),
+            h('button', { className: 'ac-advanced-toggle', type: 'button', onClick: () => setAdvanced(!advanced) },
+              h('span', null, advanced ? t('hideAdvanced') : t('advanced')),
+              h('span', { className: 'ac-advanced-chevron', 'data-open': advanced }, ChevronDownIcon())),
             advanced
-              ? h('div', { style: { marginTop: 14 } },
-                  h('div', { className: 'ac-set-row' },
-                    h('span', { className: 'ac-set-label' }, t('githubRepo')),
-                    h('span', { className: 'ac-set-value' },
-                      h('a', { className: 'ac-device-link', href: github.repo.url, target: '_blank', rel: 'noreferrer' }, github.repo.owner + '/' + github.repo.name))),
-                  h('div', { className: 'ac-set-row' },
-                    h('span', { className: 'ac-set-label' }, t('githubQueueCount')),
-                    h('span', { className: 'ac-set-value' }, String(github.queueCount || 0) + ' ' + t('itemsUnit'))),
-                  h('div', { className: 'ac-set-row' },
-                    h('span', { className: 'ac-set-label' }, t('githubLastSync')),
-                    h('span', { className: 'ac-set-value' }, github.lastSyncAt ? timeText(github.lastSyncAt) : '—')),
-                  h('div', { className: 'ac-set-row' },
-                    h('span', { className: 'ac-set-label' }, t('shortcutTitle')),
-                    h('div', { className: 'ac-set-value' },
-                      h('div', { className: 'ac-config' }, showConfig && shortcut ? shortcut.config : maskedConfig(shortcut && shortcut.config)),
-                      h('div', { className: 'ac-set-actions' },
-                        h('button', { className: 'ac-ghost', onClick: () => setShowConfig(!showConfig) }, showConfig ? t('hideConfig') : t('showConfig')),
-                        h('button', { className: 'ac-ghost', onClick: props.onCopyConfig, disabled: !shortcut }, CopyIcon(), t('copyConfig'))))),
+              ? h('div', { className: 'ac-advanced-body' },
+                  h('div', { className: 'ac-section-eyebrow' }, t('diagnostics')),
                   h('div', { className: 'ac-set-actions' },
-                    h('button', { className: 'ac-ghost', onClick: props.onSync, disabled: props.busy }, RetryIcon(), t('githubSyncNow')),
-                    h('button', { className: 'ac-ghost', onClick: props.onRepair, disabled: props.busy }, t('githubRepair')),
-                    h('button', { className: 'ac-ghost', 'data-danger': true, onClick: props.onDisconnect }, t('githubDisconnect'))))
+                    h('button', { className: 'ac-ghost', onClick: props.onRepair, disabled: props.busy }, t('connectionCheck')),
+                    h('button', { className: 'ac-ghost', onClick: () => setDebugOpen(!debugOpen) }, debugOpen ? t('hideDebug') : t('showDebug'))),
+                  debugOpen
+                    ? h('div', { className: 'ac-debug' },
+                        h('div', { className: 'ac-config' }, showConfig && shortcut ? shortcut.config : maskedConfig(shortcut && shortcut.config)),
+                        h('div', { className: 'ac-set-actions' },
+                          h('button', { className: 'ac-ghost', onClick: () => setShowConfig(!showConfig) }, showConfig ? t('hideConfig') : t('showConfig')),
+                          h('button', { className: 'ac-ghost', onClick: props.onCopyConfig, disabled: !shortcut }, CopyIcon(), t('copyConfig'))))
+                    : null,
+                  h('div', { className: 'ac-danger-zone' },
+                    h('button', { className: 'ac-ghost', 'data-danger': true, onClick: () => { if (confirmDisconnect) props.onDisconnect(); else setConfirmDisconnect(true) } },
+                      confirmDisconnect ? t('disconnectConfirm') : t('githubDisconnect')),
+                    h('div', { className: 'ac-settings-hint' }, t('disconnectHint'))))
               : null))
       }
 
       return h('div', { className: 'ac-modal', onMouseDown: (event) => { if (event.target === event.currentTarget) props.onClose() } },
         h('div', { className: 'ac-settings' },
           h('div', { className: 'ac-settings-head' },
-            h('div', { className: 'ac-settings-title' }, t('phoneEntry')),
+            h('div', null,
+              h('div', { className: 'ac-settings-title' }, t('phoneEntry'))),
             h('div', { className: 'ac-grow' }),
             h('button', { className: 'ac-icon-button', onClick: props.onClose, 'aria-label': t('close') }, CloseIcon())),
           props.error ? h('div', { className: 'ac-error', style: { marginBottom: 16 } }, props.error) : null,
