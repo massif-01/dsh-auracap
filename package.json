@@ -22,7 +22,8 @@
     "LICENSE",
     "docs/*.jpg",
     "assets/*.png",
-    "assets/*.plist"
+    "assets/*.plist",
+    "assets/fonts/*"
   ],
   "icon": "./assets/icon.png",
   "engines": {
