@@ -1339,11 +1339,13 @@ window.__ModuleLoader__.load({
         const onKeyDown = (event) => {
           if ((event.metaKey || event.ctrlKey) && String(event.key).toLowerCase() === 'k') {
             event.preventDefault()
+            event.stopPropagation()
+            event.stopImmediatePropagation()
             setSearchOpen((open) => !open)
           }
         }
-        window.addEventListener('keydown', onKeyDown)
-        return () => window.removeEventListener('keydown', onKeyDown)
+        window.addEventListener('keydown', onKeyDown, true)
+        return () => window.removeEventListener('keydown', onKeyDown, true)
       }, [])
 
       const load = useCallback(async () => {
