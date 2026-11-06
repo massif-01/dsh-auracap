@@ -11,6 +11,8 @@ window.__ModuleLoader__.load({
 
     const ZH = {
       appName: 'AuraCap',
+      appTitle: 'AuraCap · 拾穗',
+      tagline: '把散落的片刻轻轻拾起，让它们在回头时连成脉络。',
       fragments: '碎片',
       layout: '视图',
       split: '双栏',
@@ -103,6 +105,8 @@ window.__ModuleLoader__.load({
 
     const EN = {
       appName: 'AuraCap',
+      appTitle: 'AuraCap · Gleanings',
+      tagline: 'Gather the scattered moments; in hindsight, they form a thread.',
       fragments: 'fragments',
       layout: 'Layout',
       split: 'Split',
@@ -1166,7 +1170,8 @@ window.__ModuleLoader__.load({
       const header = h('header', { className: 'ac-header' },
         h('div', { className: 'ac-mark' }, BrandMark()),
         h('div', { className: 'ac-titles' },
-          h('div', { className: 'ac-name' }, t('appName'))),
+          h('div', { className: 'ac-name' }, t('appTitle')),
+          h('div', { className: 'ac-sub' }, t('tagline'))),
         h('span', { className: 'ac-count' }, String(items.length)),
         h('div', { className: 'ac-grow' }),
         h('button', { className: 'ac-icon-button', onClick: openSettings, title: t('settings'), 'aria-label': t('settings') }, SettingsIcon()),
