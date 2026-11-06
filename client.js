@@ -53,6 +53,25 @@ window.__ModuleLoader__.load({
       dropHint: '同源面板直接读取，不经过相册或云盘',
       emptyTitle: '把片刻留在这里',
       emptyHint: '拖一张截图进来，或用手机随手截下；它们会在这里慢慢连成脉络。',
+      onboardingTitle: '让手机先接上',
+      onboardingBody: '之后截屏、相册分享，都会自己落到这里。',
+      connectPhone: '连接手机',
+      connecting: '连接中…',
+      localOnlyAction: '先只在电脑上用',
+      deviceTitle: '在 GitHub 输入这个码',
+      deviceBody: '打开下面的页面，输入验证码，回来后这里会自动继续。',
+      openGithub: '打开 GitHub 授权',
+      provisioningGithub: '正在创建私有收件箱…',
+      connectedTitle: '手机已接上',
+      connectedBody: '还差一步：把 AuraCap 快捷指令装到 iPhone。',
+      installStep1: '用 iPhone 打开下载的文件',
+      installStep2: '安装到「快捷指令」',
+      installStep3: '轻点背面，或按操作按钮试一张',
+      downloadedShortcut: '已下载。接下来在 iPhone 上打开它。',
+      whyGithub: '为什么是 GitHub？',
+      whyGithubBody1: '手机在外面，Mac 在家里，需要一个只有你能访问的中间站。GitHub 的私有仓库和 Release 正好可以当这个收件箱。正常个人用量免费，不用我们自己的服务器，也不用你配置端口。',
+      whyGithubBody2: '图片会先传到你的私有仓库，Mac 取回后立刻从队列删除；授权只存在本机 DSH 凭据里，随时可以在 GitHub 设置中撤销。',
+      whyGithubBody3: '不用它的话，要么自己维护一台有公网地址的服务器，要么接付费同步服务；手机没法直接找到你家或公司网络里的 Mac。读图和总结需要调用 DeepSeek 模型，这一步和原来一样，结果、原图、索引都留在本机。',
       importGuideTitle: '三种收法',
       importGuideDesktop: '电脑：拖入文件，或点「导入」。',
       importGuidePhone: '相册：分享给「AuraCap」。',
@@ -217,6 +236,25 @@ window.__ModuleLoader__.load({
       dropHint: 'Read in place — never uploaded to Photos or a cloud drive',
       emptyTitle: 'Keep the moments here',
       emptyHint: 'Drop a screenshot, or capture one from your phone; over time they become a thread you can look back on.',
+      onboardingTitle: 'Bring your phone in first',
+      onboardingBody: 'After that, screenshots and shared photos land here on their own.',
+      connectPhone: 'Connect phone',
+      connecting: 'Connecting…',
+      localOnlyAction: 'Start on this Mac only',
+      deviceTitle: 'Enter this code on GitHub',
+      deviceBody: 'Open the page below, enter the code, and come back. This screen will continue automatically.',
+      openGithub: 'Open GitHub authorization',
+      provisioningGithub: 'Creating your private inbox…',
+      connectedTitle: 'Phone is connected',
+      connectedBody: 'One more step: install the AuraCap shortcut on your iPhone.',
+      installStep1: 'Open the downloaded file on iPhone',
+      installStep2: 'Add it to Shortcuts',
+      installStep3: 'Try Back Tap or the Action Button',
+      downloadedShortcut: 'Downloaded. Now open it on your iPhone.',
+      whyGithub: 'Why GitHub?',
+      whyGithubBody1: 'Your phone is outside, your Mac is at home, and they need a meeting point only you can access. A private GitHub repository and Release make a free inbox for normal personal use — no server of ours, no port forwarding.',
+      whyGithubBody2: 'Images go to your private repository first; the Mac removes them from the queue after fetching. The authorization lives only in local DSH credentials and can be revoked from GitHub settings at any time.',
+      whyGithubBody3: 'Without it, you would need to run a server with a public address or pay for a sync service; your phone cannot reach a Mac behind your home or office network. Image understanding and summaries still call the DeepSeek model as before; results, originals, and indexes stay on this Mac.',
       importGuideTitle: 'Three ways to capture',
       importGuideDesktop: 'Mac: drag a file in, or click Import.',
       importGuidePhone: 'Photos: share it to the AuraCap shortcut.',
@@ -605,6 +643,30 @@ window.__ModuleLoader__.load({
 .ac-empty h2 { font-size: 21px; font-weight: 600; letter-spacing: -.01em; margin: 0 0 8px; }
 .ac-empty p { margin: 0; max-width: 420px; color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 1.75; }
 .ac-empty .ac-primary { margin-top: 22px; height: 34px; padding: 0 17px; font-size: 13px; }
+.ac-onboarding { flex: 1; min-height: 0; overflow: auto; display: flex; align-items: center; justify-content: center; padding: 34px 32px 56px; }
+.ac-onboarding-inner { width: min(500px, 100%); display: flex; flex-direction: column; align-items: center; text-align: center; }
+.ac-onboarding-mark { width: 58px; height: 58px; display: grid; place-items: center; color: var(--dsw-alias-label-secondary); opacity: .62; margin-bottom: 20px; }
+.ac-onboarding-title { font-size: 22px; font-weight: 600; letter-spacing: -.015em; margin: 0 0 9px; }
+.ac-onboarding-body { margin: 0; max-width: 330px; color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 1.8; }
+.ac-onboarding-actions { display: flex; flex-direction: column; align-items: center; gap: 9px; margin-top: 24px; }
+.ac-onboarding-primary { min-width: 154px; height: 36px; padding: 0 22px; font-size: 13px; }
+.ac-onboarding-link { border: 0; background: transparent; padding: 0; color: var(--dsw-alias-label-secondary); font-family: inherit; font-size: 11.5px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, var(--dsw-alias-label-secondary) 40%, transparent); }
+.ac-onboarding-link:hover { color: var(--dsw-alias-label-primary); }
+.ac-onboarding-hint { margin-top: 10px; font-size: 10.5px; color: var(--dsw-alias-label-secondary); }
+.ac-onboarding-code { margin: 18px 0 16px; font-size: 23px; font-weight: 600; letter-spacing: .16em; font-variant-numeric: tabular-nums; }
+.ac-onboarding-error { margin-top: 12px; max-width: 360px; color: #b45445; font-size: 11px; line-height: 1.6; }
+.ac-onboarding-success { margin-top: 2px; color: var(--dsw-alias-label-secondary); font-size: 11px; }
+.ac-onboarding-why { width: 100%; margin-top: 30px; padding-top: 15px; border-top: 1px solid var(--dsw-alias-border-l1); }
+.ac-onboarding-why-toggle { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; padding: 0; color: var(--dsw-alias-label-secondary); font-family: inherit; font-size: 10.5px; cursor: pointer; }
+.ac-onboarding-why-toggle:hover { color: var(--dsw-alias-label-primary); }
+.ac-onboarding-chevron { display: inline-flex; transition: transform .15s ease; }
+.ac-onboarding-chevron[data-open="true"] { transform: rotate(180deg); }
+.ac-onboarding-why-body { max-width: 430px; margin: 12px auto 0; text-align: left; color: var(--dsw-alias-label-secondary); font-size: 11.5px; line-height: 1.85; }
+.ac-onboarding-why-body p { margin: 0 0 9px; }
+.ac-onboarding-why-body p:last-child { margin-bottom: 0; }
+.ac-onboarding-steps { width: min(330px, 100%); margin: 22px 0 16px; display: flex; flex-direction: column; gap: 10px; text-align: left; }
+.ac-onboarding-step { display: flex; align-items: baseline; gap: 10px; font-size: 12px; line-height: 1.6; color: var(--dsw-alias-label-secondary); }
+.ac-onboarding-step-no { width: 18px; height: 18px; flex: none; display: grid; place-items: center; border: 1px solid var(--dsw-alias-border-l1); border-radius: 50%; font-size: 9px; color: var(--dsw-alias-label-secondary); }
 .ac-shot-prompt { width: min(460px, 100%); background: var(--dsw-alias-bg-base); border: 1px solid var(--dsw-alias-border-l1); border-radius: 14px; padding: 24px 24px 20px; box-shadow: 0 30px 80px color-mix(in srgb, var(--dsw-alias-label-primary) 18%, transparent); }
 .ac-shot-title { font-size: 17px; font-weight: 600; margin-bottom: 10px; }
 .ac-shot-body { margin: 0; font-size: 13px; line-height: 1.75; color: var(--dsw-alias-label-primary); }
@@ -1719,6 +1781,70 @@ window.__ModuleLoader__.load({
           status))
     }
 
+    function Onboarding(props) {
+      const t = props.t
+      const [whyOpen, setWhyOpen] = useState(false)
+      const connected = Boolean(props.github && props.github.connected)
+      const waiting = props.device && (props.device.status === 'pending' || props.device.status === 'provisioning')
+      const mark = h('div', { className: 'ac-onboarding-mark' }, EmptyArt())
+      const why = h('div', { className: 'ac-onboarding-why' },
+        h('button', { className: 'ac-onboarding-why-toggle', type: 'button', onClick: () => setWhyOpen(!whyOpen) },
+          h('span', null, t('whyGithub')),
+          h('span', { className: 'ac-onboarding-chevron', 'data-open': whyOpen }, ChevronDownIcon())),
+        whyOpen
+          ? h('div', { className: 'ac-onboarding-why-body' },
+              h('p', null, t('whyGithubBody1')),
+              h('p', null, t('whyGithubBody2')),
+              h('p', null, t('whyGithubBody3')))
+          : null)
+
+      if (!connected && waiting) {
+        return h('div', { className: 'ac-onboarding' },
+          h('div', { className: 'ac-onboarding-inner' },
+            mark,
+            h('h1', { className: 'ac-onboarding-title' }, t('deviceTitle')),
+            h('p', { className: 'ac-onboarding-body' }, t('deviceBody')),
+            h('div', { className: 'ac-onboarding-code' }, props.device.userCode || ''),
+            h('a', {
+              className: 'ac-primary ac-onboarding-primary',
+              href: props.device.verificationUri || 'https://github.com/login/device',
+              target: '_blank',
+              rel: 'noreferrer',
+            }, t('openGithub')),
+            h('div', { className: 'ac-onboarding-hint' }, props.device.status === 'provisioning' ? t('provisioningGithub') : t('githubWaiting')),
+            props.error ? h('div', { className: 'ac-onboarding-error' }, props.error) : null))
+      }
+
+      if (!connected) {
+        return h('div', { className: 'ac-onboarding' },
+          h('div', { className: 'ac-onboarding-inner' },
+            mark,
+            h('h1', { className: 'ac-onboarding-title' }, t('onboardingTitle')),
+            h('p', { className: 'ac-onboarding-body' }, t('onboardingBody')),
+            h('div', { className: 'ac-onboarding-actions' },
+              h('button', { className: 'ac-primary ac-onboarding-primary', type: 'button', onClick: () => props.onConnect(), disabled: props.githubBusy }, props.githubBusy ? t('connecting') : t('connectPhone')),
+              h('button', { className: 'ac-onboarding-link', type: 'button', onClick: () => props.onLocalImport() }, t('localOnlyAction'))),
+            props.error ? h('div', { className: 'ac-onboarding-error' }, props.error) : null,
+            why))
+      }
+
+      return h('div', { className: 'ac-onboarding' },
+        h('div', { className: 'ac-onboarding-inner' },
+          mark,
+          h('h1', { className: 'ac-onboarding-title' }, t('connectedTitle')),
+          h('p', { className: 'ac-onboarding-body' }, t('connectedBody')),
+          h('div', { className: 'ac-onboarding-actions' },
+            h('button', { className: 'ac-primary ac-onboarding-primary', type: 'button', onClick: () => props.onDownloadShortcut(), disabled: props.shortcutFileBusy }, props.shortcutFileBusy ? t('preparing') : t('downloadShortcut')),
+            props.shortcutFileMessage
+              ? h('div', { className: props.shortcutFileMessage.ok ? 'ac-onboarding-success' : 'ac-onboarding-error' }, props.shortcutFileMessage.ok ? t('downloadedShortcut') : props.shortcutFileMessage.text)
+              : null),
+          h('div', { className: 'ac-onboarding-steps' },
+            [t('installStep1'), t('installStep2'), t('installStep3')].map((text, index) => h('div', { className: 'ac-onboarding-step', key: index },
+              h('span', { className: 'ac-onboarding-step-no' }, String(index + 1)),
+              h('span', null, text)))),
+          h('button', { className: 'ac-onboarding-link', type: 'button', onClick: () => props.onLocalImport() }, t('localOnlyAction'))))
+    }
+
     function Empty(props) {
       const t = props.t
       return h('div', { className: 'ac-empty' },
@@ -1963,6 +2089,10 @@ window.__ModuleLoader__.load({
         setGithubError(null)
         loadGithub()
       }
+
+      useEffect(() => {
+        loadGithub()
+      }, [loadGithub])
 
       useEffect(() => {
         if (!device || !device.id) return undefined
@@ -2302,6 +2432,7 @@ window.__ModuleLoader__.load({
           },
         }))
 
+      const onboarding = items.length === 0
       const tabs = h('div', { className: 'ac-tabs' },
         h('button', { className: 'ac-tab', 'aria-selected': scope === 'today', onClick: () => setScope('today') }, t('today'), h('span', { className: 'ac-tab-count' }, String(todayCount))),
         h('button', { className: 'ac-tab', 'aria-selected': scope === 'all', onClick: () => setScope('all') }, t('all'), h('span', { className: 'ac-tab-count' }, String(items.length))),
@@ -2320,7 +2451,20 @@ window.__ModuleLoader__.load({
       }) : null
 
       let content
-      if (scope === 'digest') {
+      if (onboarding) {
+        content = h(Onboarding, {
+          t,
+          github,
+          device,
+          githubBusy,
+          error: githubError,
+          onConnect: connectGithub,
+          onLocalImport: openPicker,
+          shortcutFileBusy,
+          shortcutFileMessage,
+          onDownloadShortcut: downloadShortcut,
+        })
+      } else if (scope === 'digest') {
         content = h(DigestView, {
           t,
           period,
@@ -2357,8 +2501,8 @@ window.__ModuleLoader__.load({
       },
         h('style', null, CSS),
         header,
-        tabs,
-        timeline,
+        onboarding ? null : tabs,
+        onboarding ? null : timeline,
         tagFilter ? h('div', { className: 'ac-filter-bar' },
           h('span', null, t('tagFilter') + '：' + tagFilter),
           h('button', { type: 'button', onClick: () => setTagFilter(null), 'aria-label': t('close') }, '×')) : null,
