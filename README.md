@@ -36,6 +36,10 @@
 
 > 安装/更新 Host 插件后都需要重启 DSH；Client 侧改动刷新页面即可。
 
+## 手机入口
+
+快捷指令的逐步搭建方法见 [docs/shortcut-guide.md](docs/shortcut-guide.md)。
+
 ## 使用
 
 1. 把一张截图拖进面板（支持 PNG / JPEG / WebP / GIF，单张 ≤ 30MB）；
