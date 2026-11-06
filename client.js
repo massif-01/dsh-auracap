@@ -72,6 +72,10 @@ window.__ModuleLoader__.load({
       installStep2: '用 AirDrop 传到 iPhone',
       installStep3: 'iPhone 接收后，会自动加入「快捷指令」',
       downloadedShortcut: '已下载。把文件 AirDrop 到 iPhone 就好。',
+      waitingTitle: '已下载，去手机试一张',
+      waitingBody: '在 iPhone 上截一张，或分享一张照片。第一张到了，这里会自动打开。',
+      syncOnce: '同步一次',
+      downloadAgain: '重新下载',
       usageTitle: '装好之后',
       usageShare: '从照片分享',
       usageShareHint: '相册 → 分享 → AuraCap',
@@ -284,6 +288,10 @@ window.__ModuleLoader__.load({
       installStep2: 'AirDrop it to your iPhone',
       installStep3: 'iOS adds it to Shortcuts when received',
       downloadedShortcut: 'Downloaded. Now AirDrop it to your iPhone.',
+      waitingTitle: 'Downloaded — now try one from your phone',
+      waitingBody: 'Take a screenshot or share a photo on iPhone. The first one will open this place automatically.',
+      syncOnce: 'Sync now',
+      downloadAgain: 'Download again',
       usageTitle: 'After installing',
       usageShare: 'Share from Photos',
       usageShareHint: 'Photos → Share → AuraCap',
@@ -1925,6 +1933,7 @@ window.__ModuleLoader__.load({
       const [whyOpen, setWhyOpen] = useState(false)
       const [codeCopied, setCodeCopied] = useState(false)
       const connected = Boolean(props.github && props.github.connected)
+      const downloaded = Boolean(props.shortcutFileMessage && props.shortcutFileMessage.ok)
       const waiting = props.device && (props.device.status === 'pending' || props.device.status === 'provisioning')
       const mark = h('div', { className: 'ac-onboarding-mark' }, EmptyArt())
       const brand = h('div', { className: 'ac-onboarding-brand' }, h('span', { className: 'ac-onboarding-brand-name' }, t('brandName')), h('span', { className: 'ac-onboarding-brand-zh' }, t('brandZh')))
@@ -2006,6 +2015,36 @@ window.__ModuleLoader__.load({
             flow))
       }
 
+      const usageAside = h('div', { className: 'ac-onboarding-aside' },
+        h('div', { className: 'ac-onboarding-aside-label' }, t('usageTitle')),
+        h('div', { className: 'ac-onboard-usage' },
+          h('div', { className: 'ac-onboard-usage-row' },
+            h('span', { className: 'ac-onboard-node-icon' }, ShareIcon()),
+            h('div', null, h('strong', null, t('usageShare')), h('span', null, t('usageShareHint')))),
+          h('div', { className: 'ac-onboard-usage-row' },
+            h('span', { className: 'ac-onboard-node-icon' }, ActionButtonIcon()),
+            h('div', null, h('strong', null, t('usageAction')), h('span', null, t('usageActionHint')))),
+          h('div', { className: 'ac-onboard-usage-row' },
+            h('span', { className: 'ac-onboard-node-icon' }, TapIcon()),
+            h('div', null, h('strong', null, t('usageBacktap')), h('span', null, t('usageBacktapHint'))))),
+        h('div', { className: 'ac-onboarding-aside-note' }, t('flowArrive')))
+
+      if (downloaded) {
+        return h('div', { className: 'ac-onboarding' },
+          h('div', { className: 'ac-onboarding-frame' },
+            h('div', { className: 'ac-onboarding-copy' },
+              brand,
+              h('div', { className: 'ac-onboarding-kicker' }, t('onboardingKickerConnected')),
+              h('h1', { className: 'ac-onboarding-title' }, t('waitingTitle')),
+              h('p', { className: 'ac-onboarding-body' }, t('waitingBody')),
+              h('div', { className: 'ac-onboarding-actions' },
+                h('button', { className: 'ac-primary ac-onboarding-primary', type: 'button', onClick: () => props.onSync(), disabled: props.githubBusy }, RetryIcon(), t('syncOnce')),
+                h('button', { className: 'ac-onboarding-link', type: 'button', onClick: () => props.onDownloadShortcut(), disabled: props.shortcutFileBusy }, t('downloadAgain'))),
+              props.error ? h('div', { className: 'ac-onboarding-error' }, props.error) : null,
+              h('button', { className: 'ac-onboarding-link', type: 'button', onClick: () => props.onLocalImport() }, t('localOnlyAction'))),
+            usageAside))
+      }
+
       return h('div', { className: 'ac-onboarding' },
         h('div', { className: 'ac-onboarding-frame' },
           h('div', { className: 'ac-onboarding-copy' },
@@ -2023,19 +2062,7 @@ window.__ModuleLoader__.load({
                 h('span', { className: 'ac-onboarding-step-no' }, String(index + 1)),
                 h('span', null, text)))),
             h('button', { className: 'ac-onboarding-link', type: 'button', onClick: () => props.onLocalImport() }, t('localOnlyAction'))),
-          h('div', { className: 'ac-onboarding-aside' },
-            h('div', { className: 'ac-onboarding-aside-label' }, t('usageTitle')),
-            h('div', { className: 'ac-onboard-usage' },
-              h('div', { className: 'ac-onboard-usage-row' },
-                h('span', { className: 'ac-onboard-node-icon' }, ShareIcon()),
-                h('div', null, h('strong', null, t('usageShare')), h('span', null, t('usageShareHint')))),
-              h('div', { className: 'ac-onboard-usage-row' },
-                h('span', { className: 'ac-onboard-node-icon' }, ActionButtonIcon()),
-                h('div', null, h('strong', null, t('usageAction')), h('span', null, t('usageActionHint')))),
-              h('div', { className: 'ac-onboard-usage-row' },
-                h('span', { className: 'ac-onboard-node-icon' }, TapIcon()),
-                h('div', null, h('strong', null, t('usageBacktap')), h('span', null, t('usageBacktapHint'))))),
-            h('div', { className: 'ac-onboarding-aside-note' }, t('flowArrive')))))
+          usageAside))
     }
 
     function Empty(props) {
@@ -2652,6 +2679,7 @@ window.__ModuleLoader__.load({
           githubBusy,
           error: githubError,
           onConnect: connectGithub,
+          onSync: syncGithub,
           onLocalImport: openPicker,
           shortcutFileBusy,
           shortcutFileMessage,
