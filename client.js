@@ -127,7 +127,19 @@ window.__ModuleLoader__.load({
       configCopied: '已复制',
       githubError: 'GitHub 操作失败',
       itemsUnit: '条',
-      phoneEntry: '手机入口',
+      phoneEntry: 'AuraCap 设置',
+      usage: '用量',
+      usageToday: '今日',
+      usageWeek: '近 7 天',
+      usageTotal: '累计',
+      usageCalls: '次调用',
+      usageByKind: '按用途',
+      usageNoData: '还没有用量记录',
+      usageKindScreenshot: '读图',
+      usageKindDocument: '文档',
+      usageKindDaily: '日洞察',
+      usageKindLong: '长洞察',
+      usageKindBackfill: '实体回填',
       phoneIntro: '已连接 GitHub。下面把手机接进来。',
       phoneSection: '把手机接进来',
       syncSection: '同步',
@@ -277,7 +289,19 @@ window.__ModuleLoader__.load({
       configCopied: 'Copied',
       githubError: 'GitHub request failed',
       itemsUnit: 'items',
-      phoneEntry: 'Phone',
+      phoneEntry: 'AuraCap Settings',
+      usage: 'Usage',
+      usageToday: 'Today',
+      usageWeek: '7 days',
+      usageTotal: 'Total',
+      usageCalls: 'calls',
+      usageByKind: 'By purpose',
+      usageNoData: 'No usage recorded yet',
+      usageKindScreenshot: 'Images',
+      usageKindDocument: 'Documents',
+      usageKindDaily: 'Daily insight',
+      usageKindLong: 'Long insight',
+      usageKindBackfill: 'Entity backfill',
       phoneIntro: 'GitHub is connected. Let’s bring your phone in.',
       phoneSection: 'Bring your phone in',
       syncSection: 'Sync',
@@ -462,7 +486,7 @@ window.__ModuleLoader__.load({
 [data-tip]:hover::after, [data-tip]:focus-visible::after { opacity: 1; transform: translateX(-50%) translateY(0); }
 .ac-icon-button { width: 30px; height: 30px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--dsw-alias-label-secondary); display: grid; place-items: center; cursor: pointer; }
 .ac-icon-button:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-1); border-color: var(--dsw-alias-border-l1); }
-.ac-settings { width: min(620px, 100%); max-height: 86vh; overflow: auto; background: var(--dsw-alias-bg-base); border: 1px solid var(--dsw-alias-border-l1); border-radius: 16px; box-shadow: 0 30px 80px color-mix(in srgb, var(--dsw-alias-label-primary) 18%, transparent); padding: 26px 28px 32px; position: relative; }
+.ac-settings { width: min(820px, 100%); max-height: 88vh; overflow: auto; background: var(--dsw-alias-bg-base); border: 1px solid var(--dsw-alias-border-l1); border-radius: 16px; box-shadow: 0 30px 80px color-mix(in srgb, var(--dsw-alias-label-primary) 18%, transparent); padding: 26px 28px 32px; position: relative; }
 .ac-settings-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 20px; }
 .ac-settings-title { font-size: 17px; font-weight: 600; line-height: 1.3; }
 .ac-settings-sub { margin-top: 3px; font-size: 11px; color: var(--dsw-alias-label-secondary); }
@@ -472,6 +496,20 @@ window.__ModuleLoader__.load({
 .ac-section-eyebrow { font-size: 10px; letter-spacing: .12em; color: var(--dsw-alias-label-secondary); opacity: .7; margin-bottom: 10px; }
 .ac-memory-status { font-size: 12px; color: var(--dsw-alias-label-secondary); margin-top: 4px; }
 .ac-settings-section { padding-top: 20px; border-top: 1px solid var(--dsw-alias-border-l1); margin-top: 22px; }
+.ac-settings-grid { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(270px, .88fr); gap: 28px; padding-top: 20px; margin-top: 18px; border-top: 1px solid var(--dsw-alias-border-l1); }
+.ac-settings-grid > .ac-settings-section, .ac-settings-side .ac-settings-section { padding-top: 0; margin-top: 0; border-top: 0; }
+.ac-settings-side { display: flex; flex-direction: column; gap: 22px; border-left: 1px solid var(--dsw-alias-border-l1); padding-left: 26px; }
+.ac-usage-section { margin-top: 22px; }
+.ac-usage-stats { display: flex; flex-wrap: wrap; gap: 30px; padding: 4px 0 12px; }
+.ac-usage-stats b { display: block; font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+.ac-usage-stats span { display: block; margin-top: 2px; font-size: 9.5px; color: var(--dsw-alias-label-secondary); letter-spacing: .04em; }
+.ac-usage-meta { font-size: 10.5px; color: var(--dsw-alias-label-secondary); padding-bottom: 8px; }
+.ac-usage-kinds { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 10.5px; color: var(--dsw-alias-label-secondary); }
+.ac-usage-kinds span { white-space: nowrap; }
+@media (max-width: 760px) {
+  .ac-settings-grid { grid-template-columns: 1fr; gap: 20px; }
+  .ac-settings-side { border-left: 0; padding-left: 0; border-top: 1px solid var(--dsw-alias-border-l1); padding-top: 20px; }
+}
 .ac-settings-status + .ac-settings-section { margin-top: 18px; }
 .ac-set-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
 .ac-set-label { font-size: 12px; color: var(--dsw-alias-label-secondary); min-width: 92px; }
@@ -726,6 +764,22 @@ window.__ModuleLoader__.load({
       if (isToday(iso)) return pad(date.getHours()) + ':' + pad(date.getMinutes())
       if (date.getFullYear() === now.getFullYear()) return (date.getMonth() + 1) + '月' + date.getDate() + '日'
       return date.getFullYear() + '/' + pad(date.getMonth() + 1) + '/' + pad(date.getDate())
+    }
+
+    function formatTokens(value) {
+      const number = Number(value) || 0
+      if (number >= 1_000_000) return (number / 1_000_000).toFixed(number >= 10_000_000 ? 0 : 1) + 'M'
+      if (number >= 1_000) return (number / 1_000).toFixed(number >= 10_000 ? 0 : 1) + 'K'
+      return String(Math.round(number))
+    }
+
+    function usageKindLabel(kind, t) {
+      return kind === 'screenshot' ? t('usageKindScreenshot')
+        : kind === 'document' ? t('usageKindDocument')
+        : kind === 'daily-insight' ? t('usageKindDaily')
+        : kind === 'long-insight' ? t('usageKindLong')
+        : kind === 'entity-backfill' ? t('usageKindBackfill')
+        : kind
     }
 
     function dateText(iso) {
@@ -1542,41 +1596,71 @@ window.__ModuleLoader__.load({
             : h('div', { className: 'ac-set-actions' },
                 h('button', { className: 'ac-primary', onClick: props.onConnect, disabled: props.busy }, t('connectGithub'))))
       } else {
+        const memorySection = h('section', { className: 'ac-settings-section' },
+          h('div', { className: 'ac-section-eyebrow' }, t('memory')),
+          h('div', { className: 'ac-memory-status' },
+            props.memoryStatus
+              ? t('memoryIndexed') + ' ' + props.memoryStatus.indexed + ' / ' + props.memoryStatus.total + ' · ' + props.memoryStatus.entities + ' ' + t('entities')
+              : t('memoryIndexed') + ' —'),
+          h('div', { className: 'ac-set-actions' },
+            h('button', { className: 'ac-ghost', onClick: props.onBackfill, disabled: props.memoryStatus && props.memoryStatus.backfill && props.memoryStatus.backfill.running },
+              props.memoryStatus && props.memoryStatus.backfill && props.memoryStatus.backfill.running ? t('memoryRunning') : t('memoryBackfill'))))
+
+        const usageKinds = props.usage ? Object.entries(props.usage.kinds || {}).sort((a, b) => b[1] - a[1]).slice(0, 4) : []
+        const usageSection = h('section', { className: 'ac-settings-section ac-usage-section' },
+          h('div', { className: 'ac-section-eyebrow' }, t('usage')),
+          props.usage && (props.usage.total || props.usage.calls) ? h('div', null,
+            h('div', { className: 'ac-usage-stats' },
+              h('div', null, h('b', null, formatTokens(props.usage.today)), h('span', null, t('usageToday'))),
+              h('div', null, h('b', null, formatTokens(props.usage.week)), h('span', null, t('usageWeek'))),
+              h('div', null, h('b', null, formatTokens(props.usage.total)), h('span', null, t('usageTotal'))),
+              h('div', null, h('b', null, String(props.usage.calls || 0)), h('span', null, t('usageCalls')))),
+            h('div', { className: 'ac-usage-meta' },
+              Object.keys(props.usage.models || {}).join(' · ') || 'deepseek-flash'),
+            usageKinds.length ? h('div', { className: 'ac-usage-kinds' },
+              usageKinds.map(([kind, value]) => h('span', { key: kind },
+                usageKindLabel(kind, t) + ' ' + formatTokens(value)))) : null)
+            : h('div', { className: 'ac-settings-hint' }, t('usageNoData')))
+
         status = h('div', null,
           h('div', { className: 'ac-settings-status' },
             h('span', { className: 'ac-settings-status-dot' }),
             h('span', null, t('connectedTo')),
             h('span', { className: 'ac-settings-status-repo' }, github.repo.owner + '/' + github.repo.name)),
 
-          h('section', { className: 'ac-settings-section' },
-            h('div', { className: 'ac-section-eyebrow' }, t('phoneSection')),
-            h('div', { className: 'ac-steps' },
-              step(1, t('stepDownload'), t('stepDownloadHint'),
-                h('button', { className: 'ac-primary', onClick: props.onDownloadShortcut, disabled: props.shortcutFileBusy },
-                  props.shortcutFileBusy ? t('preparing') : t('downloadShortcut')),
-                props.shortcutFileMessage
-                  ? h('div', { className: props.shortcutFileMessage.ok ? 'ac-success' : 'ac-error', style: { marginTop: 8 } },
-                      props.shortcutFileMessage.ok ? t('shortcutDownloaded') : props.shortcutFileMessage.text)
-                  : null),
-              step(2, t('stepInstall'), t('stepInstallHint'), null, null),
-              step(3, t('stepTestOptional'), t('stepTestHint'),
-                h('button', { className: 'ac-secondary', onClick: props.onTestUpload, disabled: props.testBusy },
-                  props.testBusy ? t('testing') : t('testUpload')),
-                props.testMessage
-                  ? h('div', { className: props.testMessage.ok ? 'ac-success' : 'ac-error', style: { marginTop: 8 } },
-                      props.testMessage.ok ? t('testSuccess') : props.testMessage.text)
-                  : null))),
+          h('div', { className: 'ac-settings-grid' },
+            h('section', { className: 'ac-settings-section ac-settings-main' },
+              h('div', { className: 'ac-section-eyebrow' }, t('phoneSection')),
+              h('div', { className: 'ac-steps' },
+                step(1, t('stepDownload'), t('stepDownloadHint'),
+                  h('button', { className: 'ac-primary', onClick: props.onDownloadShortcut, disabled: props.shortcutFileBusy },
+                    props.shortcutFileBusy ? t('preparing') : t('downloadShortcut')),
+                  props.shortcutFileMessage
+                    ? h('div', { className: props.shortcutFileMessage.ok ? 'ac-success' : 'ac-error', style: { marginTop: 8 } },
+                        props.shortcutFileMessage.ok ? t('shortcutDownloaded') : props.shortcutFileMessage.text)
+                    : null),
+                step(2, t('stepInstall'), t('stepInstallHint'), null, null),
+                step(3, t('stepTestOptional'), t('stepTestHint'),
+                  h('button', { className: 'ac-secondary', onClick: props.onTestUpload, disabled: props.testBusy },
+                    props.testBusy ? t('testing') : t('testUpload')),
+                  props.testMessage
+                    ? h('div', { className: props.testMessage.ok ? 'ac-success' : 'ac-error', style: { marginTop: 8 } },
+                        props.testMessage.ok ? t('testSuccess') : props.testMessage.text)
+                    : null))),
+            h('div', { className: 'ac-settings-side' },
+              h('section', { className: 'ac-settings-section' },
+                h('div', { className: 'ac-section-eyebrow' }, t('syncSection')),
+                h('div', { className: 'ac-set-row' },
+                  h('span', { className: 'ac-set-label' }, t('githubQueueCount')),
+                  h('span', { className: 'ac-set-value' }, String(github.queueCount || 0) + ' ' + t('itemsUnit'))),
+                h('div', { className: 'ac-set-row' },
+                  h('span', { className: 'ac-set-label' }, t('githubLastSync')),
+                  h('span', { className: 'ac-set-value' }, github.lastSyncAt ? timeText(github.lastSyncAt) : '—')),
+                h('div', { className: 'ac-set-actions' },
+                  h('button', { className: 'ac-ghost', onClick: props.onSync, disabled: props.busy }, RetryIcon(), t('githubSyncNow')))),
+              memorySection)),
 
-          h('section', { className: 'ac-settings-section' },
-            h('div', { className: 'ac-section-eyebrow' }, t('syncSection')),
-            h('div', { className: 'ac-set-row' },
-              h('span', { className: 'ac-set-label' }, t('githubQueueCount')),
-              h('span', { className: 'ac-set-value' }, String(github.queueCount || 0) + ' ' + t('itemsUnit'))),
-            h('div', { className: 'ac-set-row' },
-              h('span', { className: 'ac-set-label' }, t('githubLastSync')),
-              h('span', { className: 'ac-set-value' }, github.lastSyncAt ? timeText(github.lastSyncAt) : '—')),
-            h('div', { className: 'ac-set-actions' },
-              h('button', { className: 'ac-ghost', onClick: props.onSync, disabled: props.busy }, RetryIcon(), t('githubSyncNow')))),
+          usageSection,
 
           h('div', { className: 'ac-advanced' },
             h('button', { className: 'ac-advanced-toggle', type: 'button', onClick: () => setAdvanced(!advanced) },
@@ -1610,16 +1694,7 @@ window.__ModuleLoader__.load({
             h('div', { className: 'ac-grow' }),
             h('button', { className: 'ac-icon-button', onClick: props.onClose, 'aria-label': t('close') }, CloseIcon())),
           props.error ? h('div', { className: 'ac-error', style: { marginBottom: 16 } }, props.error) : null,
-          status,
-          h('div', { className: 'ac-settings-section' },
-            h('div', { className: 'ac-section-eyebrow' }, t('memory')),
-            h('div', { className: 'ac-memory-status' },
-              props.memoryStatus
-                ? t('memoryIndexed') + ' ' + props.memoryStatus.indexed + ' / ' + props.memoryStatus.total + ' · ' + props.memoryStatus.entities + ' ' + t('entities')
-                : t('memoryIndexed') + ' —'),
-            h('div', { className: 'ac-set-actions' },
-              h('button', { className: 'ac-ghost', onClick: props.onBackfill, disabled: props.memoryStatus && props.memoryStatus.backfill && props.memoryStatus.backfill.running },
-                props.memoryStatus && props.memoryStatus.backfill && props.memoryStatus.backfill.running ? t('memoryRunning') : t('memoryBackfill'))))))
+          status))
     }
 
     function Empty(props) {
@@ -1669,6 +1744,7 @@ window.__ModuleLoader__.load({
       const [entityBusy, setEntityBusy] = useState(false)
       const [related, setRelated] = useState([])
       const [memoryStatus, setMemoryStatus] = useState(null)
+      const [usage, setUsage] = useState(null)
       const [insightStatus, setInsightStatus] = useState({})
       const [seenPeriods, setSeenPeriods] = useState(() => {
         try { return JSON.parse(localStorage.getItem('auracap.periodSeen') || '{}') || {} } catch { return {} }
@@ -1736,8 +1812,11 @@ window.__ModuleLoader__.load({
         let alive = true
         const loadStatus = async () => {
           try {
-            const payload = await request(API + '/memory/status')
-            if (alive) setMemoryStatus(payload)
+            const [statusPayload, usagePayload] = await Promise.all([
+              request(API + '/memory/status'),
+              request(API + '/usage'),
+            ])
+            if (alive) { setMemoryStatus(statusPayload); setUsage(usagePayload) }
           } catch {}
         }
         loadStatus()
@@ -2317,6 +2396,7 @@ window.__ModuleLoader__.load({
           shortcutFileMessage,
           onDownloadShortcut: downloadShortcut,
           memoryStatus,
+          usage,
           onBackfill: backfillMemory,
         }) : null,
         lightbox ? h('div', { className: 'ac-lightbox', onClick: () => setLightbox(null) },

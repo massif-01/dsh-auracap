@@ -428,13 +428,16 @@ async function generatePeriodInsight(ctx, items, type, anchorISO, force) {
       signal: controller.signal,
     })
     let text = ''
+    let usage = null
     for await (const chunk of stream) {
       if (chunk.type === 'text-delta') text += chunk.text
+      else if (chunk.type === 'usage') usage = chunk.usage
       else if (chunk.type === 'finish') {
         if (chunk.reason && chunk.reason.kind === 'error') throw new Error(chunk.reason.failure && chunk.reason.failure.message ? chunk.reason.failure.message : '模型调用失败')
         if (chunk.reason && chunk.reason.kind === 'aborted') throw new Error('生成已取消')
       }
     }
+    recordUsage('long-insight', usage)
     const parsed = parseDigest(text)
     const insight = {
       type,
@@ -645,13 +648,16 @@ async function generateDigest(llm, items, date) {
       signal: controller.signal,
     })
     let text = ''
+    let usage = null
     for await (const chunk of stream) {
       if (chunk.type === 'text-delta') text += chunk.text
+      else if (chunk.type === 'usage') usage = chunk.usage
       else if (chunk.type === 'finish') {
         if (chunk.reason && chunk.reason.kind === 'error') throw new Error(chunk.reason.failure && chunk.reason.failure.message ? chunk.reason.failure.message : '模型调用失败')
         if (chunk.reason && chunk.reason.kind === 'aborted') throw new Error('生成已取消')
       }
     }
+    recordUsage('daily-insight', usage)
     const parsed = parseDigest(text)
     let content = parsed.content
     if (content && !/^\s*#{1,6}\s+/m.test(content)) content = '### 今日焦点\n' + content
@@ -1512,6 +1518,65 @@ function loadMemoryProfile() {
   try { return JSON.parse(readFileSync(memoryProfileFile(), 'utf8')) } catch { return { version: 1, activeProjects: [], currentQuestions: [], constraints: [] } }
 }
 
+const usageFile = () => join(memoryDir(), 'usage.json')
+
+function loadUsage() {
+  try { return JSON.parse(readFileSync(usageFile(), 'utf8')) } catch { return { version: 1, days: {} } }
+}
+
+function saveUsage(data) {
+  mkdirSync(memoryDir(), { recursive: true })
+  const file = usageFile()
+  const tmp = `${file}.${process.pid}.tmp`
+  writeFileSync(tmp, JSON.stringify(data, null, 2))
+  renameSync(tmp, file)
+}
+
+function usageTotal(usage) {
+  if (!usage || typeof usage !== 'object') return 0
+  const explicit = Number(usage.totalTokens)
+  if (Number.isFinite(explicit) && explicit > 0) return explicit
+  return [usage.inputTokens, usage.outputTokens, usage.cacheReadTokens, usage.cacheWriteTokens]
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value))
+    .reduce((sum, value) => sum + value, 0)
+}
+
+function recordUsage(kind, usage, model = MODEL.model) {
+  const total = usageTotal(usage)
+  if (!total) return
+  const data = loadUsage()
+  if (!data.days || typeof data.days !== 'object') data.days = {}
+  const dayKey = todayKey()
+  const day = data.days[dayKey] || { total: 0, calls: 0, models: {}, kinds: {} }
+  day.total += total
+  day.calls += 1
+  day.models[model] = (day.models[model] || 0) + total
+  day.kinds[kind] = (day.kinds[kind] || 0) + total
+  data.days[dayKey] = day
+  const keepFrom = addDays(todayKey(), -120)
+  for (const key of Object.keys(data.days)) if (key < keepFrom) delete data.days[key]
+  try { saveUsage(data) } catch {}
+}
+
+function usageSummary() {
+  const data = loadUsage()
+  const days = data.days || {}
+  const today = todayKey()
+  const weekStart = addDays(today, -6)
+  const result = { today: 0, week: 0, total: 0, calls: 0, models: {}, kinds: {} }
+  for (const [key, day] of Object.entries(days)) {
+    const total = Number(day.total) || 0
+    result.total += total
+    result.calls += Number(day.calls) || 0
+    if (key === today) result.today += total
+    if (key >= weekStart && key <= today) result.week += total
+    for (const [model, value] of Object.entries(day.models || {})) result.models[model] = (result.models[model] || 0) + Number(value || 0)
+    for (const [kind, value] of Object.entries(day.kinds || {})) result.kinds[kind] = (result.kinds[kind] || 0) + Number(value || 0)
+  }
+  return result
+}
+
 function saveMemoryProfile(profile) {
   mkdirSync(memoryDir(), { recursive: true })
   const value = {
@@ -1551,9 +1616,12 @@ async function summarize(llm, items, item) {
       signal: controller.signal,
     })
     let text = ''
+    let usage = null
     for await (const chunk of stream) {
       if (chunk.type === 'text-delta') {
         text += chunk.text
+      } else if (chunk.type === 'usage') {
+        usage = chunk.usage
       } else if (chunk.type === 'finish') {
         if (chunk.reason && chunk.reason.kind === 'error') {
           throw new Error(chunk.reason.failure && chunk.reason.failure.message ? chunk.reason.failure.message : '模型调用失败')
@@ -1563,6 +1631,7 @@ async function summarize(llm, items, item) {
         }
       }
     }
+    recordUsage(document ? 'document' : 'screenshot', usage)
     item.summary = parseSummary(text)
     item.memoryVersion = 1
     item.status = 'ready'
@@ -1581,14 +1650,16 @@ async function summarize(llm, items, item) {
 
 async function collectStreamText(stream) {
   let text = ''
+  let usage = null
   for await (const chunk of stream) {
     if (chunk.type === 'text-delta') text += chunk.text
+    else if (chunk.type === 'usage') usage = chunk.usage
     else if (chunk.type === 'finish') {
       if (chunk.reason && chunk.reason.kind === 'error') throw new Error(chunk.reason.failure && chunk.reason.failure.message ? chunk.reason.failure.message : '模型调用失败')
       if (chunk.reason && chunk.reason.kind === 'aborted') throw new Error('生成已取消')
     }
   }
-  return text
+  return { text, usage }
 }
 
 async function extractEntitiesForItem(ctx, item) {
@@ -1598,7 +1669,7 @@ async function extractEntitiesForItem(ctx, item) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 120_000)
   try {
-    const text = await collectStreamText(ctx.llm.stream({
+    const result = await collectStreamText(ctx.llm.stream({
       provider: MODEL.provider,
       model: MODEL.model,
       reasoningEffort: 'off',
@@ -1607,6 +1678,8 @@ async function extractEntitiesForItem(ctx, item) {
       messages: [{ role: 'user', content: [{ type: 'text', text: '标题：' + (summary.title || '') + '\n\n' + plainTextOfSummary(summary).slice(0, 5000) }] }],
       signal: controller.signal,
     }))
+    recordUsage('entity-backfill', result.usage)
+    const text = result.text
     for (const raw of balancedJsonObjects(text)) {
       try {
         const parsed = JSON.parse(raw)
@@ -1916,6 +1989,10 @@ export function apply(ctx) {
             repo: repo.owner + '/' + repo.name,
             release: repo.releaseId,
           })
+        }
+        if (path === `${BASE}/api/usage`) {
+          if (req.method !== 'GET') return sendError(res, 405, 'method not allowed')
+          return sendJson(res, 200, usageSummary())
         }
         if (path === `${BASE}/api/memory/status`) {
           if (req.method !== 'GET') return sendError(res, 405, 'method not allowed')
