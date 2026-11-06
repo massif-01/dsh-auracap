@@ -21,7 +21,7 @@ window.__ModuleLoader__.load({
       importing: '处理中…',
       today: '今天',
       all: '全部',
-      localOnly: 'GitHub 仅作免费中转；截图存本机，读图由 DeepSeek 完成。',
+      localOnly: 'GitHub 仅作免费中转；截图存于本机，读图由 DeepSeek 完成。',
       dropTitle: '松手，收进碎片',
       dropHint: '同源面板直接读取，不经过相册或云盘',
       emptyTitle: '把碎片留在这里',
