@@ -74,6 +74,7 @@ window.__ModuleLoader__.load({
       contextSaved: '已保存',
       saving: '保存中…',
       contextSavedHint: '已存到本机。Agent 和长洞察下次会读到。',
+      agentAccess: 'Agent 访问',
       agentMemory: '允许 Agent 读取 AuraCap 记忆',
       agentMemoryHint: '只读查询；不会修改、删除或自动记住任何东西。',
       on: '开',
@@ -328,6 +329,7 @@ window.__ModuleLoader__.load({
       contextSaved: 'Saved',
       saving: 'Saving…',
       contextSavedHint: 'Saved locally. The agent and long insights will read it next time.',
+      agentAccess: 'Agent access',
       agentMemory: 'Allow the agent to read AuraCap memory',
       agentMemoryHint: 'Read-only; it cannot change, delete, or automatically remember anything.',
       on: 'On',
@@ -748,6 +750,16 @@ window.__ModuleLoader__.load({
 .ac-settings-status { display: flex; align-items: center; gap: 7px; margin-top: 4px; margin-bottom: 2px; font-size: 12px; color: var(--dsw-alias-label-secondary); }
 .ac-settings-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dsw-alias-state-success-primary); flex: none; }
 .ac-settings-status-repo { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+.ac-settings-section-title { font-size: 13px; font-weight: 600; letter-spacing: -.01em; line-height: 1.35; color: var(--dsw-alias-label-primary); margin-bottom: 12px; }
+.ac-settings-subsection { font-size: 10.5px; font-weight: 500; letter-spacing: .06em; color: var(--dsw-alias-label-secondary); margin-bottom: 8px; }
+.ac-memory-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.ac-memory-head .ac-settings-section-title { margin-bottom: 4px; }
+.ac-memory-head .ac-memory-status { margin-top: 0; }
+.ac-memory-backfill { flex: none; margin-top: -2px; }
+.ac-settings-collapse-head .ac-settings-section-title { margin-bottom: 0; }
+.ac-usage-section .ac-settings-section-title { margin-bottom: 6px; }
+.ac-phone-section .ac-settings-section-title { margin-bottom: 0; }
+.ac-agent-toggle .ac-settings-subsection { margin-bottom: 5px; }
 .ac-section-eyebrow { font-size: 10px; letter-spacing: .12em; color: var(--dsw-alias-label-secondary); opacity: .7; margin-bottom: 10px; }
 .ac-memory-status { font-size: 12px; color: var(--dsw-alias-label-secondary); margin-top: 4px; }
 .ac-settings-section { padding-top: 20px; border-top: 1px solid var(--dsw-alias-border-l1); margin-top: 22px; }
@@ -2104,7 +2116,7 @@ window.__ModuleLoader__.load({
         setTimeout(() => setSaved(false), 2600)
       }
       return h('div', { className: 'ac-project-context' },
-        h('div', { className: 'ac-section-eyebrow' }, t('projectContext')),
+        h('div', { className: 'ac-settings-subsection' }, t('projectContext')),
         h('div', { className: 'ac-settings-hint' }, t('projectContextHint')),
         h('textarea', {
           className: 'ac-input ac-textarea ac-project-note',
@@ -2168,7 +2180,7 @@ window.__ModuleLoader__.load({
             onClick: () => setPhoneOpen(!phoneOpen),
             'aria-expanded': phoneOpen,
           },
-            h('div', { className: 'ac-section-eyebrow' }, t('phoneSection')),
+            h('div', { className: 'ac-settings-section-title' }, t('phoneSection')),
             h('span', { className: 'ac-settings-collapse-chevron', 'data-open': phoneOpen }, ChevronDownIcon())),
           phoneOpen ? h('div', { className: 'ac-phone-body' },
             h('div', { className: 'ac-steps' },
@@ -2197,13 +2209,14 @@ window.__ModuleLoader__.load({
           : null)
 
         const memorySection = h('section', { className: 'ac-settings-section ac-memory-section' },
-          h('div', { className: 'ac-section-eyebrow' }, t('memory')),
-          h('div', { className: 'ac-memory-status' },
-            props.memoryStatus
-              ? t('memoryIndexed') + ' ' + props.memoryStatus.indexed + ' / ' + props.memoryStatus.total + ' · ' + props.memoryStatus.entities + ' ' + t('entities')
-              : t('memoryIndexed') + ' —'),
-          h('div', { className: 'ac-set-actions' },
-            h('button', { className: 'ac-ghost', onClick: props.onBackfill, disabled: props.memoryStatus && props.memoryStatus.backfill && props.memoryStatus.backfill.running },
+          h('div', { className: 'ac-memory-head' },
+            h('div', null,
+              h('div', { className: 'ac-settings-section-title' }, t('memory')),
+              h('div', { className: 'ac-memory-status' },
+                props.memoryStatus
+                  ? t('memoryIndexed') + ' ' + props.memoryStatus.indexed + ' / ' + props.memoryStatus.total + ' · ' + props.memoryStatus.entities + ' ' + t('entities')
+                  : t('memoryIndexed') + ' —')),
+            h('button', { className: 'ac-ghost ac-memory-backfill', onClick: props.onBackfill, disabled: props.memoryStatus && props.memoryStatus.backfill && props.memoryStatus.backfill.running },
               props.memoryStatus && props.memoryStatus.backfill && props.memoryStatus.backfill.running ? t('memoryRunning') : t('memoryBackfill'))),
           h(ProjectContextEditor, {
             t,
@@ -2211,7 +2224,7 @@ window.__ModuleLoader__.load({
             onSaveProfile: props.onSaveProfile,
           }),
           h('div', { className: 'ac-agent-toggle' },
-            h('div', null, h('div', { className: 'ac-set-label' }, t('agentMemory')), h('div', { className: 'ac-settings-hint' }, t('agentMemoryHint'))),
+            h('div', null, h('div', { className: 'ac-settings-subsection' }, t('agentAccess')), h('div', { className: 'ac-set-label' }, t('agentMemory')), h('div', { className: 'ac-settings-hint' }, t('agentMemoryHint'))),
             h('button', {
               className: 'ac-toggle',
               type: 'button',
@@ -2222,7 +2235,7 @@ window.__ModuleLoader__.load({
 
         const usageKinds = props.usage ? Object.entries(props.usage.kinds || {}).sort((a, b) => b[1] - a[1]).slice(0, 4) : []
         const usageSection = h('section', { className: 'ac-settings-section ac-usage-section' },
-          h('div', { className: 'ac-section-eyebrow' }, t('usage')),
+          h('div', { className: 'ac-settings-section-title' }, t('usage')),
           props.usage && (props.usage.total || props.usage.calls) ? h('div', null,
             h('div', { className: 'ac-usage-stats' },
               h('div', null, h('b', null, formatTokens(props.usage.today)), h('span', null, t('usageToday'))),
