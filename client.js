@@ -2281,6 +2281,7 @@ window.__ModuleLoader__.load({
               h('button', { className: 'ac-ghost', onClick: props.onBackfill, disabled: props.memoryStatus && props.memoryStatus.backfill && props.memoryStatus.backfill.running },
                 props.memoryStatus && props.memoryStatus.backfill && props.memoryStatus.backfill.running ? t('memoryRunning') : t('memoryBackfill'))) : null))
 
+        const usageKinds = props.usage ? Object.entries(props.usage.kinds || {}).sort((a, b) => b[1] - a[1]).slice(0, 4) : []
         const usageSection = h('section', { className: 'ac-settings-section ac-usage-section' },
           h('div', { className: 'ac-settings-section-title' }, t('usage')),
           props.usage && (props.usage.total || props.usage.calls) ? h('div', null,
