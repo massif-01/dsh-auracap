@@ -440,6 +440,7 @@ async function generatePeriodInsight(ctx, items, type, anchorISO, force) {
     }
     recordUsage('long-insight', usage)
     const parsed = parseDigest(text)
+    if (!parsed.content) throw new Error('长洞察格式不完整，请重新生成')
     const insight = {
       type,
       key: info.key,
@@ -637,6 +638,39 @@ function digestMaterial(items) {
   return lines.join('\n').slice(0, 12000)
 }
 
+function jsonStringField(text, key) {
+  const pattern = new RegExp('"' + key + '"\\s*:')
+  const match = pattern.exec(text)
+  if (!match) return ''
+  let index = match.index + match[0].length
+  while (index < text.length && /\s/.test(text[index])) index += 1
+  if (text[index] !== '"') return ''
+  index += 1
+  let value = ''
+  let escaped = false
+  while (index < text.length) {
+    const char = text[index]
+    if (escaped) {
+      if (char === 'n') value += '\n'
+      else if (char === 'r') value += ''
+      else if (char === 't') value += '\t'
+      else if (char === 'u') {
+        const hex = text.slice(index + 1, index + 5)
+        if (/^[0-9a-f]{4}$/i.test(hex)) { value += String.fromCharCode(parseInt(hex, 16)); index += 4 }
+        else value += 'u'
+      } else value += char
+      escaped = false
+      index += 1
+      continue
+    }
+    if (char === '\\') { escaped = true; index += 1; continue }
+    if (char === '"') break
+    value += char
+    index += 1
+  }
+  return value.trim()
+}
+
 export function parseDigest(text) {
   const cleaned = String(text || '')
     .replace(/^\s*```(?:json)?/i, '')
@@ -651,11 +685,13 @@ export function parseDigest(text) {
   let content = typeof merged.content === 'string' ? merged.content.trim() : ''
   let title = typeof merged.title === 'string' ? merged.title.trim() : ''
   if (!content) {
-    content = regexField(cleaned, 'content').trim()
-    title = title || regexField(cleaned, 'title').trim()
+    // Models occasionally emit literal newlines or truncate before the
+    // closing quote; recover the fields instead of showing raw JSON.
+    content = jsonStringField(cleaned, 'content').trim()
+    title = title || jsonStringField(cleaned, 'title').trim()
   }
-  if (content) return { title, content }
-  return { title: '', content: cleaned }
+  if (content && !/^\s*\{/.test(content)) return { title, content }
+  return { title, content: '' }
 }
 
 async function generateDigest(llm, items, date) {
