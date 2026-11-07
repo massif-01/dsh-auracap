@@ -693,9 +693,9 @@ window.__ModuleLoader__.load({
 .ac-project-context-head .ac-settings-subsection { margin-bottom: 0; }
 .ac-project-hint { margin: 6px 0 0; font-size: 11px; }
 .ac-project-edit { border: 0; background: transparent; color: var(--dsw-alias-label-secondary); font-family: inherit; font-size: 10.5px; cursor: pointer; padding: 0; }
+.ac-project-status { display: flex; align-items: center; gap: 12px; }
+.ac-project-status-label { font-size: 10.5px; color: var(--dsw-alias-label-secondary); }
 .ac-project-edit:hover { color: var(--dsw-alias-label-primary); }
-.ac-project-preview { margin-top: 8px; padding: 11px 12px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-1); }
-.ac-project-preview p { margin: 0; color: var(--dsw-alias-label-primary); font-size: 12px; line-height: 1.7; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .ac-project-cancel { border: 0; background: transparent; color: var(--dsw-alias-label-secondary); font-family: inherit; font-size: 10.5px; cursor: pointer; padding: 0 3px; }
 .ac-project-cancel:hover { color: var(--dsw-alias-label-primary); }
 .ac-memory-index { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--dsw-alias-border-l1); }
@@ -2151,11 +2151,12 @@ window.__ModuleLoader__.load({
       return h('div', { className: 'ac-project-context' },
         h('div', { className: 'ac-project-context-head' },
           h('div', { className: 'ac-settings-subsection' }, t('projectContext')),
-          !editing ? h('button', { className: 'ac-project-edit', type: 'button', onClick: edit }, t('edit')) : null),
+          h('div', { className: 'ac-project-status' },
+            !editing && savedNote ? h('span', { className: 'ac-project-status-label' }, t('contextSaved')) : null,
+            h('button', { className: 'ac-project-edit', type: 'button', onClick: edit, style: { display: editing ? 'none' : 'inline-flex' } }, t('edit')))),
         h('div', { className: 'ac-settings-hint ac-project-hint' }, t('projectContextHint')),
-        !editing
-          ? h('div', { className: 'ac-project-preview' }, h('p', null, savedNote))
-          : h('div', null,
+        editing
+          ? h('div', null,
               h('textarea', {
                 className: 'ac-input ac-textarea ac-project-note',
                 value: note,
@@ -2165,7 +2166,8 @@ window.__ModuleLoader__.load({
               }),
               h('div', { className: 'ac-project-actions' },
                 h('button', { className: 'ac-ghost', type: 'button', onClick: save, disabled: saving }, saving ? t('saving') : t('saveContext')),
-                savedNote ? h('button', { className: 'ac-project-cancel', type: 'button', onClick: cancel }, t('cancel')) : null)),
+                savedNote ? h('button', { className: 'ac-project-cancel', type: 'button', onClick: cancel }, t('cancel')) : null))
+          : null,
         saved ? h('div', { className: 'ac-project-saved' }, '✓ ' + t('contextSavedHint')) : null)
     }
 
