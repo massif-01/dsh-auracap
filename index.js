@@ -1631,7 +1631,7 @@ function searchEntitiesFor(query) {
     .map((entity) => ({ kind: 'entity', id: entity.id, name: entity.name, type: entity.type, count: entity.itemIds.length }))
 }
 
-function normalizeProfile(profile) {
+export function normalizeProfile(profile) {
   const source = profile && typeof profile === 'object' ? profile : {}
   const projects = Array.isArray(source.activeProjects) ? source.activeProjects : []
   const questions = Array.isArray(source.currentQuestions) ? source.currentQuestions : []
@@ -1649,11 +1649,11 @@ function normalizeProfile(profile) {
   }
 }
 
-function loadMemoryProfile() {
+export function loadMemoryProfile() {
   try { return normalizeProfile(JSON.parse(readFileSync(memoryProfileFile(), 'utf8'))) } catch { return normalizeProfile({}) }
 }
 
-function saveMemoryProfile(profile) {
+export function saveMemoryProfile(profile) {
   const value = normalizeProfile(profile)
   mkdirSync(memoryDir(), { recursive: true })
   const file = memoryProfileFile()
@@ -1663,7 +1663,7 @@ function saveMemoryProfile(profile) {
   return value
 }
 
-function profilePrompt(profile) {
+export function profilePrompt(profile) {
   const value = profile || {}
   const projects = Array.isArray(value.activeProjects) ? value.activeProjects : []
   const questions = Array.isArray(value.currentQuestions) ? value.currentQuestions : []
@@ -1681,10 +1681,10 @@ function profilePrompt(profile) {
 }
 
 const memorySettingsFile = () => join(memoryDir(), 'settings.json')
-function loadMemorySettings() {
+export function loadMemorySettings() {
   try { const parsed = JSON.parse(readFileSync(memorySettingsFile(), 'utf8')); return { version: 1, agentMemory: parsed.agentMemory === true } } catch { return { version: 1, agentMemory: false } }
 }
-function saveMemorySettings(settings) {
+export function saveMemorySettings(settings) {
   const value = { version: 1, agentMemory: Boolean(settings && settings.agentMemory) }
   mkdirSync(memoryDir(), { recursive: true })
   const file = memorySettingsFile()
