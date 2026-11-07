@@ -2138,6 +2138,10 @@ function groupedInsightEntries(items) {
       entries.push(item)
       continue
     }
+    if (group.dismissed) {
+      entries.push(item)
+      continue
+    }
     if (seen.has(group.id)) continue
     seen.add(group.id)
     const members = (group.itemIds || []).map((itemId) => items.find((entry) => entry.id === itemId)).filter(Boolean)
