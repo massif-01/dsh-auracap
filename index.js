@@ -251,7 +251,7 @@ const digestPath = (date) => join(digestsDir(), `${date}.json`)
 
 function loadDigest(date) {
   try {
-    return JSON.parse(readFileSync(digestPath(date), 'utf8'))
+    return repairStoredInsight(JSON.parse(readFileSync(digestPath(date), 'utf8')))
   } catch {
     return null
   }
@@ -333,9 +333,21 @@ function insightPath(type, key) {
   return join(dataDir(), 'insights', type, `${key}.json`)
 }
 
+function repairStoredInsight(value) {
+  if (!value || typeof value !== 'object') return value
+  if (typeof value.content === 'string' && /^\s*\{/.test(value.content)) {
+    const repaired = parseInsightOutput(value.content)
+    if (repaired.content) {
+      value.title = repaired.title || value.title
+      value.content = repaired.content
+    }
+  }
+  return value
+}
+
 function loadPeriodInsight(type, key) {
   try {
-    return JSON.parse(readFileSync(insightPath(type, key), 'utf8'))
+    return repairStoredInsight(JSON.parse(readFileSync(insightPath(type, key), 'utf8')))
   } catch {
     return null
   }
@@ -416,31 +428,29 @@ async function generatePeriodInsight(ctx, items, type, anchorISO, force) {
   const prompt = readPrompt('long-insights-zh.md')
   if (!prompt) throw new Error('长洞察提示词缺失')
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 240_000)
+  const timer = setTimeout(() => controller.abort(), 300_000)
   try {
     const context = profilePrompt(loadMemoryProfile())
-    const stream = ctx.llm.stream({
-      provider: MODEL.provider,
-      model: MODEL.model,
-      reasoningEffort: 'low',
-      maxTokens: type === 'year' ? 4800 : 3400,
-      system: prompt,
-      messages: [{ role: 'user', content: [{ type: 'text', text: (context ? context + '\n\n' : '') + material.text }] }],
-      signal: controller.signal,
-    })
-    let text = ''
-    let usage = null
-    for await (const chunk of stream) {
-      if (chunk.type === 'text-delta') text += chunk.text
-      else if (chunk.type === 'usage') usage = chunk.usage
-      else if (chunk.type === 'finish') {
-        if (chunk.reason && chunk.reason.kind === 'error') throw new Error(chunk.reason.failure && chunk.reason.failure.message ? chunk.reason.failure.message : '模型调用失败')
-        if (chunk.reason && chunk.reason.kind === 'aborted') throw new Error('生成已取消')
+    let parsed = null
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const result = await streamInsightText(ctx.llm, {
+        provider: MODEL.provider,
+        model: MODEL.model,
+        reasoningEffort: 'low',
+        maxTokens: (type === 'year' ? 4800 : 3400) + attempt * 1200,
+        system: prompt,
+        messages: [{ role: 'user', content: [{ type: 'text', text: (context ? context + '\n\n' : '') + material.text }] }],
+        signal: controller.signal,
+      })
+      recordUsage('long-insight', result.usage)
+      const next = parseInsightOutput(result.text)
+      const minLength = type === 'week' ? 120 : type === 'month' ? 160 : 200
+      if (next.content && next.content.length >= minLength && !/^\s*\{/.test(next.content) && result.finishKind !== 'length') {
+        parsed = next
+        break
       }
     }
-    recordUsage('long-insight', usage)
-    const parsed = parseDigest(text)
-    if (!parsed.content) throw new Error('长洞察格式不完整，请重新生成')
+    if (!parsed) throw new Error('长洞察格式不完整，已重试一次仍失败')
     const insight = {
       type,
       key: info.key,
@@ -694,6 +704,51 @@ export function parseDigest(text) {
   return { title, content: '' }
 }
 
+export function parseInsightOutput(text) {
+  const cleaned = String(text || '')
+    .replace(/^\s*```(?:markdown|md|json)?/i, '')
+    .replace(/```\s*$/, '')
+    .trim()
+  if (!cleaned) return { title: '', content: '' }
+
+  // Read old JSON output for compatibility, then fall back to Markdown.
+  if (/^\s*\{/.test(cleaned) || /"title"\s*:/.test(cleaned)) {
+    const parsed = parseDigest(cleaned)
+    if (parsed.content) return parsed
+  }
+
+  const lines = cleaned.split(/\r?\n/)
+  let title = ''
+  let titleIndex = -1
+  for (let index = 0; index < lines.length; index += 1) {
+    const match = lines[index].match(/^#\s*(.+?)\s*$/)
+    if (match) {
+      title = match[1].replace(/^["'“”]+|["'“”]+$/g, '').trim()
+      titleIndex = index
+      break
+    }
+  }
+  let content = (titleIndex >= 0 ? lines.slice(titleIndex + 1) : lines).join('\n').trim()
+  if (/^\s*\{/.test(content)) return { title: '', content: '' }
+  return { title, content }
+}
+
+async function streamInsightText(llm, options) {
+  let text = ''
+  let usage = null
+  let finishKind = ''
+  for await (const chunk of llm.stream(options)) {
+    if (chunk.type === 'text-delta') text += chunk.text
+    else if (chunk.type === 'usage') usage = chunk.usage
+    else if (chunk.type === 'finish') {
+      finishKind = chunk.reason && chunk.reason.kind ? chunk.reason.kind : ''
+      if (chunk.reason && chunk.reason.kind === 'error') throw new Error(chunk.reason.failure && chunk.reason.failure.message ? chunk.reason.failure.message : '模型调用失败')
+      if (chunk.reason && chunk.reason.kind === 'aborted') throw new Error('生成已取消')
+    }
+  }
+  return { text, usage, finishKind }
+}
+
 async function generateDigest(llm, items, date) {
   const ready = groupedInsightEntries(items).filter((item) => item.status === 'ready' && localDateKey(item.createdAt) === date)
   if (!ready.length) {
@@ -703,29 +758,27 @@ async function generateDigest(llm, items, date) {
   }
   const material = digestMaterial(ready)
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 180_000)
+  const timer = setTimeout(() => controller.abort(), 240_000)
   try {
-    const stream = llm.stream({
-      provider: MODEL.provider,
-      model: MODEL.model,
-      reasoningEffort: 'low',
-      maxTokens: 2200,
-      system: readPrompt('insights-zh.md'),
-      messages: [{ role: 'user', content: [{ type: 'text', text: `日期：${date}\n\n${material}` }] }],
-      signal: controller.signal,
-    })
-    let text = ''
-    let usage = null
-    for await (const chunk of stream) {
-      if (chunk.type === 'text-delta') text += chunk.text
-      else if (chunk.type === 'usage') usage = chunk.usage
-      else if (chunk.type === 'finish') {
-        if (chunk.reason && chunk.reason.kind === 'error') throw new Error(chunk.reason.failure && chunk.reason.failure.message ? chunk.reason.failure.message : '模型调用失败')
-        if (chunk.reason && chunk.reason.kind === 'aborted') throw new Error('生成已取消')
+    let parsed = null
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const result = await streamInsightText(llm, {
+        provider: MODEL.provider,
+        model: MODEL.model,
+        reasoningEffort: 'low',
+        maxTokens: 2200 + attempt * 800,
+        system: readPrompt('insights-zh.md'),
+        messages: [{ role: 'user', content: [{ type: 'text', text: `日期：${date}\n\n${material}` }] }],
+        signal: controller.signal,
+      })
+      recordUsage('daily-insight', result.usage)
+      const next = parseInsightOutput(result.text)
+      if (next.content && next.content.length >= 60 && !/^\s*\{/.test(next.content) && result.finishKind !== 'length') {
+        parsed = next
+        break
       }
     }
-    recordUsage('daily-insight', usage)
-    const parsed = parseDigest(text)
+    if (!parsed) throw new Error('日洞察格式不完整，已重试一次仍失败')
     let content = parsed.content
     if (content && !/^\s*#{1,6}\s+/m.test(content)) content = '### 今日焦点\n' + content
     const digest = {
