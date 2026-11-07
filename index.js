@@ -1803,6 +1803,7 @@ async function summarize(llm, items, item) {
     item.updatedAt = new Date().toISOString()
     saveItems(items)
     try { buildMemoryIndex(items) } catch {}
+    try { rebuildGroups(items) } catch {}
   }
 }
 
@@ -1879,10 +1880,221 @@ async function runMemoryBackfill(ctx, items) {
   return memoryBackfill
 }
 
+const groupsFile = () => join(dataDir(), 'groups.json')
+let groupStore = { version: 1, groups: {} }
+const GROUP_WINDOW_MS = 15 * 60 * 1000
+const GROUP_MAX = 8
+const GROUP_THRESHOLD = 0.62
+
+function loadGroups() {
+  try {
+    const parsed = JSON.parse(readFileSync(groupsFile(), 'utf8'))
+    if (parsed && parsed.groups && typeof parsed.groups === 'object') groupStore = { version: 1, groups: parsed.groups }
+  } catch {}
+  return groupStore
+}
+
+function saveGroups() {
+  mkdirSync(dataDir(), { recursive: true })
+  const file = groupsFile()
+  const tmp = `${file}.${process.pid}.tmp`
+  writeFileSync(tmp, JSON.stringify(groupStore, null, 2))
+  renameSync(tmp, file)
+}
+
+function groupIdFor(itemIds) {
+  return 'grp_' + createHash('sha256').update(itemIds.slice().sort().join('|')).digest('hex').slice(0, 12)
+}
+
+function groupKey(text) {
+  return String(text || '').normalize('NFKC').toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, '')
+}
+
+function bigramSimilarity(left, right) {
+  const a = groupKey(left)
+  const b = groupKey(right)
+  if (!a || !b) return 0
+  if (a === b) return 1
+  const grams = (value) => {
+    const set = new Set()
+    for (let index = 0; index < value.length - 1; index += 1) set.add(value.slice(index, index + 2))
+    return set
+  }
+  const one = grams(a)
+  const two = grams(b)
+  let shared = 0
+  for (const gram of one) if (two.has(gram)) shared += 1
+  return shared / Math.max(1, one.size + two.size - shared)
+}
+
+function groupOverlap(left, right) {
+  const collect = (item) => {
+    const summary = item.summary || {}
+    const values = []
+    for (const tag of summary.tags || []) values.push('tag:' + groupKey(tag))
+    for (const entity of summary.entities || []) values.push('ent:' + groupKey(entity.name))
+    return new Set(values)
+  }
+  const a = collect(left)
+  const b = collect(right)
+  if (!a.size || !b.size) return 0
+  let shared = 0
+  for (const value of a) if (b.has(value)) shared += 1
+  return shared / Math.max(1, a.size + b.size - shared)
+}
+
+function groupAspect(item) {
+  const image = item.image || {}
+  return image.width && image.height ? image.width / image.height : 0
+}
+
+function groupSourceKind(item) {
+  return (item.source && item.source.kind) || item.kind || 'local'
+}
+
+function groupContinuation(item) {
+  const summary = item.summary || {}
+  const text = [summary.title, plainTextOfSummary(summary)].filter(Boolean).join(' ')
+  return /(第\s*[一二三四五六七八九十\d]+\s*[页屏]|接上页|续上|上接|page\s*\d+)/i.test(text) ? 1 : 0
+}
+
+function groupScore(left, right) {
+  const timeA = Date.parse(left.createdAt)
+  const timeB = Date.parse(right.createdAt)
+  if (!Number.isFinite(timeA) || !Number.isFinite(timeB)) return 0
+  const delta = Math.abs(timeA - timeB)
+  if (delta > GROUP_WINDOW_MS) return 0
+  if (groupSourceKind(left) !== groupSourceKind(right)) return 0
+  if (!left.image || !right.image) return 0
+  const aspectA = groupAspect(left)
+  const aspectB = groupAspect(right)
+  if (aspectA && aspectB && Math.abs(aspectA - aspectB) > 0.12) return 0
+  const summaryA = left.summary || {}
+  const summaryB = right.summary || {}
+  const titleA = summaryA.title || plainTextOfSummary(summaryA).slice(0, 120)
+  const titleB = summaryB.title || plainTextOfSummary(summaryB).slice(0, 120)
+  const title = bigramSimilarity(titleA, titleB)
+  const overlap = groupOverlap(left, right)
+  const time = 1 - delta / GROUP_WINDOW_MS
+  const aspect = aspectA && aspectB ? 1 - Math.min(1, Math.abs(aspectA - aspectB) / 0.12) : 0.7
+  const continuation = Math.max(groupContinuation(left), groupContinuation(right))
+  const score = 0.30 * title + 0.20 * overlap + 0.20 * time + 0.15 * aspect + 0.15 * continuation
+  if (score < GROUP_THRESHOLD) return 0
+  if (title < 0.12 && overlap < 0.12) return 0
+  return score
+}
+
+function pruneGroups(items) {
+  const itemIds = new Set(items.map((item) => item.id))
+  let changed = false
+  for (const [id, group] of Object.entries(groupStore.groups)) {
+    const valid = Array.isArray(group.itemIds) ? group.itemIds.filter((itemId) => itemIds.has(itemId)) : []
+    if (valid.length < 2) { delete groupStore.groups[id]; changed = true; continue }
+    if (valid.length !== group.itemIds.length) { group.itemIds = valid; group.updatedAt = new Date().toISOString(); changed = true }
+  }
+  if (changed) saveGroups()
+}
+
+export function rebuildGroups(items) {
+  const preserved = {
+    groups: {},
+    itemIds: new Set(),
+  }
+  for (const [id, group] of Object.entries(groupStore.groups)) {
+    if (group.source === 'manual' || group.status === 'merged' || group.dismissed) {
+      const valid = (group.itemIds || []).filter((itemId) => items.some((item) => item.id === itemId))
+      if (valid.length >= 2) {
+        preserved.groups[id] = Object.assign({}, group, { itemIds: valid })
+        for (const itemId of valid) preserved.itemIds.add(itemId)
+      }
+    }
+  }
+
+  const candidates = items.filter((item) => item.status === 'ready' && item.image && !preserved.itemIds.has(item.id))
+  const parent = new Map(candidates.map((item) => [item.id, item.id]))
+  const find = (id) => {
+    let current = id
+    while (parent.get(current) !== current) current = parent.get(current)
+    while (parent.get(id) !== id) { const next = parent.get(id); parent.set(id, current); id = next }
+    return current
+  }
+  const union = (left, right) => {
+    const a = find(left)
+    const b = find(right)
+    if (a !== b) parent.set(b, a)
+  }
+  const pairScores = new Map()
+  for (let leftIndex = 0; leftIndex < candidates.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < candidates.length; rightIndex += 1) {
+      const left = candidates[leftIndex]
+      const right = candidates[rightIndex]
+      const score = groupScore(left, right)
+      if (score > 0) {
+        union(left.id, right.id)
+        pairScores.set(left.id + '|' + right.id, score)
+      }
+    }
+  }
+
+  const clusters = new Map()
+  for (const item of candidates) {
+    const root = find(item.id)
+    if (!clusters.has(root)) clusters.set(root, [])
+    clusters.get(root).push(item)
+  }
+
+  const autoGroups = {}
+  for (const [root, cluster] of clusters.entries()) {
+    if (cluster.length < 2) continue
+    const ordered = cluster.slice().sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))
+    const limited = ordered.slice(0, GROUP_MAX)
+    if (limited.length < 2) continue
+    const ids = limited.map((item) => item.id)
+    const id = groupIdFor(ids)
+    let best = 0
+    for (const left of limited) {
+      for (const right of limited) {
+        if (left.id >= right.id) continue
+        const score = pairScores.get(left.id + '|' + right.id) || pairScores.get(right.id + '|' + left.id) || 0
+        if (score > best) best = score
+      }
+    }
+    const reasons = []
+    if (best >= GROUP_THRESHOLD) reasons.push('时间接近')
+    if (limited.some((item) => groupContinuation(item))) reasons.push('有连续页面提示')
+    if (reasons.length === 0) reasons.push('内容与时间接近')
+    autoGroups[id] = {
+      id,
+      itemIds: ids,
+      primaryId: ids[0],
+      source: 'auto',
+      status: 'candidate',
+      confidence: Number(best.toFixed(2)),
+      reasons,
+      dismissed: false,
+      createdAt: limited[0].createdAt,
+      updatedAt: new Date().toISOString(),
+      merged: null,
+    }
+  }
+
+  groupStore = { version: 1, groups: Object.assign({}, preserved.groups, autoGroups) }
+  saveGroups()
+  return groupStore
+}
+
+function groupsForApi() {
+  return Object.values(groupStore.groups)
+    .filter((group) => (group.itemIds || []).length >= 2)
+    .sort((left, right) => String(right.updatedAt || '').localeCompare(String(left.updatedAt || '')))
+}
+
 export function apply(ctx) {
   const items = loadItems()
+  loadGroups()
   loadMemoryIndex()
   try { buildMemoryIndex(items) } catch {}
+  try { rebuildGroups(items) } catch {}
   const github = { items, state: loadState(), flows: new Map(), syncing: false, digestBusy: false, longBusy: false }
   startGithubLoop(ctx, github)
   startDigestLoop(ctx, github)
@@ -1965,6 +2177,7 @@ export function apply(ctx) {
       try { unlinkSync(join(dataDir(), removed.imageFile)) } catch {}
     }
     saveItems(items)
+    try { rebuildGroups(items) } catch {}
     sendJson(res, 200, { ok: true })
   }
 
@@ -2205,7 +2418,46 @@ export function apply(ctx) {
         }
         if (path === `${BASE}/api/items`) {
           if (req.method !== 'GET') return sendError(res, 405, 'method not allowed')
-          return sendJson(res, 200, { items })
+          return sendJson(res, 200, { items, groups: groupsForApi() })
+        }
+        if (path === `${BASE}/api/groups`) {
+          if (req.method === 'GET') return sendJson(res, 200, { groups: groupsForApi() })
+          if (req.method !== 'POST') return sendError(res, 405, 'method not allowed')
+          if (!trusted(req)) return sendError(res, 403, 'forbidden')
+          let body
+          try { body = await readJsonBody(req, 64 * 1024) } catch { return sendError(res, 400, '请求体不是合法 JSON') }
+          const requested = Array.isArray(body && body.itemIds) ? [...new Set(body.itemIds.map(String))] : []
+          if (requested.length < 2) return sendError(res, 400, '至少选择两条片刻')
+          const selected = requested.map((itemId) => items.find((item) => item.id === itemId)).filter(Boolean)
+          if (selected.length !== requested.length) return sendError(res, 404, '存在找不到的片刻')
+          const occupied = requested.find((itemId) => Object.values(groupStore.groups).some((group) => (group.itemIds || []).includes(itemId)))
+          if (occupied) return sendError(res, 409, '所选片刻已经在其他组里')
+          const ids = selected.map((item) => item.id).sort((a, b) => String(selected.find((entry) => entry.id === a).createdAt).localeCompare(String(selected.find((entry) => entry.id === b).createdAt)))
+          const id = groupIdFor(ids)
+          const now = new Date().toISOString()
+          groupStore.groups[id] = {
+            id,
+            itemIds: ids,
+            primaryId: ids[0],
+            source: 'manual',
+            status: 'candidate',
+            confidence: 1,
+            reasons: ['手动归组'],
+            dismissed: false,
+            createdAt: selected.find((entry) => entry.id === ids[0]).createdAt,
+            updatedAt: now,
+            merged: null,
+          }
+          saveGroups()
+          return sendJson(res, 201, { group: groupStore.groups[id] })
+        }
+        const groupMatch = path.match(/^\/auracap\/api\/groups\/([^/]+)$/)
+        if (groupMatch) {
+          if (req.method !== 'GET') return sendError(res, 405, 'method not allowed')
+          const group = groupStore.groups[decodeURIComponent(groupMatch[1])]
+          if (!group) return sendError(res, 404, '组不存在')
+          const members = group.itemIds.map((itemId) => items.find((item) => item.id === itemId)).filter(Boolean)
+          return sendJson(res, 200, { group, items: members })
         }
         if (path.startsWith(`${BASE}/api/media/`)) {
           if (req.method !== 'GET') return sendError(res, 405, 'method not allowed')
