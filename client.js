@@ -1771,7 +1771,8 @@ window.__ModuleLoader__.load({
       const choose = (result) => {
         if (!result) return
         props.onClose()
-        if (result.kind === 'item') props.onOpenItem(result.id)
+        if (result.kind === 'group') props.onOpenGroup(result.id)
+        else if (result.kind === 'item') props.onOpenItem(result.id)
         else if (result.kind === 'entity') props.onOpenEntity(result.id)
         else props.onOpenInsight(result)
       }
@@ -1784,6 +1785,7 @@ window.__ModuleLoader__.load({
         if (event.key === 'Enter') { event.preventDefault(); choose(results[active]) }
       }
       const kindLabel = (result) => {
+        if (result.kind === 'group') return t('groupSame')
         if (result.kind === 'entity') return t('entities')
         if (result.kind === 'item') return t('moment')
         if (result.type === 'day') return t('periodDay')
@@ -2978,6 +2980,14 @@ window.__ModuleLoader__.load({
         setAppliedAnchor(insight.start || todayKey())
       }
       const closeEntity = () => { setEntityId(null); setEntityDetail(null) }
+      const openSearchGroup = (id) => {
+        setSearchOpen(false)
+        setRangeStart(null)
+        setRangeEnd(null)
+        setTagFilter(null)
+        setScope('all')
+        openGroup(id)
+      }
       const openSearchItem = (id) => {
         setSearchOpen(false)
         setRangeStart(null)
@@ -3124,6 +3134,7 @@ window.__ModuleLoader__.load({
           onOpenItem: openSearchItem,
           onOpenInsight: openSearchInsight,
           onOpenEntity: openEntity,
+          onOpenGroup: openSearchGroup,
         }) : null,
         screenshotPromptOpen ? h('div', {
           className: 'ac-modal',

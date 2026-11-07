@@ -507,6 +507,36 @@ function searchItemsFor(items, query) {
   }).filter(Boolean).sort((a, b) => b.score - a.score || String(b.createdAt).localeCompare(String(a.createdAt))).slice(0, 8)
 }
 
+function groupedItemIds(groups = groupsForApi()) {
+  const ids = new Set()
+  for (const group of groups) for (const itemId of group.itemIds || []) ids.add(itemId)
+  return ids
+}
+
+function searchGroupsFor(query, items) {
+  const terms = String(query || '').toLowerCase().split(/\s+/).filter(Boolean)
+  if (!terms.length) return []
+  const grouped = groupsForApi()
+  return grouped.map((group) => {
+    const members = (group.itemIds || []).map((itemId) => items.find((item) => item.id === itemId)).filter(Boolean)
+    const primary = members.find((item) => item.id === group.primaryId) || members[0]
+    const summary = group.merged || (primary && primary.summary) || {}
+    const title = summary.title || '未命名'
+    const body = [summary.content, summary.excerpt, summary.summary, (summary.tags || []).join(' ')].filter(Boolean).join(' ')
+    const haystack = title + ' ' + body
+    if (!terms.every((term) => haystack.toLowerCase().includes(term))) return null
+    return {
+      kind: 'group',
+      id: group.id,
+      title,
+      snippet: searchSnippet(body || title, terms),
+      createdAt: group.createdAt,
+      count: members.length,
+      score: searchScore(haystack, terms, title) + 1,
+    }
+  }).filter(Boolean).sort((a, b) => b.score - a.score || String(b.createdAt).localeCompare(String(a.createdAt))).slice(0, 8)
+}
+
 function searchInsightsFor(query) {
   const terms = String(query || '').toLowerCase().split(/\s+/).filter(Boolean)
   if (!terms.length) return []
@@ -2541,7 +2571,9 @@ export function apply(ctx) {
           if (req.method !== 'GET') return sendError(res, 405, 'method not allowed')
           const query = String(url.searchParams.get('q') || '').trim().slice(0, 100)
           if (!query) return sendJson(res, 200, { query, results: [] })
-          return sendJson(res, 200, { query, results: searchEntitiesFor(query).concat(searchItemsFor(items, query), searchInsightsFor(query)).sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 12) })
+          const groupedIds = groupedItemIds()
+          const ungrouped = items.filter((item) => !groupedIds.has(item.id))
+          return sendJson(res, 200, { query, results: searchEntitiesFor(query).concat(searchGroupsFor(query, items), searchItemsFor(ungrouped, query), searchInsightsFor(query)).sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 12) })
         }
         if (path === `${BASE}/api/items`) {
           if (req.method !== 'GET') return sendError(res, 405, 'method not allowed')
