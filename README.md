@@ -115,7 +115,13 @@ Agent 没有让你翻相册。它从 AuraCap 里找到了几条相关的片刻�
 
 需要 DeepSeek Harness `>= 0.2.1-rc.2 < 0.3.0`。
 
-在 DSH 的插件管理里安装本目录（Install bundle），然后重启 DSH。左侧栏出现 AuraCap，点开就能用。
+在 DSH 的「插件」页面点「添加插件」→「安装第三方插件」，填入：
+
+```text
+https://github.com/massif-01/dsh-auracap
+```
+
+也可以通过本地目录安装。装好后重启 DSH，左侧栏出现 AuraCap。
 
 ### 第一次打开
 
