@@ -1971,16 +1971,19 @@ function groupScore(left, right) {
   if (aspectA && aspectB && Math.abs(aspectA - aspectB) > 0.12) return 0
   const summaryA = left.summary || {}
   const summaryB = right.summary || {}
-  const titleA = summaryA.title || plainTextOfSummary(summaryA).slice(0, 120)
-  const titleB = summaryB.title || plainTextOfSummary(summaryB).slice(0, 120)
+  const bodyA = plainTextOfSummary(summaryA).slice(0, 700)
+  const bodyB = plainTextOfSummary(summaryB).slice(0, 700)
+  const titleA = summaryA.title || bodyA.slice(0, 120)
+  const titleB = summaryB.title || bodyB.slice(0, 120)
   const title = bigramSimilarity(titleA, titleB)
+  const body = bigramSimilarity(bodyA, bodyB)
   const overlap = groupOverlap(left, right)
   const time = 1 - delta / GROUP_WINDOW_MS
   const aspect = aspectA && aspectB ? 1 - Math.min(1, Math.abs(aspectA - aspectB) / 0.12) : 0.7
   const continuation = Math.max(groupContinuation(left), groupContinuation(right))
-  const score = 0.30 * title + 0.20 * overlap + 0.20 * time + 0.15 * aspect + 0.15 * continuation
+  const score = 0.26 * title + 0.14 * body + 0.18 * overlap + 0.20 * time + 0.12 * aspect + 0.10 * continuation
   if (score < GROUP_THRESHOLD) return 0
-  if (title < 0.12 && overlap < 0.12) return 0
+  if (title < 0.12 && body < 0.12 && continuation === 0) return 0
   return score
 }
 
@@ -2186,7 +2189,7 @@ export async function mergeGroup(ctx, items, group) {
   }
 }
 
-function splitGroup(group) {
+export function splitGroup(group) {
   if (!group) {
     const error = new Error('组不存在')
     error.status = 404
@@ -2199,7 +2202,7 @@ function splitGroup(group) {
   return group
 }
 
-function dismissGroup(group) {
+export function dismissGroup(group) {
   if (!group) {
     const error = new Error('组不存在')
     error.status = 404
