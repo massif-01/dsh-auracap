@@ -43,6 +43,8 @@ window.__ModuleLoader__.load({
       merging: '正在合并…',
       splitGroup: '拆分',
       dismissGroup: '拆开这组',
+      deleteGroup: '删除整组',
+      confirmDeleteGroup: '确认删除整组',
       remakeGroup: '重新合并',
       mergedSummary: '合并后的整理',
       mergeFailed: '合并失败，原条目已保留',
@@ -301,6 +303,8 @@ window.__ModuleLoader__.load({
       merging: 'Merging…',
       splitGroup: 'Split',
       dismissGroup: 'Break up group',
+      deleteGroup: 'Delete group',
+      confirmDeleteGroup: 'Confirm delete group',
       remakeGroup: 'Merge again',
       mergedSummary: 'Merged summary',
       mergeFailed: 'Merge failed; originals are still here',
@@ -648,6 +652,9 @@ window.__ModuleLoader__.load({
 .ac-group-count { position: absolute; right: 0; bottom: 0; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 999px; background: var(--dsw-alias-brand-primary); color: var(--dsw-alias-bg-base); font-size: 9px; line-height: 15px; text-align: center; font-variant-numeric: tabular-nums; }
 .ac-group-badge { color: var(--dsw-alias-brand-primary); }
 .ac-card-group-visual { position: relative; height: 120px; display: grid; place-items: center; background: var(--dsw-alias-bg-layer-2); border-bottom: 1px solid var(--dsw-alias-border-l1); }
+.ac-card-group-cover { position: relative; }
+.ac-card-group-cover .ac-card-img { display: block; }
+.ac-group-count-overlay { top: 8px; right: 8px; bottom: auto; }
 .ac-card-group-visual .ac-thumb-stack { transform: scale(1.55); }
 .ac-group-kicker { font-size: 9.5px; letter-spacing: .14em; color: var(--dsw-alias-label-secondary); margin-bottom: 10px; text-transform: uppercase; }
 .ac-group-members { display: flex; flex-direction: column; gap: 2px; }
@@ -694,6 +701,7 @@ window.__ModuleLoader__.load({
 .ac-project-context-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .ac-project-context-head .ac-settings-subsection { margin-bottom: 0; }
 .ac-project-hint { margin: 6px 0 0; font-size: 11px; }
+.ac-project-edit-button { flex: none; height: 25px; padding: 0 9px; font-size: 10.5px; }
 .ac-project-edit { border: 0; background: transparent; color: var(--dsw-alias-label-secondary); font-family: inherit; font-size: 10.5px; cursor: pointer; padding: 0; }
 .ac-project-status { display: flex; align-items: center; gap: 12px; }
 .ac-project-status-label { font-size: 10.5px; color: var(--dsw-alias-label-secondary); }
@@ -1437,12 +1445,21 @@ window.__ModuleLoader__.load({
       const t = props.t
       const items = props.items || []
       const primary = items.find((item) => item.id === props.group.primaryId) || items[0]
+      const cover = primary && primary.image ? primary : items.find((item) => item.image)
+      const latest = groupLatest(items)
+      const tag = primary && primary.summary && primary.summary.tags && primary.summary.tags[0]
       return h('button', { className: 'ac-card ac-group-card', type: 'button', onClick: props.onClick },
-        h('div', { className: 'ac-card-group-visual' }, h(GroupStack, { items, count: items.length })),
+        h('div', { className: 'ac-card-group-cover' },
+          cover
+            ? h('img', { className: 'ac-card-img', src: API + '/media/' + encodeURIComponent(cover.id), alt: '', loading: 'lazy', draggable: false })
+            : h('div', { className: 'ac-card-img ac-card-doc' }, DocumentIcon(), h('span', { className: 'ac-doc-ext' }, documentExtension(primary))),
+          h('span', { className: 'ac-group-count ac-group-count-overlay' }, String(items.length))),
         h('div', { className: 'ac-card-body' },
           h('div', { className: 'ac-card-title' }, groupTitle(props.group, items, t)),
           h('div', { className: 'ac-card-desc' }, t('groupSame') + ' · ' + items.length + ' ' + t('groupScreens')),
-          h('div', { className: 'ac-card-meta' }, latestGroupTime(items))))
+          h('div', { className: 'ac-card-meta' },
+            latest ? h('span', null, timeText(latest.createdAt)) : null,
+            tag ? h('span', null, '#' + tag) : null)))
     }
 
     function latestGroupTime(items) {
@@ -1454,11 +1471,19 @@ window.__ModuleLoader__.load({
       const t = props.t
       const group = props.group
       const items = props.items || []
+      const [confirmDelete, setConfirmDelete] = useState(false)
       const primary = items.find((item) => item.id === group.primaryId) || items[0]
       const latest = groupLatest(items)
       const title = groupTitle(group, items, t)
       const merged = group.merged
       const mergedSections = merged && merged.content ? splitSections(merged.content) : []
+      const deleteAction = props.onDelete ? h('button', {
+        className: 'ac-ghost',
+        'data-danger': true,
+        type: 'button',
+        disabled: props.busy,
+        onClick: () => { if (confirmDelete) props.onDelete(group.id); else setConfirmDelete(true) },
+      }, TrashIcon(), confirmDelete ? t('confirmDeleteGroup') : t('deleteGroup')) : null
       const members = items.map((item) => h('button', {
         key: item.id,
         className: 'ac-group-member',
@@ -1491,7 +1516,8 @@ window.__ModuleLoader__.load({
                   disabled: props.busy,
                   onClick: () => props.onMerge(group.id),
                 }, props.busy ? t('merging') : t('mergeGroup')),
-                h('button', { className: 'ac-ghost', type: 'button', disabled: props.busy, onClick: () => props.onDismiss(group.id) }, t('dismissGroup'))),
+                h('button', { className: 'ac-ghost', type: 'button', disabled: props.busy, onClick: () => props.onDismiss(group.id) }, t('dismissGroup')),
+                deleteAction),
           props.error ? h('div', { className: 'ac-group-error' }, props.error) : null,
           h('div', { className: 'ac-section' },
             h('div', { className: 'ac-sec-label' }, merged ? t('groupSources') : t('groupMembers')),
@@ -1499,7 +1525,8 @@ window.__ModuleLoader__.load({
           merged
             ? h('div', { className: 'ac-group-actions ac-group-actions-bottom' },
                 h('button', { className: 'ac-ghost', type: 'button', disabled: props.busy, onClick: () => props.onSplit(group.id) }, props.busy ? t('merging') : t('splitGroup')),
-                h('button', { className: 'ac-ghost', type: 'button', disabled: props.busy, onClick: () => props.onMerge(group.id) }, props.busy ? t('merging') : t('remakeGroup')))
+                h('button', { className: 'ac-ghost', type: 'button', disabled: props.busy, onClick: () => props.onMerge(group.id) }, props.busy ? t('merging') : t('remakeGroup')),
+                deleteAction)
             : null))
     }
 
@@ -3153,6 +3180,24 @@ window.__ModuleLoader__.load({
           setGroupBusy(false)
         }
       }
+      const deleteGroupAction = async (groupId) => {
+        setGroupBusy(true)
+        setGroupError(null)
+        try {
+          const group = groups.find((entry) => entry.id === groupId)
+          const memberIds = new Set(group ? group.itemIds || [] : [])
+          await request(API + '/groups/' + encodeURIComponent(groupId) + '/delete', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+          setItems((previous) => previous.filter((item) => !memberIds.has(item.id)))
+          setGroups((previous) => previous.filter((entry) => entry.id !== groupId))
+          if (selectedId && memberIds.has(selectedId)) setSelectedId(null)
+          if (modalId && memberIds.has(modalId)) setModalId(null)
+          closeGroup()
+        } catch (error) {
+          setGroupError(error && error.message ? error.message : t('mergeFailed'))
+        } finally {
+          setGroupBusy(false)
+        }
+      }
       const createManualGroup = async () => {
         if (!mergePickerFor || !mergePickIds.length) return
         setGroupBusy(true)
@@ -3387,7 +3432,7 @@ window.__ModuleLoader__.load({
         },
           h('div', { className: 'ac-modal-card' },
             h('button', { className: 'ac-modal-close', onClick: closeGroup, 'aria-label': t('close') }, CloseIcon()),
-            h(GroupDetail, { group: modalGroup, items: modalGroupItems, t, onOpenItem: openItemById, onMerge: mergeGroupAction, onSplit: splitGroupAction, onDismiss: dismissGroupAction, busy: groupBusy, error: groupError }))) : null,
+            h(GroupDetail, { group: modalGroup, items: modalGroupItems, t, onOpenItem: openItemById, onMerge: mergeGroupAction, onSplit: splitGroupAction, onDismiss: dismissGroupAction, onDelete: deleteGroupAction, busy: groupBusy, error: groupError }))) : null,
         mergePickerFor ? h(MergePicker, {
           t,
           source: mergePickerFor,
