@@ -72,6 +72,8 @@ window.__ModuleLoader__.load({
       constraints: '约束',
       saveContext: '保存上下文',
       contextSaved: '已保存',
+      saving: '保存中…',
+      contextSavedHint: '已存到本机。Agent 和长洞察下次会读到。',
       agentMemory: '允许 Agent 读取 AuraCap 记忆',
       agentMemoryHint: '只读查询；不会修改、删除或自动记住任何东西。',
       on: '开',
@@ -324,6 +326,8 @@ window.__ModuleLoader__.load({
       constraints: 'Constraints',
       saveContext: 'Save context',
       contextSaved: 'Saved',
+      saving: 'Saving…',
+      contextSavedHint: 'Saved locally. The agent and long insights will read it next time.',
       agentMemory: 'Allow the agent to read AuraCap memory',
       agentMemoryHint: 'Read-only; it cannot change, delete, or automatically remember anything.',
       on: 'On',
@@ -670,6 +674,7 @@ window.__ModuleLoader__.load({
 .ac-merge-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 .ac-project-context { margin-top: 22px; }
 .ac-project-note { min-height: 128px; margin-top: 12px; }
+.ac-project-saved { display: inline-flex; align-items: center; margin-left: 12px; color: var(--dsw-alias-label-secondary); font-size: 10.5px; }
 .ac-project-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
 .ac-project-row { display: grid; grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1fr) 22px; gap: 8px; align-items: center; }
 .ac-input { height: 32px; width: 100%; border: 1px solid var(--dsw-alias-border-l1); border-radius: 7px; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 11.5px; padding: 0 9px; outline: none; box-sizing: border-box; }
@@ -2074,6 +2079,7 @@ window.__ModuleLoader__.load({
       const t = props.t
       const [note, setNote] = useState(() => String(props.profile && props.profile.note || ''))
       const [saved, setSaved] = useState(false)
+      const [saving, setSaving] = useState(false)
       const loaded = useRef(false)
       useEffect(() => {
         if (loaded.current || !props.profile) return
@@ -2081,9 +2087,14 @@ window.__ModuleLoader__.load({
         setNote(String(props.profile.note || ''))
       }, [props.profile])
       const save = async () => {
-        await props.onSaveProfile({ note })
+        if (saving) return
+        setSaving(true)
+        const ok = await props.onSaveProfile({ note })
+        setSaving(false)
+        if (!ok) return
+        setNote('')
         setSaved(true)
-        setTimeout(() => setSaved(false), 1600)
+        setTimeout(() => setSaved(false), 2600)
       }
       const enabled = Boolean(props.settings && props.settings.agentMemory)
       return h('section', { className: 'ac-settings-section ac-project-context' },
@@ -2097,7 +2108,8 @@ window.__ModuleLoader__.load({
           onChange: (event) => setNote(event.target.value),
         }),
         h('div', { className: 'ac-project-actions' },
-          h('button', { className: 'ac-ghost', type: 'button', onClick: save }, saved ? t('contextSaved') : t('saveContext'))),
+          h('button', { className: 'ac-ghost', type: 'button', onClick: save, disabled: saving }, saving ? t('saving') : t('saveContext')),
+          saved ? h('span', { className: 'ac-project-saved' }, '✓ ' + t('contextSavedHint')) : null),
         h('div', { className: 'ac-agent-toggle' },
           h('div', null, h('div', { className: 'ac-set-label' }, t('agentMemory')), h('div', { className: 'ac-settings-hint' }, t('agentMemoryHint'))),
           h('button', {
@@ -2650,7 +2662,11 @@ window.__ModuleLoader__.load({
         try {
           const payload = await request(API + '/memory/profile', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(profile) })
           setMemoryProfile(payload)
-        } catch (profileError) { setError(profileError.message) }
+          return true
+        } catch (profileError) {
+          setError(profileError.message)
+          return false
+        }
       }
       const saveMemorySettings = async (settings) => {
         try {
