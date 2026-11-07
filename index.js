@@ -1633,20 +1633,22 @@ function searchEntitiesFor(query) {
 
 export function normalizeProfile(profile) {
   const source = profile && typeof profile === 'object' ? profile : {}
-  const projects = Array.isArray(source.activeProjects) ? source.activeProjects : []
-  const questions = Array.isArray(source.currentQuestions) ? source.currentQuestions : []
-  const constraints = Array.isArray(source.constraints) ? source.constraints : []
-  return {
-    version: 1,
-    activeProjects: projects.map((project) => ({
-      name: String(project && project.name || '').trim().slice(0, 80),
-      oneLine: String(project && project.oneLine || '').trim().slice(0, 240),
-      nextStep: String(project && project.nextStep || '').trim().slice(0, 240),
-    })).filter((project) => project.name).slice(0, 3),
-    currentQuestions: questions.map((value) => String(value || '').trim().slice(0, 240)).filter(Boolean).slice(0, 5),
-    constraints: constraints.map((value) => String(value || '').trim().slice(0, 240)).filter(Boolean).slice(0, 8),
-    updatedAt: new Date().toISOString(),
+  let note = String(source.note || '').trim().slice(0, 1600)
+  if (!note) {
+    const projects = Array.isArray(source.activeProjects) ? source.activeProjects : []
+    const questions = Array.isArray(source.currentQuestions) ? source.currentQuestions : []
+    const constraints = Array.isArray(source.constraints) ? source.constraints : []
+    const legacy = []
+    for (const project of projects.slice(0, 3)) {
+      const name = String(project && project.name || '').trim()
+      if (!name) continue
+      legacy.push(name + (project.oneLine ? '：' + project.oneLine : '') + (project.nextStep ? '（下一步：' + project.nextStep + '）' : ''))
+    }
+    if (questions.length) legacy.push('当前问题：' + questions.join('；'))
+    if (constraints.length) legacy.push('约束：' + constraints.join('；'))
+    note = legacy.join('\n').trim().slice(0, 1600)
   }
+  return { version: 1, note, updatedAt: new Date().toISOString() }
 }
 
 export function loadMemoryProfile() {
@@ -1664,20 +1666,9 @@ export function saveMemoryProfile(profile) {
 }
 
 export function profilePrompt(profile) {
-  const value = profile || {}
-  const projects = Array.isArray(value.activeProjects) ? value.activeProjects : []
-  const questions = Array.isArray(value.currentQuestions) ? value.currentQuestions : []
-  const constraints = Array.isArray(value.constraints) ? value.constraints : []
-  const lines = []
-  if (projects.length) {
-    lines.push('# 用户当前项目')
-    for (const project of projects) {
-      lines.push(`- ${project.name}${project.oneLine ? '：' + project.oneLine : ''}${project.nextStep ? '（下一步：' + project.nextStep + '）' : ''}`)
-    }
-  }
-  if (questions.length) { lines.push('# 当前问题'); for (const question of questions) lines.push('- ' + question) }
-  if (constraints.length) { lines.push('# 长期约束'); for (const constraint of constraints) lines.push('- ' + constraint) }
-  return lines.join('\n').slice(0, 1200)
+  const note = String(profile && profile.note || '').trim()
+  if (!note) return ''
+  return '# 用户当前项目\n' + note
 }
 
 const memorySettingsFile = () => join(memoryDir(), 'settings.json')

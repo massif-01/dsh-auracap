@@ -61,7 +61,8 @@ window.__ModuleLoader__.load({
       memoryIndexed: '已建立',
       memoryBackfill: '建立记忆索引',
       projectContext: '项目上下文',
-      projectContextHint: '给长洞察和 Agent 一点真实背景。只写正在做的事，不写偏好。',
+      projectContextHint: '用几句话写下你正在做的事。Agent 和长洞察会读它，留空也不影响使用。',
+      projectNotePlaceholder: '例如：我在做 AuraCap，一个把截图变成个人记忆的插件。\n下一步：把项目上下文接进 Agent。',
       projectName: '项目名',
       projectOneLine: '一句话',
       projectNextStep: '下一步',
@@ -312,7 +313,8 @@ window.__ModuleLoader__.load({
       memoryIndexed: 'Indexed',
       memoryBackfill: 'Build memory index',
       projectContext: 'Project context',
-      projectContextHint: 'Give long insights and the agent a little real background. Projects, questions, constraints.',
+      projectContextHint: 'A few lines about what you are working on. Insights and the agent can read it; empty is fine.',
+      projectNotePlaceholder: 'For example: I am building AuraCap, a personal memory plugin for screenshots.\nNext: connect project context to the agent.',
       projectName: 'Project',
       projectOneLine: 'One line',
       projectNextStep: 'Next step',
@@ -667,6 +669,7 @@ window.__ModuleLoader__.load({
 .ac-merge-empty { padding: 28px 0; text-align: center; color: var(--dsw-alias-label-secondary); font-size: 12px; }
 .ac-merge-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 .ac-project-context { margin-top: 22px; }
+.ac-project-note { min-height: 128px; margin-top: 12px; }
 .ac-project-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
 .ac-project-row { display: grid; grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1fr) 22px; gap: 8px; align-items: center; }
 .ac-input { height: 32px; width: 100%; border: 1px solid var(--dsw-alias-border-l1); border-radius: 7px; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 11.5px; padding: 0 9px; outline: none; box-sizing: border-box; }
@@ -2069,32 +2072,16 @@ window.__ModuleLoader__.load({
 
     function ProjectContextEditor(props) {
       const t = props.t
-      const makeDraft = (value) => ({
-        activeProjects: Array.isArray(value && value.activeProjects) ? value.activeProjects.map((project) => ({ name: project.name || '', oneLine: project.oneLine || '', nextStep: project.nextStep || '' })) : [],
-        currentQuestions: Array.isArray(value && value.currentQuestions) ? value.currentQuestions.slice() : [],
-        constraints: Array.isArray(value && value.constraints) ? value.constraints.slice() : [],
-      })
-      const [draft, setDraft] = useState(() => makeDraft(props.profile))
+      const [note, setNote] = useState(() => String(props.profile && props.profile.note || ''))
       const [saved, setSaved] = useState(false)
       const loaded = useRef(false)
       useEffect(() => {
         if (loaded.current || !props.profile) return
         loaded.current = true
-        setDraft(makeDraft(props.profile))
+        setNote(String(props.profile.note || ''))
       }, [props.profile])
-      const projects = draft.activeProjects
-      const updateProject = (index, key, value) => {
-        const next = projects.slice()
-        next[index] = Object.assign({}, next[index], { [key]: value })
-        setDraft(Object.assign({}, draft, { activeProjects: next }))
-      }
-      const addProject = () => {
-        if (projects.length >= 3) return
-        setDraft(Object.assign({}, draft, { activeProjects: projects.concat({ name: '', oneLine: '', nextStep: '' }) }))
-      }
-      const removeProject = (index) => setDraft(Object.assign({}, draft, { activeProjects: projects.filter((_, itemIndex) => itemIndex !== index) }))
       const save = async () => {
-        await props.onSaveProfile(draft)
+        await props.onSaveProfile({ note })
         setSaved(true)
         setTimeout(() => setSaved(false), 1600)
       }
@@ -2102,23 +2089,13 @@ window.__ModuleLoader__.load({
       return h('section', { className: 'ac-settings-section ac-project-context' },
         h('div', { className: 'ac-section-eyebrow' }, t('projectContext')),
         h('div', { className: 'ac-settings-hint' }, t('projectContextHint')),
-        h('div', { className: 'ac-project-list' }, projects.map((project, index) => h('div', { className: 'ac-project-row', key: index },
-          h('input', { className: 'ac-input', value: project.name, placeholder: t('projectName'), onChange: (event) => updateProject(index, 'name', event.target.value) }),
-          h('input', { className: 'ac-input', value: project.oneLine, placeholder: t('projectOneLine'), onChange: (event) => updateProject(index, 'oneLine', event.target.value) }),
-          h('input', { className: 'ac-input', value: project.nextStep, placeholder: t('projectNextStep'), onChange: (event) => updateProject(index, 'nextStep', event.target.value) }),
-          h('button', { className: 'ac-project-remove', type: 'button', onClick: () => removeProject(index), 'aria-label': t('removeProject') }, '×')))),
-        projects.length < 3 ? h('button', { className: 'ac-project-add', type: 'button', onClick: addProject }, '+ ' + t('addProject')) : null,
-        h('div', { className: 'ac-project-fields' },
-          h('label', null, h('span', null, t('currentQuestions')), h('textarea', {
-            className: 'ac-input ac-textarea',
-            value: draft.currentQuestions.join('\n'),
-            onChange: (event) => setDraft(Object.assign({}, draft, { currentQuestions: event.target.value.split('\n') })),
-          })),
-          h('label', null, h('span', null, t('constraints')), h('textarea', {
-            className: 'ac-input ac-textarea',
-            value: draft.constraints.join('\n'),
-            onChange: (event) => setDraft(Object.assign({}, draft, { constraints: event.target.value.split('\n') })),
-          }))),
+        h('textarea', {
+          className: 'ac-input ac-textarea ac-project-note',
+          value: note,
+          placeholder: t('projectNotePlaceholder'),
+          maxLength: 1600,
+          onChange: (event) => setNote(event.target.value),
+        }),
         h('div', { className: 'ac-project-actions' },
           h('button', { className: 'ac-ghost', type: 'button', onClick: save }, saved ? t('contextSaved') : t('saveContext'))),
         h('div', { className: 'ac-agent-toggle' },
