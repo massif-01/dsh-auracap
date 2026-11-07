@@ -1777,7 +1777,7 @@ function toolInsights(args) {
   return `${insight.title || info.key}\n${content}\n来源 ${insight.itemCount || 0} 条片刻`
 }
 
-function registerMemoryTools(ctx) {
+export function registerMemoryTools(ctx, items) {
   const tools = ctx.get('tools')
   if (!tools) return
   const definitions = [
@@ -1802,7 +1802,7 @@ function registerMemoryTools(ctx) {
   }
 }
 
-function registerMemorySystemContext(ctx) {
+export function registerMemorySystemContext(ctx) {
   const systemPrompt = ctx.get('systemPrompt')
   if (!systemPrompt) return
   systemPrompt.section({
@@ -2427,7 +2427,7 @@ export function apply(ctx) {
   try { buildMemoryIndex(items) } catch {}
   try { rebuildGroups(items) } catch {}
   const github = { items, state: loadState(), flows: new Map(), syncing: false, digestBusy: false, longBusy: false }
-  registerMemoryTools(ctx)
+  registerMemoryTools(ctx, items)
   registerMemorySystemContext(ctx)
   startGithubLoop(ctx, github)
   startDigestLoop(ctx, github)
