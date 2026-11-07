@@ -2012,6 +2012,9 @@ function groupScore(left, right) {
   const aspect = aspectA && aspectB ? 1 - Math.min(1, Math.abs(aspectA - aspectB) / 0.12) : 0.7
   const continuation = Math.max(groupContinuation(left), groupContinuation(right))
   const score = 0.26 * title + 0.14 * body + 0.18 * overlap + 0.20 * time + 0.12 * aspect + 0.10 * continuation
+  const quick = delta <= 5 * 60 * 1000
+  const quickEvidence = quick && overlap > 0 && continuation > 0 && aspect > 0.8
+  if (quickEvidence) return Math.max(score, GROUP_THRESHOLD + 0.08)
   if (score < GROUP_THRESHOLD) return 0
   if (title < 0.12 && body < 0.12 && continuation === 0) return 0
   return score
