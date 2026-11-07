@@ -71,6 +71,12 @@ AuraCap 最早不是一个插件。
       <sub>项目上下文，和 Agent 的读取开关</sub>
     </td>
   </tr>
+  <tr>
+    <td colspan="2" align="center">
+      <img src="docs/screenshots/04-insight.png" alt="AuraCap 周迹" width="100%"><br>
+      <sub>从这一段时间里，看到单日看不出的东西</sub>
+    </td>
+  </tr>
 </table>
 
 ## 开始使用
