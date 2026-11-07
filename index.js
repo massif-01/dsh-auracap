@@ -2093,7 +2093,7 @@ function groupMemberItems(items, group) {
   return (group.itemIds || []).map((itemId) => items.find((item) => item.id === itemId)).filter(Boolean)
 }
 
-async function mergeGroup(ctx, items, group) {
+export async function mergeGroup(ctx, items, group) {
   if (!group || !Array.isArray(group.itemIds) || group.itemIds.length < 2) {
     const error = new Error('这组不足两条片刻')
     error.status = 400

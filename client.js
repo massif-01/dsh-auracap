@@ -45,6 +45,12 @@ window.__ModuleLoader__.load({
       remakeGroup: '重新合并',
       mergedSummary: '合并后的整理',
       mergeFailed: '合并失败，原条目已保留',
+      mergeWith: '与其他片刻合并',
+      mergePickerTitle: '选择要合并的片刻',
+      mergePickerHint: '选中的片刻会和当前这条组成一组，原条目都会保留。',
+      mergeConfirm: '合并',
+      mergeNoCandidates: '暂时没有可合并的片刻',
+      cancel: '取消',
       entities: '线索',
       tagFilter: '标签',
       relatedMoments: '相关片刻',
@@ -274,6 +280,12 @@ window.__ModuleLoader__.load({
       remakeGroup: 'Merge again',
       mergedSummary: 'Merged summary',
       mergeFailed: 'Merge failed; originals are still here',
+      mergeWith: 'Merge with another moment',
+      mergePickerTitle: 'Choose moments to merge',
+      mergePickerHint: 'Selected moments join this one as a group; originals are kept.',
+      mergeConfirm: 'Merge',
+      mergeNoCandidates: 'No other moments available',
+      cancel: 'Cancel',
       entities: 'Clues',
       tagFilter: 'Tag',
       relatedMoments: 'Related moments',
@@ -605,6 +617,23 @@ window.__ModuleLoader__.load({
 .ac-group-merged { margin: 8px 0 24px; }
 .ac-group-merged .ac-section { margin-top: 18px; }
 .ac-group-error { margin: 8px 0 16px; color: #b45445; font-size: 11px; }
+.ac-merge-picker { width: min(520px, 100%); max-height: 84vh; overflow: auto; background: var(--dsw-alias-bg-base); border: 1px solid var(--dsw-alias-border-l1); border-radius: 16px; padding: 24px 24px 20px; box-shadow: 0 30px 80px color-mix(in srgb, var(--dsw-alias-label-primary) 18%, transparent); }
+.ac-merge-head { display: flex; align-items: flex-start; gap: 12px; }
+.ac-merge-kicker { font-size: 9.5px; letter-spacing: .13em; color: var(--dsw-alias-label-secondary); margin-bottom: 6px; text-transform: uppercase; }
+.ac-merge-source-title { font-size: 17px; font-weight: 600; line-height: 1.35; }
+.ac-merge-head .ac-icon-button { margin-left: auto; }
+.ac-merge-hint { margin: 10px 0 16px; color: var(--dsw-alias-label-secondary); font-size: 11.5px; line-height: 1.6; }
+.ac-merge-list { display: flex; flex-direction: column; gap: 2px; max-height: 42vh; overflow: auto; }
+.ac-merge-option { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 4px; border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1); background: transparent; color: var(--dsw-alias-label-primary); font-family: inherit; text-align: left; cursor: pointer; }
+.ac-merge-option:hover { background: var(--dsw-alias-bg-layer-1); }
+.ac-merge-thumb { width: 34px; height: 44px; flex: none; object-fit: cover; object-position: top center; border-radius: 5px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-2); }
+.ac-merge-option-main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.ac-merge-option-main strong { font-size: 12px; font-weight: 500; line-height: 1.4; }
+.ac-merge-option-main span { font-size: 10px; color: var(--dsw-alias-label-secondary); }
+.ac-merge-check { width: 18px; height: 18px; flex: none; border: 1px solid var(--dsw-alias-border-l2); border-radius: 5px; display: grid; place-items: center; color: var(--dsw-alias-bg-base); background: transparent; font-size: 11px; }
+.ac-merge-check[data-selected="true"] { background: var(--dsw-alias-brand-primary); border-color: var(--dsw-alias-brand-primary); color: var(--dsw-alias-bg-base); }
+.ac-merge-empty { padding: 28px 0; text-align: center; color: var(--dsw-alias-label-secondary); font-size: 12px; }
+.ac-merge-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 .ac-status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--dsw-alias-label-secondary); }
 .ac-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dsw-alias-state-idle-primary); display: inline-block; flex: none; }
 .ac-dot[data-state="summarizing"] { background: var(--dsw-alias-brand-primary); animation: ac-pulse 1.4s ease-in-out infinite; }
@@ -1368,6 +1397,40 @@ window.__ModuleLoader__.load({
             : null))
     }
 
+    function MergePicker(props) {
+      const t = props.t
+      const source = props.source
+      const candidates = (props.items || []).filter((item) => item && item.id !== source.id && item.status === 'ready' && !props.groupedIds.has(item.id)).slice(0, 40)
+      return h('div', { className: 'ac-modal', onMouseDown: (event) => { if (event.target === event.currentTarget) props.onClose() } },
+        h('div', { className: 'ac-merge-picker' },
+          h('div', { className: 'ac-merge-head' },
+            h('div', null,
+              h('div', { className: 'ac-merge-kicker' }, t('mergePickerTitle')),
+              h('div', { className: 'ac-merge-source-title' }, source.summary && source.summary.title ? source.summary.title : t('untitled'))),
+            h('button', { className: 'ac-icon-button', onClick: props.onClose, 'aria-label': t('close') }, CloseIcon())),
+          h('p', { className: 'ac-merge-hint' }, t('mergePickerHint')),
+          candidates.length
+            ? h('div', { className: 'ac-merge-list' }, candidates.map((item) => h('button', {
+                key: item.id,
+                type: 'button',
+                className: 'ac-merge-option',
+                'data-selected': props.selectedIds.includes(item.id),
+                onClick: () => props.onToggle(item.id),
+              },
+                item.image
+                  ? h('img', { className: 'ac-merge-thumb', src: API + '/media/' + encodeURIComponent(item.id), alt: '', draggable: false })
+                  : h('span', { className: 'ac-merge-thumb ac-thumb-doc' }, DocumentIcon()),
+                h('span', { className: 'ac-merge-option-main' },
+                  h('strong', null, item.summary && item.summary.title ? item.summary.title : t('untitled')),
+                  h('span', null, timeText(item.createdAt))),
+                h('span', { className: 'ac-merge-check', 'data-selected': props.selectedIds.includes(item.id) }, props.selectedIds.includes(item.id) ? '✓' : ''))))
+            : h('div', { className: 'ac-merge-empty' }, t('mergeNoCandidates')),
+          props.error ? h('div', { className: 'ac-group-error' }, props.error) : null,
+          h('div', { className: 'ac-merge-actions' },
+            h('button', { className: 'ac-ghost', type: 'button', onClick: props.onClose }, t('cancel')),
+            h('button', { className: 'ac-primary', type: 'button', disabled: props.busy || !props.selectedIds.length, onClick: props.onConfirm }, props.busy ? t('merging') : t('mergeConfirm') + (props.selectedIds.length ? ' ' + props.selectedIds.length : '')))))
+    }
+
     function Row(props) {
       const item = props.item
       const t = props.t
@@ -1505,6 +1568,7 @@ window.__ModuleLoader__.load({
       }
       body.push(h('div', { className: 'ac-actions', key: 'actions' },
         item.image ? h('button', { className: 'ac-ghost', onClick: () => props.onOpenImage(item) }, ImageIcon(), t('viewOriginal')) : null,
+        props.onMergeSelect ? h('button', { className: 'ac-ghost', onClick: () => props.onMergeSelect(item) }, PlusIcon(), t('mergeWith')) : null,
         h('button', { className: 'ac-ghost', onClick: copy, disabled: !copyText }, CopyIcon(), copied ? t('copied') : t('copy')),
         h('button', { className: 'ac-ghost', onClick: () => props.onRetry(item) }, RetryIcon(), t('retry')),
         h('button', {
@@ -2254,6 +2318,8 @@ window.__ModuleLoader__.load({
       const [groupModalId, setGroupModalId] = useState(null)
       const [groupBusy, setGroupBusy] = useState(false)
       const [groupError, setGroupError] = useState(null)
+      const [mergePickerFor, setMergePickerFor] = useState(null)
+      const [mergePickIds, setMergePickIds] = useState([])
       const hasPending = useMemo(() => items.some((item) => item.status === 'summarizing'), [items])
       const [selectedId, setSelectedId] = useState(null)
       const [scope, setScope] = useState('today')
@@ -2404,6 +2470,7 @@ window.__ModuleLoader__.load({
         for (const group of groups) for (const itemId of group.itemIds || []) map.set(itemId, group)
         return map
       }, [groups])
+      const groupedIds = useMemo(() => new Set(Array.from(itemToGroup.keys())), [itemToGroup])
       const visibleEntries = useMemo(() => {
         const visibleIds = new Set(visible.map((item) => item.id))
         const seenGroups = new Set()
@@ -2844,6 +2911,36 @@ window.__ModuleLoader__.load({
           setGroupBusy(false)
         }
       }
+
+      const openMergePicker = (item) => {
+        setMergePickerFor(item)
+        setMergePickIds([])
+        setGroupError(null)
+      }
+      const closeMergePicker = () => { setMergePickerFor(null); setMergePickIds([]); setGroupError(null) }
+      const toggleMergePick = (itemId) => {
+        setMergePickIds((previous) => previous.includes(itemId) ? previous.filter((id) => id !== itemId) : previous.concat(itemId))
+      }
+      const createManualGroup = async () => {
+        if (!mergePickerFor || !mergePickIds.length) return
+        setGroupBusy(true)
+        setGroupError(null)
+        try {
+          const payload = await request(API + '/groups', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ itemIds: [mergePickerFor.id].concat(mergePickIds) }),
+          })
+          setGroups((previous) => previous.concat(payload.group))
+          const groupId = payload.group.id
+          closeMergePicker()
+          openGroup(groupId)
+        } catch (error) {
+          setGroupError(error && error.message ? error.message : t('mergeFailed'))
+        } finally {
+          setGroupBusy(false)
+        }
+      }
       const openEntity = async (id) => {
         setModalId(null)
         setEntityId(id)
@@ -2987,7 +3084,7 @@ window.__ModuleLoader__.load({
           selectedGroup
             ? h(GroupDetail, { group: selectedGroup, items: selectedGroupItems, t, onOpenItem: openItemById, onMerge: mergeGroupAction, onSplit: splitGroupAction, busy: groupBusy, error: groupError })
             : selected
-              ? h(Detail, { item: selected, t, onRetry: retry, onDelete: remove, onOpenImage: openImage, onTagClick: applyTagFilter, onEntityClick: openEntity, related, onOpenRelated: openItemById })
+              ? h(Detail, { item: selected, t, onRetry: retry, onDelete: remove, onOpenImage: openImage, onTagClick: applyTagFilter, onEntityClick: openEntity, related, onOpenRelated: openItemById, onMergeSelect: itemToGroup.has(selected.id) ? null : openMergePicker })
               : h('div', { className: 'ac-empty' }, h('p', null, t('untitled'))))
       }
 
@@ -3042,7 +3139,7 @@ window.__ModuleLoader__.load({
         },
           h('div', { className: 'ac-modal-card' },
             h('button', { className: 'ac-modal-close', onClick: () => setModalId(null), 'aria-label': t('close') }, CloseIcon()),
-            h(Detail, { item: modalItem, t, onRetry: retry, onDelete: remove, onOpenImage: openImage, onTagClick: applyTagFilter, onEntityClick: openEntity, related, onOpenRelated: openItemById }))) : null,
+            h(Detail, { item: modalItem, t, onRetry: retry, onDelete: remove, onOpenImage: openImage, onTagClick: applyTagFilter, onEntityClick: openEntity, related, onOpenRelated: openItemById, onMergeSelect: itemToGroup.has(modalItem.id) ? null : openMergePicker }))) : null,
         modalGroup ? h('div', {
           className: 'ac-modal',
           onMouseDown: (event) => { if (event.target === event.currentTarget) closeGroup() },
@@ -3050,6 +3147,18 @@ window.__ModuleLoader__.load({
           h('div', { className: 'ac-modal-card' },
             h('button', { className: 'ac-modal-close', onClick: closeGroup, 'aria-label': t('close') }, CloseIcon()),
             h(GroupDetail, { group: modalGroup, items: modalGroupItems, t, onOpenItem: openItemById, onMerge: mergeGroupAction, onSplit: splitGroupAction, busy: groupBusy, error: groupError }))) : null,
+        mergePickerFor ? h(MergePicker, {
+          t,
+          source: mergePickerFor,
+          items,
+          groupedIds,
+          selectedIds: mergePickIds,
+          onToggle: toggleMergePick,
+          onConfirm: createManualGroup,
+          onClose: closeMergePicker,
+          busy: groupBusy,
+          error: groupError,
+        }) : null,
         settingsOpen ? h(SettingsModal, {
           t,
           github,
