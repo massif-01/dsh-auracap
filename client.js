@@ -60,6 +60,21 @@ window.__ModuleLoader__.load({
       memory: '记忆',
       memoryIndexed: '已建立',
       memoryBackfill: '建立记忆索引',
+      projectContext: '项目上下文',
+      projectContextHint: '给长洞察和 Agent 一点真实背景。只写正在做的事，不写偏好。',
+      projectName: '项目名',
+      projectOneLine: '一句话',
+      projectNextStep: '下一步',
+      addProject: '添加项目',
+      removeProject: '移除',
+      currentQuestions: '当前问题',
+      constraints: '约束',
+      saveContext: '保存上下文',
+      contextSaved: '已保存',
+      agentMemory: '允许 Agent 读取 AuraCap 记忆',
+      agentMemoryHint: '只读查询；不会修改、删除或自动记住任何东西。',
+      on: '开',
+      off: '关',
       memoryRunning: '正在建立…',
       occurrences: '出现',
       timeSpan: '时间跨度',
@@ -296,6 +311,21 @@ window.__ModuleLoader__.load({
       memory: 'Memory',
       memoryIndexed: 'Indexed',
       memoryBackfill: 'Build memory index',
+      projectContext: 'Project context',
+      projectContextHint: 'Give long insights and the agent a little real background. Projects, questions, constraints.',
+      projectName: 'Project',
+      projectOneLine: 'One line',
+      projectNextStep: 'Next step',
+      addProject: 'Add project',
+      removeProject: 'Remove',
+      currentQuestions: 'Current questions',
+      constraints: 'Constraints',
+      saveContext: 'Save context',
+      contextSaved: 'Saved',
+      agentMemory: 'Allow the agent to read AuraCap memory',
+      agentMemoryHint: 'Read-only; it cannot change, delete, or automatically remember anything.',
+      on: 'On',
+      off: 'Off',
       memoryRunning: 'Building…',
       occurrences: 'appearances',
       timeSpan: 'time span',
@@ -636,6 +666,28 @@ window.__ModuleLoader__.load({
 .ac-merge-check[data-selected="true"] { background: var(--dsw-alias-brand-primary); border-color: var(--dsw-alias-brand-primary); color: var(--dsw-alias-bg-base); }
 .ac-merge-empty { padding: 28px 0; text-align: center; color: var(--dsw-alias-label-secondary); font-size: 12px; }
 .ac-merge-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.ac-project-context { margin-top: 22px; }
+.ac-project-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.ac-project-row { display: grid; grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1fr) 22px; gap: 8px; align-items: center; }
+.ac-input { height: 32px; width: 100%; border: 1px solid var(--dsw-alias-border-l1); border-radius: 7px; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 11.5px; padding: 0 9px; outline: none; box-sizing: border-box; }
+.ac-input:focus { border-color: var(--dsw-alias-border-l2); }
+.ac-input::placeholder { color: var(--dsw-alias-label-secondary); opacity: .55; }
+.ac-textarea { height: 72px; padding: 8px 9px; resize: vertical; line-height: 1.6; }
+.ac-project-remove { width: 22px; height: 22px; border: 0; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; font-family: inherit; font-size: 16px; }
+.ac-project-remove:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-1); }
+.ac-project-add { margin-top: 9px; border: 0; background: transparent; color: var(--dsw-alias-brand-primary); font-family: inherit; font-size: 11px; cursor: pointer; padding: 0; }
+.ac-project-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+.ac-project-fields label { display: flex; flex-direction: column; gap: 6px; font-size: 10.5px; color: var(--dsw-alias-label-secondary); }
+.ac-project-actions { margin-top: 12px; }
+.ac-agent-toggle { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--dsw-alias-border-l1); }
+.ac-agent-toggle .ac-settings-hint { margin-top: 3px; }
+.ac-toggle { width: 42px; height: 23px; flex: none; border-radius: 999px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-secondary); font-family: inherit; font-size: 9px; cursor: pointer; padding: 0; }
+.ac-toggle[data-on="true"] { background: var(--dsw-alias-brand-primary); border-color: var(--dsw-alias-brand-primary); color: var(--dsw-alias-bg-base); }
+@media (max-width: 760px) {
+  .ac-project-row { grid-template-columns: 1fr 22px; }
+  .ac-project-row .ac-input:nth-child(2), .ac-project-row .ac-input:nth-child(3) { grid-column: 1 / 2; }
+  .ac-project-fields { grid-template-columns: 1fr; }
+}
 .ac-status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--dsw-alias-label-secondary); }
 .ac-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dsw-alias-state-idle-primary); display: inline-block; flex: none; }
 .ac-dot[data-state="summarizing"] { background: var(--dsw-alias-brand-primary); animation: ac-pulse 1.4s ease-in-out infinite; }
@@ -2015,6 +2067,71 @@ window.__ModuleLoader__.load({
                       h('span', { className: 'ac-entity-insight-excerpt' }, insight.excerpt || '')))) : null)))
     }
 
+    function ProjectContextEditor(props) {
+      const t = props.t
+      const makeDraft = (value) => ({
+        activeProjects: Array.isArray(value && value.activeProjects) ? value.activeProjects.map((project) => ({ name: project.name || '', oneLine: project.oneLine || '', nextStep: project.nextStep || '' })) : [],
+        currentQuestions: Array.isArray(value && value.currentQuestions) ? value.currentQuestions.slice() : [],
+        constraints: Array.isArray(value && value.constraints) ? value.constraints.slice() : [],
+      })
+      const [draft, setDraft] = useState(() => makeDraft(props.profile))
+      const [saved, setSaved] = useState(false)
+      const loaded = useRef(false)
+      useEffect(() => {
+        if (loaded.current || !props.profile) return
+        loaded.current = true
+        setDraft(makeDraft(props.profile))
+      }, [props.profile])
+      const projects = draft.activeProjects
+      const updateProject = (index, key, value) => {
+        const next = projects.slice()
+        next[index] = Object.assign({}, next[index], { [key]: value })
+        setDraft(Object.assign({}, draft, { activeProjects: next }))
+      }
+      const addProject = () => {
+        if (projects.length >= 3) return
+        setDraft(Object.assign({}, draft, { activeProjects: projects.concat({ name: '', oneLine: '', nextStep: '' }) }))
+      }
+      const removeProject = (index) => setDraft(Object.assign({}, draft, { activeProjects: projects.filter((_, itemIndex) => itemIndex !== index) }))
+      const save = async () => {
+        await props.onSaveProfile(draft)
+        setSaved(true)
+        setTimeout(() => setSaved(false), 1600)
+      }
+      const enabled = Boolean(props.settings && props.settings.agentMemory)
+      return h('section', { className: 'ac-settings-section ac-project-context' },
+        h('div', { className: 'ac-section-eyebrow' }, t('projectContext')),
+        h('div', { className: 'ac-settings-hint' }, t('projectContextHint')),
+        h('div', { className: 'ac-project-list' }, projects.map((project, index) => h('div', { className: 'ac-project-row', key: index },
+          h('input', { className: 'ac-input', value: project.name, placeholder: t('projectName'), onChange: (event) => updateProject(index, 'name', event.target.value) }),
+          h('input', { className: 'ac-input', value: project.oneLine, placeholder: t('projectOneLine'), onChange: (event) => updateProject(index, 'oneLine', event.target.value) }),
+          h('input', { className: 'ac-input', value: project.nextStep, placeholder: t('projectNextStep'), onChange: (event) => updateProject(index, 'nextStep', event.target.value) }),
+          h('button', { className: 'ac-project-remove', type: 'button', onClick: () => removeProject(index), 'aria-label': t('removeProject') }, '×')))),
+        projects.length < 3 ? h('button', { className: 'ac-project-add', type: 'button', onClick: addProject }, '+ ' + t('addProject')) : null,
+        h('div', { className: 'ac-project-fields' },
+          h('label', null, h('span', null, t('currentQuestions')), h('textarea', {
+            className: 'ac-input ac-textarea',
+            value: draft.currentQuestions.join('\n'),
+            onChange: (event) => setDraft(Object.assign({}, draft, { currentQuestions: event.target.value.split('\n') })),
+          })),
+          h('label', null, h('span', null, t('constraints')), h('textarea', {
+            className: 'ac-input ac-textarea',
+            value: draft.constraints.join('\n'),
+            onChange: (event) => setDraft(Object.assign({}, draft, { constraints: event.target.value.split('\n') })),
+          }))),
+        h('div', { className: 'ac-project-actions' },
+          h('button', { className: 'ac-ghost', type: 'button', onClick: save }, saved ? t('contextSaved') : t('saveContext'))),
+        h('div', { className: 'ac-agent-toggle' },
+          h('div', null, h('div', { className: 'ac-set-label' }, t('agentMemory')), h('div', { className: 'ac-settings-hint' }, t('agentMemoryHint'))),
+          h('button', {
+            className: 'ac-toggle',
+            type: 'button',
+            'data-on': enabled,
+            onClick: () => props.onSaveSettings({ agentMemory: !enabled }),
+            'aria-label': t('agentMemory'),
+          }, h('span', null, enabled ? t('on') : t('off')))))
+    }
+
     function SettingsModal(props) {
       const t = props.t
       const github = props.github
@@ -2124,6 +2241,13 @@ window.__ModuleLoader__.load({
               memorySection)),
 
           usageSection,
+          h(ProjectContextEditor, {
+            t,
+            profile: props.memoryProfile,
+            settings: props.memorySettings,
+            onSaveProfile: props.onSaveProfile,
+            onSaveSettings: props.onSaveMemorySettings,
+          }),
 
           h('div', { className: 'ac-advanced' },
             h('button', { className: 'ac-advanced-toggle', type: 'button', onClick: () => setAdvanced(!advanced) },
@@ -2353,6 +2477,8 @@ window.__ModuleLoader__.load({
       const [related, setRelated] = useState([])
       const [memoryStatus, setMemoryStatus] = useState(null)
       const [usage, setUsage] = useState(null)
+      const [memoryProfile, setMemoryProfile] = useState(null)
+      const [memorySettings, setMemorySettings] = useState(null)
       const [insightStatus, setInsightStatus] = useState({})
       const [seenPeriods, setSeenPeriods] = useState(() => {
         try { return JSON.parse(localStorage.getItem('auracap.periodSeen') || '{}') || {} } catch { return {} }
@@ -2450,6 +2576,13 @@ window.__ModuleLoader__.load({
             ])
             if (alive) { setMemoryStatus(statusPayload); setUsage(usagePayload) }
           } catch {}
+          try {
+            const [profilePayload, settingsPayload] = await Promise.all([
+              request(API + '/memory/profile'),
+              request(API + '/memory/settings'),
+            ])
+            if (alive) { setMemoryProfile(profilePayload); setMemorySettings(settingsPayload) }
+          } catch {}
         }
         loadStatus()
         const timer = setInterval(loadStatus, 10_000)
@@ -2534,6 +2667,19 @@ window.__ModuleLoader__.load({
           const payload = await request(API + '/memory/backfill', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
           setMemoryStatus(payload)
         } catch (backfillError) { setError(backfillError.message) }
+      }
+
+      const saveProfile = async (profile) => {
+        try {
+          const payload = await request(API + '/memory/profile', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(profile) })
+          setMemoryProfile(payload)
+        } catch (profileError) { setError(profileError.message) }
+      }
+      const saveMemorySettings = async (settings) => {
+        try {
+          const payload = await request(API + '/memory/settings', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(settings) })
+          setMemorySettings(payload)
+        } catch (settingsError) { setError(settingsError.message) }
       }
 
       const loadInsight = useCallback(async (type, anchor) => {
@@ -3208,6 +3354,10 @@ window.__ModuleLoader__.load({
           onDownloadShortcut: downloadShortcut,
           memoryStatus,
           usage,
+          memoryProfile,
+          memorySettings,
+          onSaveProfile: saveProfile,
+          onSaveMemorySettings: saveMemorySettings,
           onBackfill: backfillMemory,
         }) : null,
         lightbox ? h('div', { className: 'ac-lightbox', onClick: () => setLightbox(null) },

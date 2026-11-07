@@ -418,13 +418,14 @@ async function generatePeriodInsight(ctx, items, type, anchorISO, force) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 240_000)
   try {
+    const context = profilePrompt(loadMemoryProfile())
     const stream = ctx.llm.stream({
       provider: MODEL.provider,
       model: MODEL.model,
       reasoningEffort: 'low',
       maxTokens: type === 'year' ? 4800 : 3400,
       system: prompt,
-      messages: [{ role: 'user', content: [{ type: 'text', text: material.text }] }],
+      messages: [{ role: 'user', content: [{ type: 'text', text: (context ? context + '\n\n' : '') + material.text }] }],
       signal: controller.signal,
     })
     let text = ''
@@ -1630,8 +1631,189 @@ function searchEntitiesFor(query) {
     .map((entity) => ({ kind: 'entity', id: entity.id, name: entity.name, type: entity.type, count: entity.itemIds.length }))
 }
 
+function normalizeProfile(profile) {
+  const source = profile && typeof profile === 'object' ? profile : {}
+  const projects = Array.isArray(source.activeProjects) ? source.activeProjects : []
+  const questions = Array.isArray(source.currentQuestions) ? source.currentQuestions : []
+  const constraints = Array.isArray(source.constraints) ? source.constraints : []
+  return {
+    version: 1,
+    activeProjects: projects.map((project) => ({
+      name: String(project && project.name || '').trim().slice(0, 80),
+      oneLine: String(project && project.oneLine || '').trim().slice(0, 240),
+      nextStep: String(project && project.nextStep || '').trim().slice(0, 240),
+    })).filter((project) => project.name).slice(0, 3),
+    currentQuestions: questions.map((value) => String(value || '').trim().slice(0, 240)).filter(Boolean).slice(0, 5),
+    constraints: constraints.map((value) => String(value || '').trim().slice(0, 240)).filter(Boolean).slice(0, 8),
+    updatedAt: new Date().toISOString(),
+  }
+}
+
 function loadMemoryProfile() {
-  try { return JSON.parse(readFileSync(memoryProfileFile(), 'utf8')) } catch { return { version: 1, activeProjects: [], currentQuestions: [], constraints: [] } }
+  try { return normalizeProfile(JSON.parse(readFileSync(memoryProfileFile(), 'utf8'))) } catch { return normalizeProfile({}) }
+}
+
+function saveMemoryProfile(profile) {
+  const value = normalizeProfile(profile)
+  mkdirSync(memoryDir(), { recursive: true })
+  const file = memoryProfileFile()
+  const tmp = `${file}.${process.pid}.tmp`
+  writeFileSync(tmp, JSON.stringify(value, null, 2))
+  renameSync(tmp, file)
+  return value
+}
+
+function profilePrompt(profile) {
+  const value = profile || {}
+  const projects = Array.isArray(value.activeProjects) ? value.activeProjects : []
+  const questions = Array.isArray(value.currentQuestions) ? value.currentQuestions : []
+  const constraints = Array.isArray(value.constraints) ? value.constraints : []
+  const lines = []
+  if (projects.length) {
+    lines.push('# 用户当前项目')
+    for (const project of projects) {
+      lines.push(`- ${project.name}${project.oneLine ? '：' + project.oneLine : ''}${project.nextStep ? '（下一步：' + project.nextStep + '）' : ''}`)
+    }
+  }
+  if (questions.length) { lines.push('# 当前问题'); for (const question of questions) lines.push('- ' + question) }
+  if (constraints.length) { lines.push('# 长期约束'); for (const constraint of constraints) lines.push('- ' + constraint) }
+  return lines.join('\n').slice(0, 1200)
+}
+
+const memorySettingsFile = () => join(memoryDir(), 'settings.json')
+function loadMemorySettings() {
+  try { const parsed = JSON.parse(readFileSync(memorySettingsFile(), 'utf8')); return { version: 1, agentMemory: parsed.agentMemory === true } } catch { return { version: 1, agentMemory: false } }
+}
+function saveMemorySettings(settings) {
+  const value = { version: 1, agentMemory: Boolean(settings && settings.agentMemory) }
+  mkdirSync(memoryDir(), { recursive: true })
+  const file = memorySettingsFile()
+  const tmp = `${file}.${process.pid}.tmp`
+  writeFileSync(tmp, JSON.stringify(value, null, 2))
+  renameSync(tmp, file)
+  return value
+}
+
+function memoryToolDefinition(name, description, parameters, execute) {
+  const required = Object.entries(parameters).filter(([, value]) => value.required).map(([key]) => key)
+  const properties = {}
+  for (const [key, value] of Object.entries(parameters)) {
+    const { required: _required, ...schema } = value
+    properties[key] = schema
+  }
+  return {
+    name,
+    description,
+    parameters: { type: 'object', properties, required, additionalProperties: false },
+    output: {
+      schema: { type: 'string' },
+      render: (_args, value) => [{ type: 'text', text: String(value || '') }],
+    },
+    timeoutMs: 15_000,
+    async execute(args) {
+      if (!loadMemorySettings().agentMemory) return 'AuraCap Agent memory is disabled by the user.'
+      return execute(args || {})
+    },
+  }
+}
+
+function compactItemLine(item, index) {
+  const summary = item.summary || {}
+  const title = summary.title || '未命名'
+  const date = localDateKey(item.createdAt)
+  return `${index + 1}. ${title} · ${date}`
+}
+
+function compactInsightLine(insight, index) {
+  return `${index + 1}. ${insight.title || insight.key} · ${insight.start || insight.date || ''}`
+}
+
+function toolSearch(args, items) {
+  const query = String(args.query || '').trim().slice(0, 100)
+  if (!query) return '请提供要搜索的内容。'
+  const limit = Math.max(1, Math.min(8, Number(args.limit) || 5))
+  const groups = searchGroupsFor(query, items).slice(0, limit)
+  const groupedIds = groupedItemIds()
+  const moments = searchItemsFor(items.filter((item) => !groupedIds.has(item.id)), query).slice(0, limit)
+  const insights = searchInsightsFor(query).slice(0, limit)
+  const lines = [`AuraCap 本地记忆搜索：${query}`]
+  if (groups.length) { lines.push('', '组：'); groups.forEach((group, index) => lines.push(`${index + 1}. ${group.title} · ${group.count} 屏 · ${group.createdAt || ''}`)) }
+  if (moments.length) { lines.push('', '片刻：'); moments.forEach((moment, index) => lines.push(`${index + 1}. ${moment.title} · ${moment.createdAt || ''}`)) }
+  if (insights.length) { lines.push('', '洞察：'); insights.forEach((insight, index) => lines.push(`${index + 1}. ${insight.title} · ${insight.start || insight.date || ''}`)) }
+  if (lines.length === 1) lines.push('没有找到匹配的本地记忆。')
+  return lines.join('\n').slice(0, 6000)
+}
+
+function toolAbout(args, items) {
+  const name = String(args.entity || '').trim().slice(0, 80)
+  if (!name) return '请提供线索名称。'
+  const mapped = memoryIndex.aliases[entityMatchKey(name)] || name
+  const detail = entityDetail(mapped, items)
+  if (!detail) return `没有找到线索「${name}」。`
+  const days = Math.max(1, Math.min(3650, Number(args.days) || 90))
+  const since = Date.now() - days * 86400000
+  const members = detail.items.filter((item) => Date.parse(item.createdAt) >= since).slice(0, 8)
+  const lines = [`AuraCap 线索：${detail.entity.name}（${detail.entity.type}）`, `出现 ${detail.entity.itemIds.length} 次`]
+  if (members.length) { lines.push('', '最近相关片刻：'); members.forEach((item, index) => lines.push(compactItemLine(item, index))) }
+  if (detail.insights.length) { lines.push('', '相关洞察：'); detail.insights.slice(0, 5).forEach((insight, index) => lines.push(compactInsightLine(insight, index))) }
+  return lines.join('\n').slice(0, 6000)
+}
+
+function toolRelated(args, items) {
+  const itemId = String(args.itemId || '').trim()
+  if (!itemId) return '请提供片刻 ID。'
+  const related = relatedItems(items, itemId, 8)
+  if (!related.length) return '没有找到相关片刻。'
+  return related.map(({ item, reason }, index) => `${index + 1}. ${(item.summary && item.summary.title) || '未命名'} · ${reason}`).join('\n').slice(0, 6000)
+}
+
+function toolInsights(args) {
+  const period = ['day', 'week', 'month', 'year'].includes(args.period) ? args.period : 'week'
+  const date = String(args.date || todayKey()).slice(0, 10)
+  const info = periodInfo(period, date)
+  const insight = loadPeriodInsight(period, info.key)
+  if (!insight) return '这个周期还没有洞察。'
+  const content = String(insight.content || '').replace(/\s+/g, ' ').slice(0, 1200)
+  return `${insight.title || info.key}\n${content}\n来源 ${insight.itemCount || 0} 条片刻`
+}
+
+function registerMemoryTools(ctx) {
+  const tools = ctx.get('tools')
+  if (!tools) return
+  const definitions = [
+    memoryToolDefinition("auracap_search", "Search the user's local AuraCap moments, insight groups and insights. Read-only. Results are bounded and contain summaries, not images or file paths.", {
+      query: { type: 'string', description: 'Text to search for in local AuraCap memory.', required: true },
+      limit: { type: 'integer', minimum: 1, maximum: 8, description: 'Maximum results per category. Default 5.' },
+    }, (args) => toolSearch(args, items)),
+    memoryToolDefinition('auracap_about', 'Look up a local AuraCap clue (person, project, product or topic) and its recent moments and insights. Read-only.', {
+      entity: { type: 'string', description: 'Clue name, for example AuraCap or Geist.', required: true },
+      days: { type: 'integer', minimum: 1, maximum: 3650, description: 'Look back window in days. Default 90.' },
+    }, (args) => toolAbout(args, items)),
+    memoryToolDefinition('auracap_related', 'Find moments related to one local AuraCap moment, with explicit reasons. Read-only.', {
+      itemId: { type: 'string', description: 'Local AuraCap moment ID.', required: true },
+    }, (args) => toolRelated(args, items)),
+    memoryToolDefinition('auracap_recent_insights', 'Read the latest local AuraCap insight for a period. Read-only.', {
+      period: { type: 'string', enum: ['day', 'week', 'month', 'year'], description: 'Insight period. Default week.' },
+      date: { type: 'string', description: 'Anchor date YYYY-MM-DD. Default today.' },
+    }, (args) => toolInsights(args)),
+  ]
+  for (const definition of definitions) {
+    tools.register(definition, { when: () => loadMemorySettings().agentMemory })
+  }
+}
+
+function registerMemorySystemContext(ctx) {
+  const systemPrompt = ctx.get('systemPrompt')
+  if (!systemPrompt) return
+  systemPrompt.section({
+    name: 'auracap:memory-context',
+    order: 1500,
+    text: () => {
+      if (!loadMemorySettings().agentMemory) return ''
+      const context = profilePrompt(loadMemoryProfile())
+      return '## AuraCap 个人记忆\n用户正在做：\n' + (context || '（尚未维护项目上下文）') + '\n\n你可以用 auracap_search / auracap_about / auracap_related / auracap_recent_insights 查询本地 AuraCap 记忆；这些工具只读，结果只包含摘要，不包含原图、文件路径或凭据。'
+    },
+  })
 }
 
 const usageFile = () => join(memoryDir(), 'usage.json')
@@ -1763,21 +1945,6 @@ function usageSummary() {
     for (const [kind, value] of Object.entries(day.kinds || {})) result.kinds[kind] = (result.kinds[kind] || 0) + Number(value || 0)
   }
   return result
-}
-
-function saveMemoryProfile(profile) {
-  mkdirSync(memoryDir(), { recursive: true })
-  const value = {
-    version: 1,
-    activeProjects: Array.isArray(profile.activeProjects) ? profile.activeProjects.slice(0, 3) : [],
-    currentQuestions: Array.isArray(profile.currentQuestions) ? profile.currentQuestions.slice(0, 5) : [],
-    constraints: Array.isArray(profile.constraints) ? profile.constraints.slice(0, 8) : [],
-  }
-  const file = memoryProfileFile()
-  const tmp = `${file}.${process.pid}.tmp`
-  writeFileSync(tmp, JSON.stringify(value, null, 2))
-  renameSync(tmp, file)
-  return value
 }
 
 async function summarize(llm, items, item) {
@@ -2260,6 +2427,8 @@ export function apply(ctx) {
   try { buildMemoryIndex(items) } catch {}
   try { rebuildGroups(items) } catch {}
   const github = { items, state: loadState(), flows: new Map(), syncing: false, digestBusy: false, longBusy: false }
+  registerMemoryTools(ctx)
+  registerMemorySystemContext(ctx)
   startGithubLoop(ctx, github)
   startDigestLoop(ctx, github)
   startLongInsightLoop(ctx, github)
@@ -2568,6 +2737,19 @@ export function apply(ctx) {
             try {
               const body = await readJsonBody(req, 64 * 1024)
               return sendJson(res, 200, saveMemoryProfile(body || {}))
+            } catch (error) {
+              return sendError(res, 400, error && error.message ? error.message : '请求体不是合法 JSON')
+            }
+          }
+          return sendError(res, 405, 'method not allowed')
+        }
+        if (path === `${BASE}/api/memory/settings`) {
+          if (req.method === 'GET') return sendJson(res, 200, loadMemorySettings())
+          if (req.method === 'PUT') {
+            if (!trusted(req)) return sendError(res, 403, 'forbidden')
+            try {
+              const body = await readJsonBody(req, 64 * 1024)
+              return sendJson(res, 200, saveMemorySettings(body || {}))
             } catch (error) {
               return sendError(res, 400, error && error.message ? error.message : '请求体不是合法 JSON')
             }
