@@ -21,6 +21,7 @@
     "README.md",
     "LICENSE",
     "docs/*.jpg",
+    "docs/screenshots/*",
     "assets/*.png",
     "assets/*.plist",
     "assets/fonts/*",

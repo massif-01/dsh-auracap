@@ -13,6 +13,10 @@
 
 ---
 
+<p align="center">
+  <img src="docs/screenshots/timeline.webp" alt="AuraCap 时间线" width="100%">
+</p>
+
 ## 它从哪来
 
 手机相册里总有一些截图：一段话、一张报错、一个“以后再看”的页面。
