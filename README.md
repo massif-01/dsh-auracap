@@ -9,9 +9,29 @@
 </p>
 
 > 一个长在 DeepSeek Harness 里的个人记忆插件。  
-> 手机截图、相册照片、电脑文件，收进同一个地方。
+> 手机截图、相册照片、电脑文件，放在同一个地方。
 
 ---
+
+## 界面预览
+
+以下截图使用演示数据，仅展示 AuraCap 面板。
+
+### 空状态
+
+![AuraCap 空状态](docs/screenshots/05-today.png)
+
+### 时间线与多屏组
+
+![AuraCap 时间线，包含 Nautilus 三屏组](docs/screenshots/01-timeline.png)
+
+### 组详情
+
+![AuraCap 多屏组详情，包含合并摘要和三屏来源](docs/screenshots/02-group.png)
+
+### 项目上下文与 Agent 读取
+
+![AuraCap 设置中的项目上下文入口与 Agent 读取开关](docs/screenshots/03-settings.png)
 
 ## 它从哪来
 
@@ -71,10 +91,10 @@ AuraCap 想接住的，就是这一下。
 
 ## 装上以后有什么
 
-### 收进来
+### 拾起来
 
 - **电脑**：拖入图片、PDF、TXT 或 Markdown，或点右上角「导入」；
-- **系统截图**：点截图按钮，按 macOS 的 `⌘⇧4`，截完自动收进来；
+- **系统截图**：点截图按钮，按 macOS 的 `⌘⇧4`，截完自动出现在这里；
 - **手机**：通过 iOS 快捷指令，把截屏和相册照片分享进来；
 - 手机快捷指令可以绑到分享菜单、`Action Button`，或辅助功能里的「轻点背面」。
 
@@ -184,9 +204,9 @@ iPhone 快捷指令                    Mac
 侧栏点「AuraCap」打开面板。  
 第一次打开时，库里没有东西，会先看到接手机的引导；也可以直接点「先在电脑上试试」，不接手机也能用。
 
-### 收一条
+### 拾起一条
 
-不接手机也能从电脑收。
+不接手机也能从电脑开始。
 
 - **拖进来**：把图片、PDF、TXT 或 Markdown 拖到面板任意位置；
 - **点导入**：右上角上传按钮，选择文件；
@@ -237,7 +257,7 @@ Agent 读取默认关闭。打开后，Agent 才能用四个只读工具查询�
 ### 手机怎么接
 
 完整步骤见 [docs/shortcut-guide.md](docs/shortcut-guide.md)。  
-简单说：设置里连接 GitHub → 插件创建私有收件箱 → 下载快捷指令 → AirDrop 到 iPhone → 从相册分享。
+简单说：设置里连接 GitHub → 插件创建私有中转 → 下载快捷指令 → AirDrop 到 iPhone → 从相册分享。
 
 
 ## 数据与边界
@@ -254,7 +274,7 @@ $DSH_HOME/auracap/
   digests/            日洞察
   insights/           周/月/年洞察
   memory/             线索索引、用量、项目上下文、Agent 设置
-  state.json          GitHub 收件箱状态
+  state.json          GitHub 同步状态
 ```
 
 `$DSH_HOME` 默认是 `~/.dsh`。
