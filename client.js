@@ -514,7 +514,7 @@ window.__ModuleLoader__.load({
 
     const CSS = `
 @font-face { font-family: 'Geist'; src: url(${GEIST_FONT}) format('woff2'); font-weight: 100 900; font-style: normal; font-display: swap; }
-.ac-root { height: 100%; display: flex; flex-direction: column; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font-family: 'Geist', 'PingFang SC', 'Noto Sans SC', sans-serif; font-size: 13px; line-height: 1.55; overflow: hidden; position: relative; }
+.ac-root { height: 100%; display: flex; flex-direction: column; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font-family: var(--dsw-font-family, 'Geist', 'PingFang SC', 'Noto Sans SC', sans-serif); font-size: 13px; line-height: 1.55; overflow: hidden; position: relative; }
 .ac-root * { box-sizing: border-box; }
 .ac-header { flex: none; display: flex; align-items: center; gap: 10px; height: 58px; padding: 0 18px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
 .ac-mark { width: 28px; height: 28px; border-radius: 9px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); display: grid; place-items: center; color: var(--dsw-alias-brand-primary); flex: none; }
@@ -626,7 +626,7 @@ window.__ModuleLoader__.load({
 .ac-row-title { font-size: 12.5px; font-weight: 500; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .ac-row-desc { font-size: 11.5px; color: var(--dsw-alias-label-secondary); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .ac-thumb-doc { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-layer-2); }
-.ac-doc-ext { font-size: 8px; letter-spacing: .08em; font-family: 'Geist', sans-serif; opacity: .8; }
+.ac-doc-ext { font-size: 8px; letter-spacing: .08em; font-family: var(--dsw-font-family, 'Geist', sans-serif); opacity: .8; }
 .ac-card-doc { display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--dsw-alias-label-secondary); }
 .ac-row-meta { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--dsw-alias-label-secondary); margin-top: auto; padding-top: 2px; }
 .ac-thumb-stack { position: relative; width: 44px; height: 56px; flex: none; }
