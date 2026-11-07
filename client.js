@@ -3234,7 +3234,7 @@ window.__ModuleLoader__.load({
         h('div', { className: 'ac-titles' },
           h('div', { className: 'ac-title-line' },
             h('div', { className: 'ac-name' }, t('appTitle')),
-            h('a', { className: 'ac-github', href: 'https://github.com/massif-01', target: '_blank', rel: 'noreferrer', 'data-tip': 'GitHub', 'aria-label': 'GitHub' }, GitHubIcon())),
+            h('a', { className: 'ac-github', href: 'https://github.com/massif-01/dsh-auracap', target: '_blank', rel: 'noreferrer', 'data-tip': 'GitHub', 'aria-label': 'GitHub' }, GitHubIcon())),
           h('div', { className: 'ac-sub' }, t('tagline'))),
         h('div', { className: 'ac-grow' }),
         h('button', { className: 'ac-icon-button', onClick: openSettings, 'data-tip': t('settings'), 'aria-label': t('settings') }, SettingsIcon()),
