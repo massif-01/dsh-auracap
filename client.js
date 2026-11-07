@@ -71,6 +71,8 @@ window.__ModuleLoader__.load({
       currentQuestions: '当前问题',
       constraints: '约束',
       saveContext: '保存上下文',
+      edit: '编辑',
+      memoryIndexLabel: '索引',
       contextSaved: '已保存',
       saving: '保存中…',
       contextSavedHint: '已存到本机。Agent 和长洞察下次会读到。',
@@ -326,6 +328,8 @@ window.__ModuleLoader__.load({
       currentQuestions: 'Current questions',
       constraints: 'Constraints',
       saveContext: 'Save context',
+      edit: 'Edit',
+      memoryIndexLabel: 'Index',
       contextSaved: 'Saved',
       saving: 'Saving…',
       contextSavedHint: 'Saved locally. The agent and long insights will read it next time.',
@@ -681,9 +685,27 @@ window.__ModuleLoader__.load({
 .ac-settings-collapse-chevron[data-open="true"] { transform: rotate(180deg); }
 .ac-phone-body { margin-top: 18px; }
 .ac-phone-sync { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--dsw-alias-border-l1); }
-.ac-project-context { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--dsw-alias-border-l1); }
-.ac-project-note { min-height: 128px; margin-top: 12px; }
-.ac-project-saved { display: inline-flex; align-items: center; margin-left: 12px; color: var(--dsw-alias-label-secondary); font-size: 10.5px; }
+.ac-project-context { margin-top: 4px; }
+.ac-project-note { min-height: 112px; margin-top: 8px; }
+.ac-project-saved { display: flex; align-items: center; margin-top: 9px; color: var(--dsw-alias-label-secondary); font-size: 10.5px; }
+
+.ac-project-context-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ac-project-context-head .ac-settings-subsection { margin-bottom: 0; }
+.ac-project-hint { margin: 6px 0 0; font-size: 11px; }
+.ac-project-edit { border: 0; background: transparent; color: var(--dsw-alias-label-secondary); font-family: inherit; font-size: 10.5px; cursor: pointer; padding: 0; }
+.ac-project-edit:hover { color: var(--dsw-alias-label-primary); }
+.ac-project-preview { margin-top: 8px; padding: 11px 12px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-1); }
+.ac-project-preview p { margin: 0; color: var(--dsw-alias-label-primary); font-size: 12px; line-height: 1.7; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.ac-project-cancel { border: 0; background: transparent; color: var(--dsw-alias-label-secondary); font-family: inherit; font-size: 10.5px; cursor: pointer; padding: 0 3px; }
+.ac-project-cancel:hover { color: var(--dsw-alias-label-primary); }
+.ac-memory-index { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--dsw-alias-border-l1); }
+.ac-memory-index-head { width: 100%; display: flex; align-items: baseline; gap: 10px; border: 0; background: transparent; padding: 0; cursor: pointer; color: var(--dsw-alias-label-secondary); font-family: inherit; text-align: left; }
+.ac-memory-index-head:hover { color: var(--dsw-alias-label-primary); }
+.ac-memory-index-head .ac-settings-subsection { margin-bottom: 0; flex: none; }
+.ac-memory-index-value { flex: 1; font-size: 11px; color: var(--dsw-alias-label-secondary); }
+.ac-memory-index-chevron { display: inline-flex; flex: none; transition: transform .15s ease; }
+.ac-memory-index-chevron[data-open="true"] { transform: rotate(180deg); }
+.ac-memory-index-body { margin-top: 12px; }
 .ac-project-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
 .ac-project-row { display: grid; grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1fr) 22px; gap: 8px; align-items: center; }
 .ac-input { height: 32px; width: 100%; border: 1px solid var(--dsw-alias-border-l1); border-radius: 7px; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 11.5px; padding: 0 9px; outline: none; box-sizing: border-box; }
@@ -2096,38 +2118,55 @@ window.__ModuleLoader__.load({
 
     function ProjectContextEditor(props) {
       const t = props.t
-      const [note, setNote] = useState(() => String(props.profile && props.profile.note || ''))
+      const initial = String(props.profile && props.profile.note || '')
+      const [note, setNote] = useState(initial)
+      const [savedNote, setSavedNote] = useState(initial)
+      const [editing, setEditing] = useState(!initial.trim())
       const [saved, setSaved] = useState(false)
       const [saving, setSaving] = useState(false)
       const loaded = useRef(false)
       useEffect(() => {
         if (loaded.current || !props.profile) return
         loaded.current = true
-        setNote(String(props.profile.note || ''))
+        const value = String(props.profile.note || '')
+        setNote(value)
+        setSavedNote(value)
+        setEditing(!value.trim())
       }, [props.profile])
       const save = async () => {
         if (saving) return
         setSaving(true)
-        const ok = await props.onSaveProfile({ note })
+        const value = note.trim()
+        const ok = await props.onSaveProfile({ note: value })
         setSaving(false)
         if (!ok) return
+        setSavedNote(value)
         setNote('')
+        setEditing(!value)
         setSaved(true)
         setTimeout(() => setSaved(false), 2600)
       }
+      const edit = () => { setNote(savedNote); setEditing(true); setSaved(false) }
+      const cancel = () => { setNote(''); setEditing(false); setSaved(false) }
       return h('div', { className: 'ac-project-context' },
-        h('div', { className: 'ac-settings-subsection' }, t('projectContext')),
-        h('div', { className: 'ac-settings-hint' }, t('projectContextHint')),
-        h('textarea', {
-          className: 'ac-input ac-textarea ac-project-note',
-          value: note,
-          placeholder: t('projectNotePlaceholder'),
-          maxLength: 1600,
-          onChange: (event) => setNote(event.target.value),
-        }),
-        h('div', { className: 'ac-project-actions' },
-          h('button', { className: 'ac-ghost', type: 'button', onClick: save, disabled: saving }, saving ? t('saving') : t('saveContext')),
-          saved ? h('span', { className: 'ac-project-saved' }, '✓ ' + t('contextSavedHint')) : null))
+        h('div', { className: 'ac-project-context-head' },
+          h('div', { className: 'ac-settings-subsection' }, t('projectContext')),
+          !editing ? h('button', { className: 'ac-project-edit', type: 'button', onClick: edit }, t('edit')) : null),
+        h('div', { className: 'ac-settings-hint ac-project-hint' }, t('projectContextHint')),
+        !editing
+          ? h('div', { className: 'ac-project-preview' }, h('p', null, savedNote))
+          : h('div', null,
+              h('textarea', {
+                className: 'ac-input ac-textarea ac-project-note',
+                value: note,
+                placeholder: t('projectNotePlaceholder'),
+                maxLength: 1600,
+                onChange: (event) => setNote(event.target.value),
+              }),
+              h('div', { className: 'ac-project-actions' },
+                h('button', { className: 'ac-ghost', type: 'button', onClick: save, disabled: saving }, saving ? t('saving') : t('saveContext')),
+                savedNote ? h('button', { className: 'ac-project-cancel', type: 'button', onClick: cancel }, t('cancel')) : null)),
+        saved ? h('div', { className: 'ac-project-saved' }, '✓ ' + t('contextSavedHint')) : null)
     }
 
     function SettingsModal(props) {
@@ -2140,6 +2179,7 @@ window.__ModuleLoader__.load({
       const [showConfig, setShowConfig] = useState(false)
       const [confirmDisconnect, setConfirmDisconnect] = useState(false)
       const [phoneOpen, setPhoneOpen] = useState(false)
+      const [indexOpen, setIndexOpen] = useState(false)
       const connected = Boolean(github && github.connected)
       const waiting = device && (device.status === 'pending' || device.status === 'provisioning')
       useEffect(() => {
@@ -2209,15 +2249,7 @@ window.__ModuleLoader__.load({
           : null)
 
         const memorySection = h('section', { className: 'ac-settings-section ac-memory-section' },
-          h('div', { className: 'ac-memory-head' },
-            h('div', null,
-              h('div', { className: 'ac-settings-section-title' }, t('memory')),
-              h('div', { className: 'ac-memory-status' },
-                props.memoryStatus
-                  ? t('memoryIndexed') + ' ' + props.memoryStatus.indexed + ' / ' + props.memoryStatus.total + ' · ' + props.memoryStatus.entities + ' ' + t('entities')
-                  : t('memoryIndexed') + ' —')),
-            h('button', { className: 'ac-ghost ac-memory-backfill', onClick: props.onBackfill, disabled: props.memoryStatus && props.memoryStatus.backfill && props.memoryStatus.backfill.running },
-              props.memoryStatus && props.memoryStatus.backfill && props.memoryStatus.backfill.running ? t('memoryRunning') : t('memoryBackfill'))),
+          h('div', { className: 'ac-settings-section-title' }, t('memory')),
           h(ProjectContextEditor, {
             t,
             profile: props.memoryProfile,
@@ -2231,9 +2263,24 @@ window.__ModuleLoader__.load({
               'data-on': Boolean(props.memorySettings && props.memorySettings.agentMemory),
               onClick: () => props.onSaveMemorySettings({ agentMemory: !Boolean(props.memorySettings && props.memorySettings.agentMemory) }),
               'aria-label': t('agentMemory'),
-            }, h('span', null, props.memorySettings && props.memorySettings.agentMemory ? t('on') : t('off')))))
+            }, h('span', null, props.memorySettings && props.memorySettings.agentMemory ? t('on') : t('off')))),
+          h('div', { className: 'ac-memory-index' },
+            h('button', {
+              className: 'ac-memory-index-head',
+              type: 'button',
+              onClick: () => setIndexOpen(!indexOpen),
+              'aria-expanded': indexOpen,
+            },
+              h('span', { className: 'ac-settings-subsection' }, t('memoryIndexLabel')),
+              h('span', { className: 'ac-memory-index-value' },
+                props.memoryStatus
+                  ? t('memoryIndexed') + ' ' + props.memoryStatus.indexed + ' / ' + props.memoryStatus.total + ' · ' + props.memoryStatus.entities + ' ' + t('entities')
+                  : t('memoryIndexed') + ' —'),
+              h('span', { className: 'ac-memory-index-chevron', 'data-open': indexOpen }, ChevronDownIcon())),
+            indexOpen ? h('div', { className: 'ac-memory-index-body' },
+              h('button', { className: 'ac-ghost', onClick: props.onBackfill, disabled: props.memoryStatus && props.memoryStatus.backfill && props.memoryStatus.backfill.running },
+                props.memoryStatus && props.memoryStatus.backfill && props.memoryStatus.backfill.running ? t('memoryRunning') : t('memoryBackfill'))) : null))
 
-        const usageKinds = props.usage ? Object.entries(props.usage.kinds || {}).sort((a, b) => b[1] - a[1]).slice(0, 4) : []
         const usageSection = h('section', { className: 'ac-settings-section ac-usage-section' },
           h('div', { className: 'ac-settings-section-title' }, t('usage')),
           props.usage && (props.usage.total || props.usage.calls) ? h('div', null,
