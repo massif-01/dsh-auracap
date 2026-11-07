@@ -146,7 +146,7 @@ window.__ModuleLoader__.load({
       emptyTodayTitle: '今天还没有新的片刻',
       emptyTodayHint: '切到「全部」，看看之前拾起的内容。',
       viewAll: '查看全部',
-      privacy: 'GitHub 只作为免费的文件中转：手机截图先上传到你自己的私有仓库 Release，Mac 取回后保存在本机；读图与总结会调用 DeepSeek 模型，生成结果和索引保存在本机，GitHub 上的原图在消费后立即删除。',
+      privacy: 'GitHub 只作为免费的文件中转：手机截图先上传到你自己的私有仓库 Release，Mac 取回后保存在本机；\n读图与总结会调用 DeepSeek 模型，生成结果和索引保存在本机，GitHub 上的原图在消费后立即删除。',
       summarizing: '正在读图…',
       failed: '整理失败',
       ready: '已整理',
@@ -397,7 +397,7 @@ window.__ModuleLoader__.load({
       emptyTodayTitle: 'Nothing captured today',
       emptyTodayHint: 'Switch to All to see what you picked up earlier.',
       viewAll: 'View all',
-      privacy: 'GitHub is used only as a free file relay: the phone uploads screenshots to your private release, the Mac downloads and keeps them locally, image reading and summaries are handled by DeepSeek, results stay on this Mac, and original assets are deleted from GitHub after consumption.',
+      privacy: 'GitHub is used only as a free file relay: the phone uploads screenshots to your private release, the Mac downloads and keeps them locally;\nimage reading and summaries are handled by DeepSeek, results stay on this Mac, and original assets are deleted from GitHub after consumption.',
       summarizing: 'Reading the screenshot…',
       failed: 'Could not summarize',
       ready: 'Ready',
@@ -931,6 +931,7 @@ window.__ModuleLoader__.load({
 .ac-import-guide-title { font-family: 'Songti SC', 'Noto Serif SC', serif; font-size: 11px; letter-spacing: .12em; opacity: .65; margin-bottom: 2px; }
 .ac-import-guide-row { text-align: center; }
 .ac-footnote { margin-top: 18px; font-size: 11px; color: var(--dsw-alias-label-secondary); opacity: .75; }
+.ac-privacy-note { white-space: pre-line; }
 .ac-grid-wrap { flex: 1; overflow: auto; padding: 16px 18px 36px; }
 .ac-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
 .ac-card { border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); border-radius: 10px; overflow: hidden; cursor: pointer; transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease; display: flex; flex-direction: column; text-align: left; padding: 0; font-family: inherit; color: inherit; }
@@ -2480,7 +2481,7 @@ window.__ModuleLoader__.load({
           h('div', { className: 'ac-import-guide-row' }, t('importGuideDesktop')),
           h('div', { className: 'ac-import-guide-row' }, t('importGuidePhone')),
           h('div', { className: 'ac-import-guide-row' }, t('importGuideAction'))),
-        h('div', { className: 'ac-footnote' }, t('privacy')))
+        h('div', { className: 'ac-footnote ac-privacy-note' }, t('privacy')))
     }
 
     function App(props) {
