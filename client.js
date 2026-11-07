@@ -672,7 +672,14 @@ window.__ModuleLoader__.load({
 .ac-merge-check[data-selected="true"] { background: var(--dsw-alias-brand-primary); border-color: var(--dsw-alias-brand-primary); color: var(--dsw-alias-bg-base); }
 .ac-merge-empty { padding: 28px 0; text-align: center; color: var(--dsw-alias-label-secondary); font-size: 12px; }
 .ac-merge-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
-.ac-project-context { margin-top: 22px; }
+.ac-status-sync { margin-left: auto; height: 26px; padding: 0 8px; font-size: 10.5px; }
+.ac-settings-collapse-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 0; background: transparent; padding: 0; cursor: pointer; color: var(--dsw-alias-label-secondary); font-family: inherit; }
+.ac-settings-collapse-head:hover { color: var(--dsw-alias-label-primary); }
+.ac-settings-collapse-chevron { display: inline-flex; transition: transform .15s ease; }
+.ac-settings-collapse-chevron[data-open="true"] { transform: rotate(180deg); }
+.ac-phone-body { margin-top: 18px; }
+.ac-phone-sync { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--dsw-alias-border-l1); }
+.ac-project-context { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--dsw-alias-border-l1); }
 .ac-project-note { min-height: 128px; margin-top: 12px; }
 .ac-project-saved { display: inline-flex; align-items: center; margin-left: 12px; color: var(--dsw-alias-label-secondary); font-size: 10.5px; }
 .ac-project-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
@@ -2096,8 +2103,7 @@ window.__ModuleLoader__.load({
         setSaved(true)
         setTimeout(() => setSaved(false), 2600)
       }
-      const enabled = Boolean(props.settings && props.settings.agentMemory)
-      return h('section', { className: 'ac-settings-section ac-project-context' },
+      return h('div', { className: 'ac-project-context' },
         h('div', { className: 'ac-section-eyebrow' }, t('projectContext')),
         h('div', { className: 'ac-settings-hint' }, t('projectContextHint')),
         h('textarea', {
@@ -2109,16 +2115,7 @@ window.__ModuleLoader__.load({
         }),
         h('div', { className: 'ac-project-actions' },
           h('button', { className: 'ac-ghost', type: 'button', onClick: save, disabled: saving }, saving ? t('saving') : t('saveContext')),
-          saved ? h('span', { className: 'ac-project-saved' }, '✓ ' + t('contextSavedHint')) : null),
-        h('div', { className: 'ac-agent-toggle' },
-          h('div', null, h('div', { className: 'ac-set-label' }, t('agentMemory')), h('div', { className: 'ac-settings-hint' }, t('agentMemoryHint'))),
-          h('button', {
-            className: 'ac-toggle',
-            type: 'button',
-            'data-on': enabled,
-            onClick: () => props.onSaveSettings({ agentMemory: !enabled }),
-            'aria-label': t('agentMemory'),
-          }, h('span', null, enabled ? t('on') : t('off')))))
+          saved ? h('span', { className: 'ac-project-saved' }, '✓ ' + t('contextSavedHint')) : null))
     }
 
     function SettingsModal(props) {
@@ -2130,6 +2127,7 @@ window.__ModuleLoader__.load({
       const [debugOpen, setDebugOpen] = useState(false)
       const [showConfig, setShowConfig] = useState(false)
       const [confirmDisconnect, setConfirmDisconnect] = useState(false)
+      const [phoneOpen, setPhoneOpen] = useState(false)
       const connected = Boolean(github && github.connected)
       const waiting = device && (device.status === 'pending' || device.status === 'provisioning')
       useEffect(() => {
@@ -2163,7 +2161,42 @@ window.__ModuleLoader__.load({
             : h('div', { className: 'ac-set-actions' },
                 h('button', { className: 'ac-primary', onClick: props.onConnect, disabled: props.busy }, t('connectGithub'))))
       } else {
-        const memorySection = h('section', { className: 'ac-settings-section' },
+        const phoneSection = h('section', { className: 'ac-settings-section ac-phone-section' },
+          h('button', {
+            className: 'ac-settings-collapse-head',
+            type: 'button',
+            onClick: () => setPhoneOpen(!phoneOpen),
+            'aria-expanded': phoneOpen,
+          },
+            h('div', { className: 'ac-section-eyebrow' }, t('phoneSection')),
+            h('span', { className: 'ac-settings-collapse-chevron', 'data-open': phoneOpen }, ChevronDownIcon())),
+          phoneOpen ? h('div', { className: 'ac-phone-body' },
+            h('div', { className: 'ac-steps' },
+              step(1, t('stepDownload'), t('stepDownloadHint'),
+                h('button', { className: 'ac-primary', onClick: props.onDownloadShortcut, disabled: props.shortcutFileBusy },
+                  props.shortcutFileBusy ? t('preparing') : t('downloadShortcut')),
+                props.shortcutFileMessage
+                  ? h('div', { className: props.shortcutFileMessage.ok ? 'ac-success' : 'ac-error', style: { marginTop: 8 } },
+                      props.shortcutFileMessage.ok ? t('shortcutDownloaded') : props.shortcutFileMessage.text)
+                  : null),
+              step(2, t('stepInstall'), t('stepInstallHint'), null, null),
+              step(3, t('stepTestOptional'), t('stepTestHint'),
+                h('button', { className: 'ac-secondary', onClick: props.onTestUpload, disabled: props.testBusy },
+                  props.testBusy ? t('testing') : t('testUpload')),
+                props.testMessage
+                  ? h('div', { className: props.testMessage.ok ? 'ac-success' : 'ac-error', style: { marginTop: 8 } },
+                      props.testMessage.ok ? t('testSuccess') : props.testMessage.text)
+                  : null)),
+            h('div', { className: 'ac-phone-sync' },
+              h('div', { className: 'ac-set-row' },
+                h('span', { className: 'ac-set-label' }, t('githubQueueCount')),
+                h('span', { className: 'ac-set-value' }, String(github.queueCount || 0) + ' ' + t('itemsUnit'))),
+              h('div', { className: 'ac-set-row' },
+                h('span', { className: 'ac-set-label' }, t('githubLastSync')),
+                h('span', { className: 'ac-set-value' }, github.lastSyncAt ? timeText(github.lastSyncAt) : '—'))))
+          : null)
+
+        const memorySection = h('section', { className: 'ac-settings-section ac-memory-section' },
           h('div', { className: 'ac-section-eyebrow' }, t('memory')),
           h('div', { className: 'ac-memory-status' },
             props.memoryStatus
@@ -2171,7 +2204,21 @@ window.__ModuleLoader__.load({
               : t('memoryIndexed') + ' —'),
           h('div', { className: 'ac-set-actions' },
             h('button', { className: 'ac-ghost', onClick: props.onBackfill, disabled: props.memoryStatus && props.memoryStatus.backfill && props.memoryStatus.backfill.running },
-              props.memoryStatus && props.memoryStatus.backfill && props.memoryStatus.backfill.running ? t('memoryRunning') : t('memoryBackfill'))))
+              props.memoryStatus && props.memoryStatus.backfill && props.memoryStatus.backfill.running ? t('memoryRunning') : t('memoryBackfill'))),
+          h(ProjectContextEditor, {
+            t,
+            profile: props.memoryProfile,
+            onSaveProfile: props.onSaveProfile,
+          }),
+          h('div', { className: 'ac-agent-toggle' },
+            h('div', null, h('div', { className: 'ac-set-label' }, t('agentMemory')), h('div', { className: 'ac-settings-hint' }, t('agentMemoryHint'))),
+            h('button', {
+              className: 'ac-toggle',
+              type: 'button',
+              'data-on': Boolean(props.memorySettings && props.memorySettings.agentMemory),
+              onClick: () => props.onSaveMemorySettings({ agentMemory: !Boolean(props.memorySettings && props.memorySettings.agentMemory) }),
+              'aria-label': t('agentMemory'),
+            }, h('span', null, props.memorySettings && props.memorySettings.agentMemory ? t('on') : t('off')))))
 
         const usageKinds = props.usage ? Object.entries(props.usage.kinds || {}).sort((a, b) => b[1] - a[1]).slice(0, 4) : []
         const usageSection = h('section', { className: 'ac-settings-section ac-usage-section' },
@@ -2195,48 +2242,13 @@ window.__ModuleLoader__.load({
           h('div', { className: 'ac-settings-status' },
             h('span', { className: 'ac-settings-status-dot' }),
             h('span', null, t('connectedTo')),
-            h('span', { className: 'ac-settings-status-repo' }, github.repo.owner + '/' + github.repo.name)),
+            h('span', { className: 'ac-settings-status-repo' }, github.repo.owner + '/' + github.repo.name),
+            h('div', { className: 'ac-grow' }),
+            h('button', { className: 'ac-ghost ac-status-sync', onClick: props.onSync, disabled: props.busy }, RetryIcon(), t('githubSyncNow'))),
 
-          h('div', { className: 'ac-settings-grid' },
-            h('section', { className: 'ac-settings-section ac-settings-main' },
-              h('div', { className: 'ac-section-eyebrow' }, t('phoneSection')),
-              h('div', { className: 'ac-steps' },
-                step(1, t('stepDownload'), t('stepDownloadHint'),
-                  h('button', { className: 'ac-primary', onClick: props.onDownloadShortcut, disabled: props.shortcutFileBusy },
-                    props.shortcutFileBusy ? t('preparing') : t('downloadShortcut')),
-                  props.shortcutFileMessage
-                    ? h('div', { className: props.shortcutFileMessage.ok ? 'ac-success' : 'ac-error', style: { marginTop: 8 } },
-                        props.shortcutFileMessage.ok ? t('shortcutDownloaded') : props.shortcutFileMessage.text)
-                    : null),
-                step(2, t('stepInstall'), t('stepInstallHint'), null, null),
-                step(3, t('stepTestOptional'), t('stepTestHint'),
-                  h('button', { className: 'ac-secondary', onClick: props.onTestUpload, disabled: props.testBusy },
-                    props.testBusy ? t('testing') : t('testUpload')),
-                  props.testMessage
-                    ? h('div', { className: props.testMessage.ok ? 'ac-success' : 'ac-error', style: { marginTop: 8 } },
-                        props.testMessage.ok ? t('testSuccess') : props.testMessage.text)
-                    : null))),
-            h('div', { className: 'ac-settings-side' },
-              h('section', { className: 'ac-settings-section' },
-                h('div', { className: 'ac-section-eyebrow' }, t('syncSection')),
-                h('div', { className: 'ac-set-row' },
-                  h('span', { className: 'ac-set-label' }, t('githubQueueCount')),
-                  h('span', { className: 'ac-set-value' }, String(github.queueCount || 0) + ' ' + t('itemsUnit'))),
-                h('div', { className: 'ac-set-row' },
-                  h('span', { className: 'ac-set-label' }, t('githubLastSync')),
-                  h('span', { className: 'ac-set-value' }, github.lastSyncAt ? timeText(github.lastSyncAt) : '—')),
-                h('div', { className: 'ac-set-actions' },
-                  h('button', { className: 'ac-ghost', onClick: props.onSync, disabled: props.busy }, RetryIcon(), t('githubSyncNow')))),
-              memorySection)),
-
+          memorySection,
           usageSection,
-          h(ProjectContextEditor, {
-            t,
-            profile: props.memoryProfile,
-            settings: props.memorySettings,
-            onSaveProfile: props.onSaveProfile,
-            onSaveSettings: props.onSaveMemorySettings,
-          }),
+          phoneSection,
 
           h('div', { className: 'ac-advanced' },
             h('button', { className: 'ac-advanced-toggle', type: 'button', onClick: () => setAdvanced(!advanced) },
