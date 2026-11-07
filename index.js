@@ -400,14 +400,14 @@ function periodMaterial(type, items, info) {
   parts.push(`周期类型：${type}`, `日期范围：${info.start} ~ ${info.end}`)
   if (sources.length) parts.push('# 已有洞察', sources.join('\n\n'))
   if (itemsText) parts.push('# 原始片段', itemsText)
-  return { text: parts.join('\n\n').slice(0, 30_000), itemCount: inRange.length, sourceCount: sources.length, itemIds: inRange.map((item) => item.id), sourceInsightKeys: sourceData.keys }
+  return { text: parts.join('\n\n').slice(0, 30_000), itemCount: inRange.length, sourceCount: sources.length, itemIds: [...new Set(inRange.flatMap((item) => item.sourceItemIds || [item.id]))], sourceInsightKeys: sourceData.keys }
 }
 
 async function generatePeriodInsight(ctx, items, type, anchorISO, force) {
   const info = periodInfo(type, anchorISO)
   const existing = loadPeriodInsight(type, info.key)
   if (existing && !force) return existing
-  const material = periodMaterial(type, items, info)
+  const material = periodMaterial(type, groupedInsightEntries(items), info)
   if (!material.itemCount) {
     const error = new Error('这个周期还没有可用碎片')
     error.status = 409
@@ -628,7 +628,7 @@ export function parseDigest(text) {
 }
 
 async function generateDigest(llm, items, date) {
-  const ready = items.filter((item) => item.status === 'ready' && localDateKey(item.createdAt) === date)
+  const ready = groupedInsightEntries(items).filter((item) => item.status === 'ready' && localDateKey(item.createdAt) === date)
   if (!ready.length) {
     const error = new Error('这一天还没有可用的碎片')
     error.status = 409
@@ -666,7 +666,7 @@ async function generateDigest(llm, items, date) {
       title: parsed.title || `${date} 洞察`,
       content,
       itemCount: ready.length,
-      itemIds: ready.map((item) => item.id),
+      itemIds: [...new Set(ready.flatMap((item) => item.sourceItemIds || [item.id]))],
       createdAt: new Date().toISOString(),
       model: MODEL.model,
     }
@@ -680,7 +680,7 @@ async function generateDigest(llm, items, date) {
 async function refreshDigestIfDue(ctx, github) {
   if (github.digestBusy) return
   const date = todayKey()
-  const ready = github.items.filter((item) => item.status === 'ready' && localDateKey(item.createdAt) === date)
+  const ready = groupedInsightEntries(github.items).filter((item) => item.status === 'ready' && localDateKey(item.createdAt) === date)
   if (!ready.length) return
   const existing = loadDigest(date)
   const now = Date.now()
@@ -688,7 +688,7 @@ async function refreshDigestIfDue(ctx, github) {
     const generatedAt = Date.parse(existing.createdAt)
     if (Number.isFinite(generatedAt) && now - generatedAt < DIGEST_REFRESH_MS) return
   }
-  const ids = ready.map((item) => item.id)
+  const ids = [...new Set(ready.flatMap((item) => item.sourceItemIds || [item.id]))]
   if (existing && Array.isArray(existing.itemIds) && ids.every((id) => existing.itemIds.includes(id))) return
   github.digestBusy = true
   try {
@@ -2085,8 +2085,46 @@ export function rebuildGroups(items) {
 
 function groupsForApi() {
   return Object.values(groupStore.groups)
-    .filter((group) => (group.itemIds || []).length >= 2)
+    .filter((group) => !group.dismissed && (group.itemIds || []).length >= 2)
     .sort((left, right) => String(right.updatedAt || '').localeCompare(String(left.updatedAt || '')))
+}
+
+function groupedInsightEntries(items) {
+  const groupByItem = new Map()
+  for (const group of Object.values(groupStore.groups)) {
+    for (const itemId of group.itemIds || []) groupByItem.set(itemId, group)
+  }
+  const seen = new Set()
+  const entries = []
+  for (const item of items) {
+    const group = groupByItem.get(item.id)
+    if (!group) {
+      entries.push(item)
+      continue
+    }
+    if (seen.has(group.id)) continue
+    seen.add(group.id)
+    const members = (group.itemIds || []).map((itemId) => items.find((entry) => entry.id === itemId)).filter(Boolean)
+    if (!members.length) continue
+    const latest = members.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0]
+    if (group.status === 'merged' && group.merged && group.merged.content) {
+      entries.push({
+        id: 'group:' + group.id,
+        kind: 'group',
+        groupId: group.id,
+        createdAt: latest.createdAt,
+        updatedAt: group.updatedAt,
+        status: 'ready',
+        image: null,
+        summary: group.merged,
+        sourceItemIds: members.map((member) => member.id),
+      })
+    } else {
+      const primary = members.find((member) => member.id === group.primaryId) || members[0]
+      entries.push(Object.assign({}, primary, { sourceItemIds: [primary.id], groupId: group.id }))
+    }
+  }
+  return entries
 }
 
 function groupMemberItems(items, group) {
@@ -2516,7 +2554,7 @@ export function apply(ctx) {
           if (requested.length < 2) return sendError(res, 400, '至少选择两条片刻')
           const selected = requested.map((itemId) => items.find((item) => item.id === itemId)).filter(Boolean)
           if (selected.length !== requested.length) return sendError(res, 404, '存在找不到的片刻')
-          const occupied = requested.find((itemId) => Object.values(groupStore.groups).some((group) => (group.itemIds || []).includes(itemId)))
+          const occupied = requested.find((itemId) => Object.values(groupStore.groups).some((group) => !group.dismissed && (group.itemIds || []).includes(itemId)))
           if (occupied) return sendError(res, 409, '所选片刻已经在其他组里')
           const ids = selected.map((item) => item.id).sort((a, b) => String(selected.find((entry) => entry.id === a).createdAt).localeCompare(String(selected.find((entry) => entry.id === b).createdAt)))
           const id = groupIdFor(ids)

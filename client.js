@@ -42,6 +42,7 @@ window.__ModuleLoader__.load({
       mergeGroup: '合并为一篇',
       merging: '正在合并…',
       splitGroup: '拆分',
+      dismissGroup: '拆开这组',
       remakeGroup: '重新合并',
       mergedSummary: '合并后的整理',
       mergeFailed: '合并失败，原条目已保留',
@@ -277,6 +278,7 @@ window.__ModuleLoader__.load({
       mergeGroup: 'Merge into one',
       merging: 'Merging…',
       splitGroup: 'Split',
+      dismissGroup: 'Break up group',
       remakeGroup: 'Merge again',
       mergedSummary: 'Merged summary',
       mergeFailed: 'Merge failed; originals are still here',
@@ -1385,7 +1387,8 @@ window.__ModuleLoader__.load({
                   type: 'button',
                   disabled: props.busy,
                   onClick: () => props.onMerge(group.id),
-                }, props.busy ? t('merging') : t('mergeGroup'))),
+                }, props.busy ? t('merging') : t('mergeGroup')),
+                h('button', { className: 'ac-ghost', type: 'button', disabled: props.busy, onClick: () => props.onDismiss(group.id) }, t('dismissGroup'))),
           props.error ? h('div', { className: 'ac-group-error' }, props.error) : null,
           h('div', { className: 'ac-section' },
             h('div', { className: 'ac-sec-label' }, merged ? t('groupSources') : t('groupMembers')),
@@ -2921,6 +2924,19 @@ window.__ModuleLoader__.load({
       const toggleMergePick = (itemId) => {
         setMergePickIds((previous) => previous.includes(itemId) ? previous.filter((id) => id !== itemId) : previous.concat(itemId))
       }
+      const dismissGroupAction = async (groupId) => {
+        setGroupBusy(true)
+        setGroupError(null)
+        try {
+          await request(API + '/groups/' + encodeURIComponent(groupId) + '/dismiss', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+          setGroups((previous) => previous.filter((group) => group.id !== groupId))
+          closeGroup()
+        } catch (error) {
+          setGroupError(error && error.message ? error.message : t('mergeFailed'))
+        } finally {
+          setGroupBusy(false)
+        }
+      }
       const createManualGroup = async () => {
         if (!mergePickerFor || !mergePickIds.length) return
         setGroupBusy(true)
@@ -3082,7 +3098,7 @@ window.__ModuleLoader__.load({
               ? h(GroupRow, { key: 'group-' + entry.id, group: entry.group, items: entry.items, t, active: entry.id === selectedGroupId, onClick: () => openGroup(entry.id) })
               : h(Row, { key: entry.item.id, item: entry.item, t, active: entry.item.id === selectedId && !selectedGroupId, onClick: () => { setSelectedGroupId(null); setSelectedId(entry.item.id) } }))),
           selectedGroup
-            ? h(GroupDetail, { group: selectedGroup, items: selectedGroupItems, t, onOpenItem: openItemById, onMerge: mergeGroupAction, onSplit: splitGroupAction, busy: groupBusy, error: groupError })
+            ? h(GroupDetail, { group: selectedGroup, items: selectedGroupItems, t, onOpenItem: openItemById, onMerge: mergeGroupAction, onSplit: splitGroupAction, onDismiss: dismissGroupAction, busy: groupBusy, error: groupError })
             : selected
               ? h(Detail, { item: selected, t, onRetry: retry, onDelete: remove, onOpenImage: openImage, onTagClick: applyTagFilter, onEntityClick: openEntity, related, onOpenRelated: openItemById, onMergeSelect: itemToGroup.has(selected.id) ? null : openMergePicker })
               : h('div', { className: 'ac-empty' }, h('p', null, t('untitled'))))
@@ -3146,7 +3162,7 @@ window.__ModuleLoader__.load({
         },
           h('div', { className: 'ac-modal-card' },
             h('button', { className: 'ac-modal-close', onClick: closeGroup, 'aria-label': t('close') }, CloseIcon()),
-            h(GroupDetail, { group: modalGroup, items: modalGroupItems, t, onOpenItem: openItemById, onMerge: mergeGroupAction, onSplit: splitGroupAction, busy: groupBusy, error: groupError }))) : null,
+            h(GroupDetail, { group: modalGroup, items: modalGroupItems, t, onOpenItem: openItemById, onMerge: mergeGroupAction, onSplit: splitGroupAction, onDismiss: dismissGroupAction, busy: groupBusy, error: groupError }))) : null,
         mergePickerFor ? h(MergePicker, {
           t,
           source: mergePickerFor,
