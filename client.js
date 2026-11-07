@@ -33,6 +33,10 @@ window.__ModuleLoader__.load({
       searchNoResults: '没有找到',
       searchLoading: '搜索中…',
       moment: '片刻',
+      groupCount: '同组',
+      groupScreens: '屏',
+      groupSame: '同一内容',
+      groupMembers: '这组包含',
       entities: '线索',
       tagFilter: '标签',
       relatedMoments: '相关片刻',
@@ -249,6 +253,10 @@ window.__ModuleLoader__.load({
       searchNoResults: 'Nothing found',
       searchLoading: 'Searching…',
       moment: 'Moment',
+      groupCount: 'Group',
+      groupScreens: 'screens',
+      groupSame: 'Same content',
+      groupMembers: 'This group',
       entities: 'Clues',
       tagFilter: 'Tag',
       relatedMoments: 'Related moments',
@@ -559,6 +567,21 @@ window.__ModuleLoader__.load({
 .ac-doc-ext { font-size: 8px; letter-spacing: .08em; font-family: 'Geist', sans-serif; opacity: .8; }
 .ac-card-doc { display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--dsw-alias-label-secondary); }
 .ac-row-meta { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--dsw-alias-label-secondary); margin-top: auto; padding-top: 2px; }
+.ac-thumb-stack { position: relative; width: 44px; height: 56px; flex: none; }
+.ac-stack-thumb { position: absolute; top: 0; left: 0; width: 36px; height: 48px; border-radius: 5px; object-fit: cover; object-position: top center; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-2); box-shadow: 0 2px 6px color-mix(in srgb, var(--dsw-alias-label-primary) 8%, transparent); }
+.ac-group-count { position: absolute; right: 0; bottom: 0; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 999px; background: var(--dsw-alias-brand-primary); color: var(--dsw-alias-bg-base); font-size: 9px; line-height: 15px; text-align: center; font-variant-numeric: tabular-nums; }
+.ac-group-badge { color: var(--dsw-alias-brand-primary); }
+.ac-card-group-visual { position: relative; height: 120px; display: grid; place-items: center; background: var(--dsw-alias-bg-layer-2); border-bottom: 1px solid var(--dsw-alias-border-l1); }
+.ac-card-group-visual .ac-thumb-stack { transform: scale(1.55); }
+.ac-group-kicker { font-size: 9.5px; letter-spacing: .14em; color: var(--dsw-alias-label-secondary); margin-bottom: 10px; text-transform: uppercase; }
+.ac-group-members { display: flex; flex-direction: column; gap: 2px; }
+.ac-group-member { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 0; border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1); background: transparent; color: var(--dsw-alias-label-primary); font-family: inherit; text-align: left; cursor: pointer; }
+.ac-group-member:hover { color: var(--dsw-alias-brand-primary); }
+.ac-group-member-thumb { width: 38px; height: 50px; flex: none; object-fit: cover; object-position: top center; border-radius: 5px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-2); }
+.ac-group-member-thumb.ac-thumb-doc { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+.ac-group-member-main { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ac-group-member-main strong { font-size: 12.5px; font-weight: 500; line-height: 1.4; }
+.ac-group-member-main span { font-size: 10px; color: var(--dsw-alias-label-secondary); }
 .ac-status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--dsw-alias-label-secondary); }
 .ac-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dsw-alias-state-idle-primary); display: inline-block; flex: none; }
 .ac-dot[data-state="summarizing"] { background: var(--dsw-alias-brand-primary); animation: ac-pulse 1.4s ease-in-out infinite; }
@@ -1203,6 +1226,103 @@ window.__ModuleLoader__.load({
       }
       flush()
       return sections
+    }
+
+    function groupTitle(group, items, t) {
+      if (group && group.merged && group.merged.title) return group.merged.title
+      const primary = items.find((item) => item.id === group.primaryId) || items[0]
+      return primary && primary.summary && primary.summary.title ? primary.summary.title : t('untitled')
+    }
+
+    function groupLatest(items) {
+      return items.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0] || null
+    }
+
+    function GroupStack(props) {
+      const items = (props.items || []).filter((item) => item.image).slice(0, 3)
+      return h('div', { className: 'ac-thumb-stack' },
+        items.map((item, index) => h('img', {
+          key: item.id,
+          className: 'ac-stack-thumb',
+          style: { zIndex: 3 - index, transform: 'translate(' + (index * 3) + 'px,' + (index * 2) + 'px)' },
+          src: API + '/media/' + encodeURIComponent(item.id),
+          alt: '',
+          draggable: false,
+        })),
+        h('span', { className: 'ac-group-count' }, String(props.count || items.length)))
+    }
+
+    function GroupRow(props) {
+      const t = props.t
+      const items = props.items || []
+      const latest = groupLatest(items)
+      const primary = items.find((item) => item.id === props.group.primaryId) || items[0]
+      const tag = primary && primary.summary && primary.summary.tags && primary.summary.tags[0]
+      return h('div', {
+        className: 'ac-row ac-group-row',
+        'data-active': props.active,
+        role: 'button',
+        tabIndex: 0,
+        onClick: props.onClick,
+        onKeyDown: (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); props.onClick() } },
+      },
+        h(GroupStack, { items, count: items.length }),
+        h('div', { className: 'ac-row-main' },
+          h('div', { className: 'ac-row-title' }, groupTitle(props.group, items, t)),
+          h('div', { className: 'ac-row-meta' },
+            h('span', { className: 'ac-group-badge' }, t('groupCount') + ' ' + items.length + ' ' + t('groupScreens')),
+            latest ? h('span', null, timeText(latest.createdAt)) : null,
+            tag ? h('span', null, '#' + tag) : null)))
+    }
+
+    function GroupCard(props) {
+      const t = props.t
+      const items = props.items || []
+      const primary = items.find((item) => item.id === props.group.primaryId) || items[0]
+      return h('button', { className: 'ac-card ac-group-card', type: 'button', onClick: props.onClick },
+        h('div', { className: 'ac-card-group-visual' }, h(GroupStack, { items, count: items.length })),
+        h('div', { className: 'ac-card-body' },
+          h('div', { className: 'ac-card-title' }, groupTitle(props.group, items, t)),
+          h('div', { className: 'ac-card-desc' }, t('groupSame') + ' · ' + items.length + ' ' + t('groupScreens')),
+          h('div', { className: 'ac-card-meta' }, latestGroupTime(items))))
+    }
+
+    function latestGroupTime(items) {
+      const latest = groupLatest(items)
+      return latest ? timeText(latest.createdAt) : ''
+    }
+
+    function GroupDetail(props) {
+      const t = props.t
+      const group = props.group
+      const items = props.items || []
+      const primary = items.find((item) => item.id === group.primaryId) || items[0]
+      const latest = groupLatest(items)
+      const title = groupTitle(group, items, t)
+      const members = items.map((item) => h('button', {
+        key: item.id,
+        className: 'ac-group-member',
+        type: 'button',
+        onClick: () => props.onOpenItem(item.id),
+      },
+        item.image
+          ? h('img', { className: 'ac-group-member-thumb', src: API + '/media/' + encodeURIComponent(item.id), alt: '', draggable: false })
+          : h('span', { className: 'ac-group-member-thumb ac-thumb-doc' }, DocumentIcon()),
+        h('span', { className: 'ac-group-member-main' },
+          h('strong', null, item.summary && item.summary.title ? item.summary.title : t('untitled')),
+          h('span', null, timeText(item.createdAt)))))
+
+      return h('article', { className: 'ac-detail ac-group-detail' },
+        h('div', { className: 'ac-detail-inner' },
+          h('div', { className: 'ac-group-kicker' }, t('groupSame') + ' · ' + items.length + ' ' + t('groupScreens')),
+          h('h1', { className: 'ac-h1' }, title),
+          h('div', { className: 'ac-meta' },
+            h('span', null, t('groupCount') + ' ' + items.length + ' ' + t('groupScreens')),
+            latest ? h('span', null, dateText(latest.createdAt)) : null,
+            primary && primary.image && primary.image.width ? h('span', null, primary.image.width + ' × ' + primary.image.height) : null),
+          h('div', { className: 'ac-section' },
+            h('div', { className: 'ac-sec-label' }, t('groupMembers')),
+            h('div', { className: 'ac-group-members' }, members))))
     }
 
     function Row(props) {
@@ -2086,6 +2206,9 @@ window.__ModuleLoader__.load({
     function App(props) {
       const t = props.t
       const [items, setItems] = useState([])
+      const [groups, setGroups] = useState([])
+      const [selectedGroupId, setSelectedGroupId] = useState(null)
+      const [groupModalId, setGroupModalId] = useState(null)
       const hasPending = useMemo(() => items.some((item) => item.status === 'summarizing'), [items])
       const [selectedId, setSelectedId] = useState(null)
       const [scope, setScope] = useState('today')
@@ -2157,6 +2280,7 @@ window.__ModuleLoader__.load({
         try {
           const payload = await request(API + '/items')
           setItems(Array.isArray(payload.items) ? payload.items : [])
+          setGroups(Array.isArray(payload.groups) ? payload.groups : [])
         } catch (loadError) {
           setError(loadError.message || t('loadFailed'))
         }
@@ -2230,6 +2354,38 @@ window.__ModuleLoader__.load({
         return result
       }, [items, scope, rangeFilter, tagFilter])
       const todayCount = useMemo(() => items.filter((item) => isToday(item.createdAt)).length, [items])
+      const itemToGroup = useMemo(() => {
+        const map = new Map()
+        for (const group of groups) for (const itemId of group.itemIds || []) map.set(itemId, group)
+        return map
+      }, [groups])
+      const visibleEntries = useMemo(() => {
+        const visibleIds = new Set(visible.map((item) => item.id))
+        const seenGroups = new Set()
+        const entries = []
+        for (const item of visible) {
+          const group = itemToGroup.get(item.id)
+          if (!group) {
+            entries.push({ kind: 'item', id: item.id, item })
+            continue
+          }
+          if (seenGroups.has(group.id)) continue
+          seenGroups.add(group.id)
+          const members = (group.itemIds || []).map((itemId) => items.find((entry) => entry.id === itemId)).filter(Boolean)
+          if (!members.length) continue
+          const primary = members.find((entry) => entry.id === group.primaryId) || members[0]
+          entries.push({ kind: 'group', id: group.id, group, items: members, primary })
+        }
+        return entries
+      }, [visible, itemToGroup, items])
+      const selectedGroup = selectedGroupId ? groups.find((group) => group.id === selectedGroupId) : null
+      const selectedGroupItems = selectedGroup
+        ? (selectedGroup.itemIds || []).map((itemId) => items.find((entry) => entry.id === itemId)).filter(Boolean)
+        : []
+      const modalGroup = groupModalId ? groups.find((group) => group.id === groupModalId) : null
+      const modalGroupItems = modalGroup
+        ? (modalGroup.itemIds || []).map((itemId) => items.find((entry) => entry.id === itemId)).filter(Boolean)
+        : []
       const digestUnread = Boolean(digest && digest.createdAt && digest.createdAt !== digestSeenAt)
       const digestSources = useMemo(() => {
         if (!digest) return []
@@ -2588,9 +2744,13 @@ window.__ModuleLoader__.load({
         setRangeEnd(null)
         setSelectedId(null)
         setModalId(null)
+        setSelectedGroupId(null)
+        setGroupModalId(null)
       }
       const openItemById = (id) => {
         setEntityId(null)
+        setSelectedGroupId(null)
+        setGroupModalId(null)
         const keepScope = scope !== 'digest' && visible.some((item) => item.id === id)
         if (!keepScope) {
           setScope('all')
@@ -2601,6 +2761,13 @@ window.__ModuleLoader__.load({
         setSelectedId(id)
         if (view === 'grid') setModalId(id)
       }
+      const openGroup = (id) => {
+        setSelectedId(null)
+        setModalId(null)
+        setSelectedGroupId(id)
+        if (view === 'grid') setGroupModalId(id)
+      }
+      const closeGroup = () => { setSelectedGroupId(null); setGroupModalId(null) }
       const openEntity = async (id) => {
         setModalId(null)
         setEntityId(id)
@@ -2628,6 +2795,8 @@ window.__ModuleLoader__.load({
         setRangeEnd(null)
         setScope('all')
         setSelectedId(id)
+        setSelectedGroupId(null)
+        setGroupModalId(null)
         if (view === 'grid') setModalId(id)
       }
       const openSearchInsight = (result) => {
@@ -2726,18 +2895,24 @@ window.__ModuleLoader__.load({
           onOpenSource: openItemById,
           unreadPeriods: periodUnread,
         })
-      } else if (!visible.length) {
+      } else if (!visibleEntries.length) {
         content = h(Empty, { t, busy, hasOlder, onImport: openPicker, onShowAll: () => setScope('all') })
       } else if (view === 'grid') {
         content = h('div', { className: 'ac-grid-wrap' },
-          h('div', { className: 'ac-grid' }, visible.map((item) => h(Card, { key: item.id, item, t, onClick: () => setModalId(item.id) }))))
+          h('div', { className: 'ac-grid' }, visibleEntries.map((entry) => entry.kind === 'group'
+            ? h(GroupCard, { key: 'group-' + entry.id, group: entry.group, items: entry.items, t, onClick: () => openGroup(entry.id) })
+            : h(Card, { key: entry.item.id, item: entry.item, t, onClick: () => { setSelectedGroupId(null); setGroupModalId(null); setModalId(entry.item.id) } }))))
       } else {
         content = h('div', { className: 'ac-body' },
           h('div', { className: 'ac-list', role: 'list' },
-            visible.map((item) => h(Row, { key: item.id, item, t, active: item.id === selectedId, onClick: () => setSelectedId(item.id) }))),
-          selected
-            ? h(Detail, { item: selected, t, onRetry: retry, onDelete: remove, onOpenImage: openImage, onTagClick: applyTagFilter, onEntityClick: openEntity, related, onOpenRelated: openItemById })
-            : h('div', { className: 'ac-empty' }, h('p', null, t('untitled'))))
+            visibleEntries.map((entry) => entry.kind === 'group'
+              ? h(GroupRow, { key: 'group-' + entry.id, group: entry.group, items: entry.items, t, active: entry.id === selectedGroupId, onClick: () => openGroup(entry.id) })
+              : h(Row, { key: entry.item.id, item: entry.item, t, active: entry.item.id === selectedId && !selectedGroupId, onClick: () => { setSelectedGroupId(null); setSelectedId(entry.item.id) } }))),
+          selectedGroup
+            ? h(GroupDetail, { group: selectedGroup, items: selectedGroupItems, t, onOpenItem: openItemById })
+            : selected
+              ? h(Detail, { item: selected, t, onRetry: retry, onDelete: remove, onOpenImage: openImage, onTagClick: applyTagFilter, onEntityClick: openEntity, related, onOpenRelated: openItemById })
+              : h('div', { className: 'ac-empty' }, h('p', null, t('untitled'))))
       }
 
       return h('div', {
@@ -2792,6 +2967,13 @@ window.__ModuleLoader__.load({
           h('div', { className: 'ac-modal-card' },
             h('button', { className: 'ac-modal-close', onClick: () => setModalId(null), 'aria-label': t('close') }, CloseIcon()),
             h(Detail, { item: modalItem, t, onRetry: retry, onDelete: remove, onOpenImage: openImage, onTagClick: applyTagFilter, onEntityClick: openEntity, related, onOpenRelated: openItemById }))) : null,
+        modalGroup ? h('div', {
+          className: 'ac-modal',
+          onMouseDown: (event) => { if (event.target === event.currentTarget) closeGroup() },
+        },
+          h('div', { className: 'ac-modal-card' },
+            h('button', { className: 'ac-modal-close', onClick: closeGroup, 'aria-label': t('close') }, CloseIcon()),
+            h(GroupDetail, { group: modalGroup, items: modalGroupItems, t, onOpenItem: openItemById }))) : null,
         settingsOpen ? h(SettingsModal, {
           t,
           github,
