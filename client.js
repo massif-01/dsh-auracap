@@ -1483,7 +1483,7 @@ window.__ModuleLoader__.load({
         type: 'button',
         disabled: props.busy,
         onClick: () => { if (confirmDelete) props.onDelete(group.id); else setConfirmDelete(true) },
-      }, TrashIcon(), confirmDelete ? t('confirmDeleteGroup') : t('deleteGroup')) : null
+      }, TrashIcon(), confirmDelete ? t('confirmDeleteGroup') + ' · ' + items.length : t('deleteGroup') + ' · ' + items.length) : null
       const members = items.map((item) => h('button', {
         key: item.id,
         className: 'ac-group-member',
