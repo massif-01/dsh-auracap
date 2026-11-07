@@ -2089,6 +2089,92 @@ function groupsForApi() {
     .sort((left, right) => String(right.updatedAt || '').localeCompare(String(left.updatedAt || '')))
 }
 
+function groupMemberItems(items, group) {
+  return (group.itemIds || []).map((itemId) => items.find((item) => item.id === itemId)).filter(Boolean)
+}
+
+async function mergeGroup(ctx, items, group) {
+  if (!group || !Array.isArray(group.itemIds) || group.itemIds.length < 2) {
+    const error = new Error('这组不足两条片刻')
+    error.status = 400
+    throw error
+  }
+  const members = groupMemberItems(items, group)
+  if (members.length < 2) {
+    const error = new Error('组内片刻不完整')
+    error.status = 409
+    throw error
+  }
+  const prompt = readPrompt('merge-zh.md')
+  if (!prompt) throw new Error('合并提示词缺失')
+  const material = members.map((item, index) => {
+    const summary = item.summary || {}
+    const title = summary.title || '未命名'
+    const content = plainTextOfSummary(summary).slice(0, 6000)
+    return `## 第 ${index + 1} 屏\n时间：${item.createdAt}\n标题：${title}\n${content}`
+  }).join('\n\n').slice(0, 26000)
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 120_000)
+  try {
+    const result = await collectStreamText(ctx.llm.stream({
+      provider: MODEL.provider,
+      model: MODEL.model,
+      reasoningEffort: 'off',
+      maxTokens: 2400,
+      system: prompt,
+      messages: [{ role: 'user', content: [{ type: 'text', text: material }] }],
+      signal: controller.signal,
+    }))
+    recordUsage('merge', result.usage)
+    const parsed = parseSummary(result.text)
+    const content = parsed.content || parsed.summary || ''
+    if (!content) throw new Error('合并结果为空')
+    group.merged = {
+      title: parsed.title || `${members.length} 屏合并`,
+      content,
+      tags: parsed.tags || [],
+      entities: parsed.entities || [],
+      sourceItemIds: members.map((item) => item.id),
+      model: MODEL.model,
+      promptVersion: 'merge-zh-v1',
+      createdAt: new Date().toISOString(),
+    }
+    group.status = 'merged'
+    group.updatedAt = new Date().toISOString()
+    saveGroups()
+    return group
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+function splitGroup(group) {
+  if (!group) {
+    const error = new Error('组不存在')
+    error.status = 404
+    throw error
+  }
+  group.merged = null
+  group.status = 'candidate'
+  group.updatedAt = new Date().toISOString()
+  saveGroups()
+  return group
+}
+
+function dismissGroup(group) {
+  if (!group) {
+    const error = new Error('组不存在')
+    error.status = 404
+    throw error
+  }
+  group.merged = null
+  group.status = 'candidate'
+  group.dismissed = true
+  group.updatedAt = new Date().toISOString()
+  saveGroups()
+  return group
+}
+
 export function apply(ctx) {
   const items = loadItems()
   loadGroups()
@@ -2450,6 +2536,20 @@ export function apply(ctx) {
           }
           saveGroups()
           return sendJson(res, 201, { group: groupStore.groups[id] })
+        }
+        const groupActionMatch = path.match(/^\/auracap\/api\/groups\/([^/]+)\/(merge|split|dismiss)$/)
+        if (groupActionMatch) {
+          if (req.method !== 'POST') return sendError(res, 405, 'method not allowed')
+          if (!trusted(req)) return sendError(res, 403, 'forbidden')
+          const group = groupStore.groups[decodeURIComponent(groupActionMatch[1])]
+          if (!group) return sendError(res, 404, '组不存在')
+          try {
+            if (groupActionMatch[2] === 'merge') return sendJson(res, 200, { group: await mergeGroup(ctx, items, group) })
+            if (groupActionMatch[2] === 'split') return sendJson(res, 200, { group: splitGroup(group) })
+            return sendJson(res, 200, { group: dismissGroup(group) })
+          } catch (error) {
+            return sendError(res, error.status || 502, error && error.message ? error.message : '操作失败')
+          }
         }
         const groupMatch = path.match(/^\/auracap\/api\/groups\/([^/]+)$/)
         if (groupMatch) {

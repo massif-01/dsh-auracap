@@ -37,6 +37,14 @@ window.__ModuleLoader__.load({
       groupScreens: '屏',
       groupSame: '同一内容',
       groupMembers: '这组包含',
+      groupSources: '来源',
+      groupMerged: '已合并',
+      mergeGroup: '合并为一篇',
+      merging: '正在合并…',
+      splitGroup: '拆分',
+      remakeGroup: '重新合并',
+      mergedSummary: '合并后的整理',
+      mergeFailed: '合并失败，原条目已保留',
       entities: '线索',
       tagFilter: '标签',
       relatedMoments: '相关片刻',
@@ -196,6 +204,7 @@ window.__ModuleLoader__.load({
       usageKindDaily: '日洞察',
       usageKindLong: '长洞察',
       usageKindBackfill: '线索回填',
+      usageKindMerge: '合并',
       usageEstimate: '估算费用',
       usageEstimateHint: '按官方单价估算，含高峰/空闲时段，不代表账单',
       phoneIntro: '已连接 GitHub。下面把手机接进来。',
@@ -257,6 +266,14 @@ window.__ModuleLoader__.load({
       groupScreens: 'screens',
       groupSame: 'Same content',
       groupMembers: 'This group',
+      groupSources: 'Sources',
+      groupMerged: 'Merged',
+      mergeGroup: 'Merge into one',
+      merging: 'Merging…',
+      splitGroup: 'Split',
+      remakeGroup: 'Merge again',
+      mergedSummary: 'Merged summary',
+      mergeFailed: 'Merge failed; originals are still here',
       entities: 'Clues',
       tagFilter: 'Tag',
       relatedMoments: 'Related moments',
@@ -416,6 +433,7 @@ window.__ModuleLoader__.load({
       usageKindDaily: 'Daily insight',
       usageKindLong: 'Long insight',
       usageKindBackfill: 'Clue backfill',
+      usageKindMerge: 'Merge',
       usageEstimate: 'Estimated cost',
       usageEstimateHint: 'Estimated from official list prices, peak/off-peak; not a bill',
       phoneIntro: 'GitHub is connected. Let’s bring your phone in.',
@@ -582,6 +600,11 @@ window.__ModuleLoader__.load({
 .ac-group-member-main { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .ac-group-member-main strong { font-size: 12.5px; font-weight: 500; line-height: 1.4; }
 .ac-group-member-main span { font-size: 10px; color: var(--dsw-alias-label-secondary); }
+.ac-group-actions { display: flex; align-items: center; gap: 10px; margin: 4px 0 22px; }
+.ac-group-actions-bottom { margin: 20px 0 0; }
+.ac-group-merged { margin: 8px 0 24px; }
+.ac-group-merged .ac-section { margin-top: 18px; }
+.ac-group-error { margin: 8px 0 16px; color: #b45445; font-size: 11px; }
 .ac-status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--dsw-alias-label-secondary); }
 .ac-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dsw-alias-state-idle-primary); display: inline-block; flex: none; }
 .ac-dot[data-state="summarizing"] { background: var(--dsw-alias-brand-primary); animation: ac-pulse 1.4s ease-in-out infinite; }
@@ -993,6 +1016,7 @@ window.__ModuleLoader__.load({
         : kind === 'daily-insight' ? t('usageKindDaily')
         : kind === 'long-insight' ? t('usageKindLong')
         : kind === 'entity-backfill' ? t('usageKindBackfill')
+        : kind === 'merge' ? t('usageKindMerge')
         : kind
     }
 
@@ -1299,6 +1323,8 @@ window.__ModuleLoader__.load({
       const primary = items.find((item) => item.id === group.primaryId) || items[0]
       const latest = groupLatest(items)
       const title = groupTitle(group, items, t)
+      const merged = group.merged
+      const mergedSections = merged && merged.content ? splitSections(merged.content) : []
       const members = items.map((item) => h('button', {
         key: item.id,
         className: 'ac-group-member',
@@ -1314,15 +1340,32 @@ window.__ModuleLoader__.load({
 
       return h('article', { className: 'ac-detail ac-group-detail' },
         h('div', { className: 'ac-detail-inner' },
-          h('div', { className: 'ac-group-kicker' }, t('groupSame') + ' · ' + items.length + ' ' + t('groupScreens')),
+          h('div', { className: 'ac-group-kicker' }, (merged ? t('groupMerged') : t('groupSame')) + ' · ' + items.length + ' ' + t('groupScreens')),
           h('h1', { className: 'ac-h1' }, title),
           h('div', { className: 'ac-meta' },
             h('span', null, t('groupCount') + ' ' + items.length + ' ' + t('groupScreens')),
             latest ? h('span', null, dateText(latest.createdAt)) : null,
             primary && primary.image && primary.image.width ? h('span', null, primary.image.width + ' × ' + primary.image.height) : null),
+          merged
+            ? h('div', { className: 'ac-group-merged' },
+                h('div', { className: 'ac-sec-label' }, t('mergedSummary')),
+                mergedSections.map((section, index) => h(SectionBlock, { key: index, section })))
+            : h('div', { className: 'ac-group-actions' },
+                h('button', {
+                  className: 'ac-primary',
+                  type: 'button',
+                  disabled: props.busy,
+                  onClick: () => props.onMerge(group.id),
+                }, props.busy ? t('merging') : t('mergeGroup'))),
+          props.error ? h('div', { className: 'ac-group-error' }, props.error) : null,
           h('div', { className: 'ac-section' },
-            h('div', { className: 'ac-sec-label' }, t('groupMembers')),
-            h('div', { className: 'ac-group-members' }, members))))
+            h('div', { className: 'ac-sec-label' }, merged ? t('groupSources') : t('groupMembers')),
+            h('div', { className: 'ac-group-members' }, members)),
+          merged
+            ? h('div', { className: 'ac-group-actions ac-group-actions-bottom' },
+                h('button', { className: 'ac-ghost', type: 'button', disabled: props.busy, onClick: () => props.onSplit(group.id) }, props.busy ? t('merging') : t('splitGroup')),
+                h('button', { className: 'ac-ghost', type: 'button', disabled: props.busy, onClick: () => props.onMerge(group.id) }, props.busy ? t('merging') : t('remakeGroup')))
+            : null))
     }
 
     function Row(props) {
@@ -2209,6 +2252,8 @@ window.__ModuleLoader__.load({
       const [groups, setGroups] = useState([])
       const [selectedGroupId, setSelectedGroupId] = useState(null)
       const [groupModalId, setGroupModalId] = useState(null)
+      const [groupBusy, setGroupBusy] = useState(false)
+      const [groupError, setGroupError] = useState(null)
       const hasPending = useMemo(() => items.some((item) => item.status === 'summarizing'), [items])
       const [selectedId, setSelectedId] = useState(null)
       const [scope, setScope] = useState('today')
@@ -2765,9 +2810,40 @@ window.__ModuleLoader__.load({
         setSelectedId(null)
         setModalId(null)
         setSelectedGroupId(id)
+        setGroupError(null)
         if (view === 'grid') setGroupModalId(id)
       }
-      const closeGroup = () => { setSelectedGroupId(null); setGroupModalId(null) }
+      const closeGroup = () => { setSelectedGroupId(null); setGroupModalId(null); setGroupError(null) }
+      const refreshGroups = async () => {
+        try {
+          const payload = await request(API + '/groups')
+          setGroups(Array.isArray(payload.groups) ? payload.groups : [])
+        } catch {}
+      }
+      const mergeGroupAction = async (groupId) => {
+        setGroupBusy(true)
+        setGroupError(null)
+        try {
+          const payload = await request(API + '/groups/' + encodeURIComponent(groupId) + '/merge', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+          setGroups((previous) => previous.map((group) => group.id === payload.group.id ? payload.group : group))
+        } catch (error) {
+          setGroupError(error && error.message ? error.message : t('mergeFailed'))
+        } finally {
+          setGroupBusy(false)
+        }
+      }
+      const splitGroupAction = async (groupId) => {
+        setGroupBusy(true)
+        setGroupError(null)
+        try {
+          const payload = await request(API + '/groups/' + encodeURIComponent(groupId) + '/split', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+          setGroups((previous) => previous.map((group) => group.id === payload.group.id ? payload.group : group))
+        } catch (error) {
+          setGroupError(error && error.message ? error.message : t('mergeFailed'))
+        } finally {
+          setGroupBusy(false)
+        }
+      }
       const openEntity = async (id) => {
         setModalId(null)
         setEntityId(id)
@@ -2909,7 +2985,7 @@ window.__ModuleLoader__.load({
               ? h(GroupRow, { key: 'group-' + entry.id, group: entry.group, items: entry.items, t, active: entry.id === selectedGroupId, onClick: () => openGroup(entry.id) })
               : h(Row, { key: entry.item.id, item: entry.item, t, active: entry.item.id === selectedId && !selectedGroupId, onClick: () => { setSelectedGroupId(null); setSelectedId(entry.item.id) } }))),
           selectedGroup
-            ? h(GroupDetail, { group: selectedGroup, items: selectedGroupItems, t, onOpenItem: openItemById })
+            ? h(GroupDetail, { group: selectedGroup, items: selectedGroupItems, t, onOpenItem: openItemById, onMerge: mergeGroupAction, onSplit: splitGroupAction, busy: groupBusy, error: groupError })
             : selected
               ? h(Detail, { item: selected, t, onRetry: retry, onDelete: remove, onOpenImage: openImage, onTagClick: applyTagFilter, onEntityClick: openEntity, related, onOpenRelated: openItemById })
               : h('div', { className: 'ac-empty' }, h('p', null, t('untitled'))))
@@ -2973,7 +3049,7 @@ window.__ModuleLoader__.load({
         },
           h('div', { className: 'ac-modal-card' },
             h('button', { className: 'ac-modal-close', onClick: closeGroup, 'aria-label': t('close') }, CloseIcon()),
-            h(GroupDetail, { group: modalGroup, items: modalGroupItems, t, onOpenItem: openItemById }))) : null,
+            h(GroupDetail, { group: modalGroup, items: modalGroupItems, t, onOpenItem: openItemById, onMerge: mergeGroupAction, onSplit: splitGroupAction, busy: groupBusy, error: groupError }))) : null,
         settingsOpen ? h(SettingsModal, {
           t,
           github,
