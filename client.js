@@ -1084,6 +1084,9 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       '长洞察格式不完整': 'The insight came back incomplete. Try again.',
       '日洞察格式不完整': 'The daily insight came back incomplete. Try again.',
       '洞察格式不完整': 'The insight came back incomplete. Try again.',
+      '合并结果为空': 'The merge returned nothing. Try again.',
+      '这组不足两条片刻': 'A group needs at least two moments.',
+      '组内片刻不完整': 'Some moments in this group are missing.',
       '生成已取消': 'Generation cancelled',
       '模型调用失败': 'The model request failed',
       'GitHub token 已失效': 'GitHub authorization expired. Reconnect GitHub.',
@@ -2620,6 +2623,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       const [usage, setUsage] = useState(null)
       const [memoryProfile, setMemoryProfile] = useState(null)
       const [memorySettings, setMemorySettings] = useState(null)
+      const [uiLang, setUiLang] = useState(() => uiLocale())
       const [insightStatus, setInsightStatus] = useState({})
       const [seenPeriods, setSeenPeriods] = useState(() => {
         try { return JSON.parse(localStorage.getItem('auracap.periodSeen') || '{}') || {} } catch { return {} }
@@ -2891,6 +2895,21 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           setGithubError(githubLoadError.message)
         }
       }, [t])
+
+      useEffect(() => {
+        if (typeof document === 'undefined' || !document.documentElement || typeof MutationObserver === 'undefined') return undefined
+        const observer = new MutationObserver(() => setUiLang(uiLocale()))
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] })
+        return () => observer.disconnect()
+      }, [])
+
+      useEffect(() => {
+        request(API + '/memory/locale', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ locale: uiLang }),
+        }).catch(() => {})
+      }, [uiLang])
 
       const openSettings = () => {
         setSettingsOpen(true)

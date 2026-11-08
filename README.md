@@ -84,7 +84,7 @@ Agent 没有让你翻相册。它从 AuraCap 里找到了几条相关的片刻�
 
 ## 界面
 
-界面会跟随 DeepSeek Harness 的语言设置；目前支持中文和 English。
+界面和生成内容会跟随 DeepSeek Harness 的语言设置；目前支持中文和 English。
 
 <table>
   <tr>
