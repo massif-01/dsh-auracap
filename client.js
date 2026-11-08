@@ -1044,7 +1044,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       const response = await fetch(path, Object.assign({ cache: 'no-store' }, options || {}))
       let payload = null
       try { payload = await response.json() } catch {}
-      if (!response.ok) throw new Error((payload && payload.error) || 'HTTP ' + response.status)
+      if (!response.ok) throw new Error(localizeError((payload && payload.error) || 'HTTP ' + response.status))
       return payload || {}
     }
 
@@ -1054,6 +1054,49 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       const date = new Date(iso)
       const now = new Date()
       return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate()
+    }
+
+    const ERROR_EN = {
+      '仅支持 PNG / JPEG / WebP / GIF': 'Only PNG / JPEG / WebP / GIF are supported',
+      '空文件': 'The file is empty',
+      '图片无法读取': 'The image could not be read',
+      '组不存在': 'Group not found',
+      '周期类型应为 week / month / year': 'Period must be week, month, or year',
+      '日期格式应为 YYYY-MM-DD': 'Date must be YYYY-MM-DD',
+      '请求体不是合法 JSON': 'Invalid JSON request',
+      '生成失败': 'Generation failed',
+      '无法开始 GitHub 授权': 'Could not start GitHub authorization',
+      '授权会话不存在或已过期': 'The authorization session is missing or expired',
+      '修复失败': 'Repair failed',
+      '生成快捷指令失败': 'Could not generate the shortcut',
+      'GitHub 未连接': 'GitHub is not connected',
+      '测试图上传失败': 'Test upload failed',
+      '实体不存在': 'Clue not found',
+      '至少选择两条片刻': 'Select at least two moments',
+      '存在找不到的片刻': 'Some moments could not be found',
+      '所选片刻已经在其他组里': 'Those moments are already in another group',
+      '操作失败': 'The action failed',
+      '仅支持图片、PDF、TXT、Markdown': 'Only images, PDF, TXT, and Markdown are supported',
+      '导入失败': 'Import failed',
+      '无法开始系统截图': 'Could not start the screenshot capture',
+      '这个周期还没有可用碎片': 'No moments for this period yet',
+      '这一天还没有可用的碎片': 'No moments for this day yet',
+      '长洞察格式不完整': 'The insight came back incomplete. Try again.',
+      '日洞察格式不完整': 'The daily insight came back incomplete. Try again.',
+      '洞察格式不完整': 'The insight came back incomplete. Try again.',
+      '生成已取消': 'Generation cancelled',
+      '模型调用失败': 'The model request failed',
+      'GitHub token 已失效': 'GitHub authorization expired. Reconnect GitHub.',
+    }
+
+    function localizeError(message) {
+      const text = String(message || '').trim()
+      if (!text || localeIsZh()) return text
+      for (const [zh, en] of Object.entries(ERROR_EN)) {
+        if (text.includes(zh)) return en
+      }
+      if (!/[\u4e00-\u9fff]/.test(text)) return text
+      return 'Something went wrong. Please try again.'
     }
 
     function uiLocale() {
@@ -2941,7 +2984,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
             let message = t('shortcutFailed')
             try {
               const payload = await response.json()
-              if (payload && payload.error) message = payload.error
+              if (payload && payload.error) message = localizeError(payload.error)
             } catch {}
             throw new Error(message)
           }
@@ -3045,7 +3088,8 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
             setScope('today')
           }
         } catch (captureError) {
-          if (!String(captureError.message || '').includes('已取消')) setError(captureError.message)
+          const captureMessage = String(captureError.message || '')
+          if (!captureMessage.includes('已取消') && !captureMessage.toLowerCase().includes('cancelled')) setError(captureMessage)
         } finally {
           setCaptureBusy(false)
         }
