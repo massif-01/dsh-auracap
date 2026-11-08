@@ -5,6 +5,12 @@
 <h1 align="center">AuraCap · 拾穗</h1>
 
 <p align="center">
+  <a href="README.md"><kbd>中文</kbd></a>
+  &nbsp;
+  <a href="README.en.md"><kbd>English</kbd></a>
+</p>
+
+<p align="center">
   <em>把散落的片刻轻轻拾起，让它们在回头时连成脉络。</em>
 </p>
 

@@ -19,6 +19,7 @@
     "cordis.patch.yml",
     "icon.svg",
     "README.md",
+    "README.en.md",
     "LICENSE",
     "docs/*.jpg",
     "docs/screenshots/*",
