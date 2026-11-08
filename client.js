@@ -213,6 +213,17 @@ window.__ModuleLoader__.load({
       configCopied: '已复制',
       githubError: 'GitHub 操作失败',
       itemsUnit: '条',
+      charactersUnit: '字',
+      entityPerson: '人物',
+      entityOrg: '机构',
+      entityProduct: '产品',
+      entityProject: '项目',
+      entityTopic: '主题',
+      entityPlace: '地点',
+      entityOther: '线索',
+      provisioningRelease: '正在创建私有仓库与中转 Release…',
+      shortcutFailed: '生成快捷指令失败',
+      untitledFile: '文件',
       phoneEntry: 'AuraCap 设置',
       usage: '用量',
       usageToday: '今日',
@@ -264,7 +275,7 @@ window.__ModuleLoader__.load({
     const EN = {
       appName: 'AuraCap',
       appTitle: 'AuraCap · Gleanings',
-      tagline: 'Gather the scattered moments; in hindsight, they form a thread.',
+      tagline: 'Gather the scattered moments; let them find their thread when you look back.',
       fragments: 'moments',
       layout: 'Layout',
       split: 'Split',
@@ -334,23 +345,23 @@ window.__ModuleLoader__.load({
       today: 'Today',
       all: 'All',
       localOnly: 'GitHub is only a free relay; screenshots stay on this Mac and image reading is handled by DeepSeek.',
-      dropTitle: 'Drop it here',
+      dropTitle: 'Drop to gather this moment',
       dropHint: 'Read in place — never uploaded to Photos or a cloud drive',
       emptyTitle: 'Keep the moments here',
       emptyHint: 'Drop a screenshot, or capture one from your phone; over time they become a thread you can look back on.',
-      onboardingTitle: 'Let this place know your phone',
+      onboardingTitle: 'Bring your phone in',
       brandName: 'AuraCap',
       brandZh: 'Gleanings',
       onboardingTagline1: 'Gather the scattered moments,',
       onboardingTagline2: 'so they form a thread when you look back.',
-      onboardingBody: 'Let this place know your phone. Screenshots and shared photos will find their way back here.',
+      onboardingBody: 'Connect it once. Screenshots and shared photos will find their way back here.',
       connectPhone: 'Connect phone',
       connecting: 'Connecting…',
       localOnlyAction: 'Try it on this Mac first',
       deviceTitle: 'Enter this code on GitHub',
       deviceBody: 'Open the page below and enter the code; this screen continues once you authorize.',
       openGithub: 'Open GitHub authorization',
-      provisioningGithub: 'Creating your private inbox…',
+      provisioningGithub: 'Creating your private relay…',
       connectedTitle: 'One more step',
       connectedBody: 'Download it, AirDrop it to your iPhone, and iOS adds it to Shortcuts. Screenshots and shared photos will find their way back.',
       installStep1: 'Download the .shortcut file on this Mac',
@@ -390,12 +401,12 @@ window.__ModuleLoader__.load({
       flowArrive: 'Once installed, a screenshot lands in Today',
       githubCode: 'GitHub code',
       copyCode: 'Copy',
-      importGuideTitle: 'Three ways to pick things up',
+      importGuideTitle: 'Three ways to gather',
       importGuideDesktop: 'Mac: drag a file in, or click Import.',
       importGuidePhone: 'Photos: share it to the AuraCap shortcut.',
       importGuideAction: 'In hand: bind it to Back Tap or the Action Button and it appears here.',
-      emptyTodayTitle: 'Nothing captured today',
-      emptyTodayHint: 'Switch to All to see what you picked up earlier.',
+      emptyTodayTitle: 'No new moments today',
+      emptyTodayHint: 'Switch to All to see what you gathered earlier.',
       viewAll: 'View all',
       privacy: 'GitHub is used only as a free file relay: the phone uploads screenshots to your private release, the Mac downloads and keeps them locally;\nimage reading and summaries are handled by DeepSeek, results stay on this Mac, and original assets are deleted from GitHub after consumption.',
       summarizing: 'Reading the screenshot…',
@@ -464,6 +475,17 @@ window.__ModuleLoader__.load({
       configCopied: 'Copied',
       githubError: 'GitHub request failed',
       itemsUnit: 'items',
+      charactersUnit: 'chars',
+      entityPerson: 'Person',
+      entityOrg: 'Organization',
+      entityProduct: 'Product',
+      entityProject: 'Project',
+      entityTopic: 'Topic',
+      entityPlace: 'Place',
+      entityOther: 'Clue',
+      provisioningRelease: 'Creating the private repository and relay Release…',
+      shortcutFailed: 'Could not generate the shortcut',
+      untitledFile: 'File',
       phoneEntry: 'AuraCap Settings',
       usage: 'Usage',
       usageToday: 'Today',
@@ -566,7 +588,7 @@ window.__ModuleLoader__.load({
 .ac-search-foot { display: flex; justify-content: space-between; gap: 10px; padding: 8px 14px; border-top: 1px solid var(--dsw-alias-border-l1); font-size: 10px; color: var(--dsw-alias-label-secondary); opacity: .7; }
 .ac-flow { flex: none; padding: 5px 22px 6px; border-bottom: 1px solid var(--dsw-alias-border-l1); position: relative; }
 .ac-flow-months { position: relative; height: 13px; }
-.ac-flow-month { position: absolute; transform: translateX(-50%); font-family: 'Songti SC', 'Noto Serif SC', serif; font-size: 10px; letter-spacing: .08em; color: var(--dsw-alias-label-secondary); opacity: .55; white-space: nowrap; }
+.ac-flow-month { position: absolute; transform: translateX(-50%); font-family: var(--dsw-font-family, 'Geist', 'PingFang SC', 'Noto Sans SC', sans-serif); font-size: 10px; letter-spacing: .08em; color: var(--dsw-alias-label-secondary); opacity: .55; white-space: nowrap; }
 .ac-flow-track { position: relative; height: 22px; margin: 0; }
 .ac-flow-line { position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: linear-gradient(90deg, transparent, var(--dsw-alias-border-l2) 12%, var(--dsw-alias-border-l2) 88%, transparent); }
 .ac-flow-wash { position: absolute; top: 50%; height: 10px; transform: translateY(-50%); background: color-mix(in srgb, var(--dsw-alias-brand-primary) 9%, transparent); border-radius: 999px; pointer-events: none; }
@@ -577,18 +599,18 @@ window.__ModuleLoader__.load({
 .ac-flow-handle:hover .ac-flow-handle-dot, .ac-flow-handle:focus-visible .ac-flow-handle-dot { transform: scale(1.15); }
 .ac-flow-handle:focus-visible { outline: none; }
 .ac-flow-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 10.5px; color: var(--dsw-alias-label-secondary); }
-.ac-flow-range { font-family: 'Songti SC', 'Noto Serif SC', serif; letter-spacing: .04em; color: var(--dsw-alias-label-secondary); }
+.ac-flow-range { font-family: var(--dsw-font-family, 'Geist', 'PingFang SC', 'Noto Sans SC', sans-serif); letter-spacing: .04em; color: var(--dsw-alias-label-secondary); }
 .ac-flow-reset { border: 0; background: transparent; color: var(--dsw-alias-label-secondary); font-size: 10.5px; cursor: pointer; padding: 0; font-family: inherit; }
 .ac-flow-reset:hover { color: var(--dsw-alias-label-primary); }
 .ac-flow-hint { opacity: .55; }
 .ac-insight-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 30px; }
 .ac-insight-heading { display: flex; flex-direction: column; gap: 6px; }
-.ac-insight-kicker { font-family: 'Songti SC', 'Noto Serif SC', serif; font-size: 10px; letter-spacing: .16em; color: var(--dsw-alias-label-secondary); opacity: .55; }
+.ac-insight-kicker { font-family: var(--dsw-font-family, 'Geist', 'PingFang SC', 'Noto Sans SC', sans-serif); font-size: 10px; letter-spacing: .16em; color: var(--dsw-alias-label-secondary); opacity: .55; }
 .ac-period-picker { position: relative; }
 .ac-period-trigger { display: flex; align-items: baseline; gap: 10px; border: 0; background: transparent; padding: 0; color: var(--dsw-alias-label-primary); font-family: inherit; cursor: pointer; text-align: left; }
 .ac-period-trigger:hover .ac-period-name { opacity: .72; }
 .ac-period-name { font-size: 22px; line-height: 1.25; font-weight: 600; letter-spacing: -.01em; transition: opacity .12s ease; }
-.ac-period-range { font-family: 'Songti SC', 'Noto Serif SC', serif; font-size: 11px; letter-spacing: .04em; color: var(--dsw-alias-label-secondary); }
+.ac-period-range { font-family: var(--dsw-font-family, 'Geist', 'PingFang SC', 'Noto Sans SC', sans-serif); font-size: 11px; letter-spacing: .04em; color: var(--dsw-alias-label-secondary); }
 .ac-period-trigger svg { color: var(--dsw-alias-label-secondary); align-self: center; margin-left: -2px; }
 .ac-insight-generate { margin-top: 3px; flex: none; }
 .ac-period-menu { position: absolute; top: calc(100% + 10px); left: 0; z-index: 40; width: 286px; padding: 6px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 12px; background: var(--dsw-alias-bg-base); box-shadow: 0 18px 48px color-mix(in srgb, var(--dsw-alias-label-primary) 13%, transparent); }
@@ -596,17 +618,17 @@ window.__ModuleLoader__.load({
 .ac-period-row:hover { background: var(--dsw-alias-bg-layer-1); }
 .ac-period-row[aria-selected="true"] { background: var(--dsw-alias-bg-layer-1); }
 .ac-period-row-label { font-weight: 500; }
-.ac-period-row-sub { margin-left: auto; font-size: 11px; color: var(--dsw-alias-label-secondary); font-family: 'Songti SC', 'Noto Serif SC', serif; }
+.ac-period-row-sub { margin-left: auto; font-size: 11px; color: var(--dsw-alias-label-secondary); font-family: var(--dsw-font-family, 'Geist', 'PingFang SC', 'Noto Sans SC', sans-serif); }
 .ac-period-dot { display: inline-block; flex: none; width: 5px; height: 5px; border-radius: 50%; background: var(--dsw-alias-brand-primary); }
 .ac-period-menu-divider { height: 1px; margin: 6px 4px; background: var(--dsw-alias-border-l1); }
 .ac-period-date { width: 100%; display: flex; align-items: center; gap: 8px; padding: 7px 10px 9px; border: 0; background: transparent; color: inherit; font-family: inherit; font-size: 12px; text-align: left; cursor: pointer; }
 .ac-period-date:hover { background: var(--dsw-alias-bg-layer-1); border-radius: 8px; }
-.ac-period-date-value { margin-left: auto; font-family: 'Songti SC', 'Noto Serif SC', serif; font-size: 11px; color: var(--dsw-alias-label-secondary); }
+.ac-period-date-value { margin-left: auto; font-family: var(--dsw-font-family, 'Geist', 'PingFang SC', 'Noto Sans SC', sans-serif); font-size: 11px; color: var(--dsw-alias-label-secondary); }
 .ac-calendar { padding: 0 8px 8px; }
 .ac-calendar-head { display: flex; align-items: center; justify-content: space-between; padding: 2px 0 6px; }
 .ac-calendar-head button { width: 22px; height: 22px; border: 0; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; font-size: 16px; line-height: 1; font-family: inherit; }
 .ac-calendar-head button:hover { background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); }
-.ac-calendar-title { font-family: 'Songti SC', 'Noto Serif SC', serif; font-size: 11.5px; letter-spacing: .06em; color: var(--dsw-alias-label-secondary); }
+.ac-calendar-title { font-family: var(--dsw-font-family, 'Geist', 'PingFang SC', 'Noto Sans SC', sans-serif); font-size: 11.5px; letter-spacing: .06em; color: var(--dsw-alias-label-secondary); }
 .ac-calendar-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 2px; font-size: 9px; color: var(--dsw-alias-label-secondary); opacity: .55; text-align: center; }
 .ac-calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
 .ac-calendar-day { height: 27px; border: 0; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 10.5px; cursor: pointer; }
@@ -879,10 +901,11 @@ window.__ModuleLoader__.load({
 .ac-onboarding-copy { min-width: 0; text-align: left; }
 .ac-onboarding-brand { display: flex; align-items: baseline; gap: 9px; margin-bottom: 18px; }
 .ac-onboarding-brand-name { font-size: 20px; font-weight: 600; letter-spacing: -.025em; line-height: 1; }
-.ac-onboarding-brand-zh { font-family: 'Songti SC', 'Noto Serif SC', serif; font-size: 11px; letter-spacing: .16em; color: var(--dsw-alias-label-secondary); opacity: .7; }
+html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh"] .ac-insight-kicker, html[lang^="zh"] .ac-period-range, html[lang^="zh"] .ac-period-row-sub, html[lang^="zh"] .ac-period-date-value, html[lang^="zh"] .ac-calendar-title, html[lang^="zh"] .ac-onboarding-brand-zh, html[lang^="zh"] .ac-onboarding-tagline, html[lang^="zh"] .ac-import-guide-title { font-family: 'Songti SC', 'Noto Serif SC', serif; }
+.ac-onboarding-brand-zh { font-family: var(--dsw-font-family, 'Geist', 'PingFang SC', 'Noto Sans SC', sans-serif); font-size: 11px; letter-spacing: .16em; color: var(--dsw-alias-label-secondary); opacity: .7; }
 .ac-onboarding-kicker { font-size: 9.5px; letter-spacing: .18em; color: var(--dsw-alias-label-secondary); opacity: .62; margin-bottom: 15px; text-transform: uppercase; }
 .ac-onboarding-title { font-size: 31px; line-height: 1.2; letter-spacing: -.025em; margin: 0 0 12px; }
-.ac-onboarding-tagline { font-family: 'Songti SC', 'Noto Serif SC', serif; font-size: 28px; line-height: 1.55; letter-spacing: .01em; font-weight: 600; }
+.ac-onboarding-tagline { font-family: var(--dsw-font-family, 'Geist', 'PingFang SC', 'Noto Sans SC', sans-serif); font-size: 28px; line-height: 1.55; letter-spacing: .01em; font-weight: 600; }
 .ac-onboarding-tagline span { display: block; }
 .ac-onboarding-tagline + .ac-onboarding-body { margin-top: 12px; }
 .ac-onboarding-body { max-width: 350px; font-size: 13px; line-height: 1.9; }
@@ -928,7 +951,7 @@ window.__ModuleLoader__.load({
 .ac-shot-note { margin: 14px 0 0; font-size: 11px; line-height: 1.65; color: var(--dsw-alias-label-secondary); opacity: .8; }
 .ac-shot-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
 .ac-import-guide { margin-top: 26px; display: flex; flex-direction: column; gap: 5px; font-size: 11.5px; line-height: 1.7; color: var(--dsw-alias-label-secondary); opacity: .82; }
-.ac-import-guide-title { font-family: 'Songti SC', 'Noto Serif SC', serif; font-size: 11px; letter-spacing: .12em; opacity: .65; margin-bottom: 2px; }
+.ac-import-guide-title { font-family: var(--dsw-font-family, 'Geist', 'PingFang SC', 'Noto Sans SC', sans-serif); font-size: 11px; letter-spacing: .12em; opacity: .65; margin-bottom: 2px; }
 .ac-import-guide-row { text-align: center; }
 .ac-footnote { margin-top: 18px; font-size: 11px; color: var(--dsw-alias-label-secondary); opacity: .75; }
 .ac-privacy-note { white-space: pre-line; }
@@ -1033,6 +1056,20 @@ window.__ModuleLoader__.load({
       return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate()
     }
 
+    function uiLocale() {
+      if (typeof document !== 'undefined' && document.documentElement && document.documentElement.lang) return document.documentElement.lang
+      if (typeof navigator !== 'undefined' && navigator.language) return navigator.language
+      return 'en'
+    }
+
+    function localeIsZh() {
+      return /^zh/i.test(uiLocale())
+    }
+
+    function formatMonthDay(date) {
+      return new Intl.DateTimeFormat(uiLocale(), { month: 'short', day: 'numeric' }).format(date)
+    }
+
     function todayKey() {
       const now = new Date()
       return now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate())
@@ -1076,20 +1113,25 @@ window.__ModuleLoader__.load({
     function rangeText(start, end) {
       const [sy, sm, sd] = String(start).split('-').map(Number)
       const [ey, em, ed] = String(end).split('-').map(Number)
-      if (sy === ey && sm === em && sd === ed) return sm + '月' + sd + '日'
-      if (sy === ey) return sm + '月' + sd + '日 – ' + em + '月' + ed + '日'
-      return sy + '年' + sm + '月 – ' + ey + '年' + em + '月'
+      const startDate = new Date(sy, sm - 1, sd, 12)
+      const endDate = new Date(ey, em - 1, ed, 12)
+      if (sy === ey && sm === em && sd === ed) return formatMonthDay(startDate)
+      if (sy === ey) return formatMonthDay(startDate) + ' – ' + formatMonthDay(endDate)
+      return new Intl.DateTimeFormat(uiLocale(), { year: 'numeric', month: 'short' }).format(startDate)
+        + ' – '
+        + new Intl.DateTimeFormat(uiLocale(), { year: 'numeric', month: 'short' }).format(endDate)
     }
 
     function timeText(iso) {
       const date = new Date(iso)
       const now = new Date()
       const diff = now.getTime() - date.getTime()
-      if (diff < 60_000) return '刚刚'
-      if (diff < 3_600_000) return Math.floor(diff / 60_000) + ' 分钟前'
+      if (diff < 60_000) return localeIsZh() ? '刚刚' : 'just now'
+      if (diff < 3_600_000) {
+        return new Intl.RelativeTimeFormat(uiLocale(), { numeric: 'auto' }).format(-Math.floor(diff / 60_000), 'minute')
+      }
       if (isToday(iso)) return pad(date.getHours()) + ':' + pad(date.getMinutes())
-      if (date.getFullYear() === now.getFullYear()) return (date.getMonth() + 1) + '月' + date.getDate() + '日'
-      return date.getFullYear() + '/' + pad(date.getMonth() + 1) + '/' + pad(date.getDate())
+      return new Intl.DateTimeFormat(uiLocale(), { month: 'short', day: 'numeric' }).format(date)
     }
 
     function formatTokens(value) {
@@ -1121,8 +1163,10 @@ window.__ModuleLoader__.load({
       const now = new Date()
       const sameYear = date.getFullYear() === now.getFullYear()
       const datePart = isToday(iso)
-        ? '今天'
-        : (sameYear ? (date.getMonth() + 1) + ' 月 ' + date.getDate() + ' 日' : date.getFullYear() + ' 年 ' + (date.getMonth() + 1) + ' 月 ' + date.getDate() + ' 日')
+        ? (localeIsZh() ? '今天' : 'Today')
+        : (sameYear
+          ? new Intl.DateTimeFormat(uiLocale(), { month: 'short', day: 'numeric' }).format(date)
+          : new Intl.DateTimeFormat(uiLocale(), { year: 'numeric', month: 'short', day: 'numeric' }).format(date))
       return datePart + ' ' + pad(date.getHours()) + ':' + pad(date.getMinutes())
     }
 
@@ -1573,7 +1617,7 @@ window.__ModuleLoader__.load({
         h('span', { key: 'source' }, t('local')),
         item.image && item.image.width
           ? h('span', { key: 'dims' }, item.image.width + ' × ' + item.image.height)
-          : item.document ? h('span', { key: 'chars' }, item.document.chars + ' 字') : null,
+          : item.document ? h('span', { key: 'chars' }, item.document.chars + ' ' + t('charactersUnit')) : null,
       ]
       const body = []
       if (item.status === 'summarizing') {
@@ -1955,13 +1999,13 @@ window.__ModuleLoader__.load({
         setCalendarOpen(false)
       }
       const periods = [
-        ['day', 'periodDay', '今日'],
-        ['week', 'periodWeek', '本周'],
-        ['month', 'periodMonth', '本月'],
-        ['year', 'periodYear', '今年'],
+        ['day', 'periodDay'],
+        ['week', 'periodWeek'],
+        ['month', 'periodMonth'],
+        ['year', 'periodYear'],
       ]
       const menu = menuOpen ? h('div', { className: 'ac-period-menu' },
-        periods.map(([id, key, fallback]) => {
+        periods.map(([id, key]) => {
           const bounds = periodBounds(id, props.anchor)
           const sub = id === 'day' ? rangeText(bounds.start, bounds.end) : rangeText(bounds.start, bounds.end)
           return h('button', {
@@ -1971,7 +2015,7 @@ window.__ModuleLoader__.load({
             'aria-selected': props.period === id,
             onClick: () => { props.onPeriodChange(id); setMenuOpen(false); setCalendarOpen(false) },
           },
-            h('span', { className: 'ac-period-row-label' }, t(key) || fallback),
+            h('span', { className: 'ac-period-row-label' }, t(key)),
             h('span', { className: 'ac-period-row-sub' }, sub),
             props.unreadPeriods && props.unreadPeriods[id] ? h('span', { className: 'ac-period-dot', 'aria-hidden': true }) : null)
         }),
@@ -1983,9 +2027,12 @@ window.__ModuleLoader__.load({
         calendarOpen ? h('div', { className: 'ac-calendar' },
           h('div', { className: 'ac-calendar-head' },
             h('button', { type: 'button', onClick: () => shiftCalendar(-1), 'aria-label': t('previousPeriod') }, '‹'),
-            h('span', { className: 'ac-calendar-title' }, calendarYear + ' 年 ' + calendarMonthNumber + ' 月'),
+            h('span', { className: 'ac-calendar-title' }, new Intl.DateTimeFormat(uiLocale(), { year: 'numeric', month: 'long' }).format(new Date(calendarYear, calendarMonthNumber - 1, 1))),
             h('button', { type: 'button', onClick: () => shiftCalendar(1), 'aria-label': t('nextPeriod') }, '›')),
-          h('div', { className: 'ac-calendar-week' }, ['一', '二', '三', '四', '五', '六', '日'].map((day) => h('span', { key: day }, day))),
+          h('div', { className: 'ac-calendar-week' }, Array.from({ length: 7 }, (_, index) => {
+            const day = new Intl.DateTimeFormat(uiLocale(), { weekday: 'narrow' }).format(new Date(2021, 0, 4 + index))
+            return h('span', { key: day }, day)
+          })),
           h('div', { className: 'ac-calendar-grid' }, calendarCells.map((cell, index) => cell
             ? h('button', {
                 key: cell.key,
@@ -2021,10 +2068,10 @@ window.__ModuleLoader__.load({
       } else if (digest) {
         body = h('div', null,
           h('h1', { className: 'ac-digest-h1' }, digest.title || props.periodLabel || t('insightToday')),
-          h('div', { className: 'ac-digest-meta' }, t('insightBasedOn') + ' ' + digest.itemCount + ' 条 · ' + t('insightUpdated') + ' ' + timeText(digest.createdAt)),
+          h('div', { className: 'ac-digest-meta' }, t('insightBasedOn') + ' ' + digest.itemCount + ' ' + t('itemsUnit') + ' · ' + t('insightUpdated') + ' ' + timeText(digest.createdAt)),
           props.sources && props.sources.length ? h('div', { className: 'ac-insight-sources' },
             h('button', { className: 'ac-source-toggle', type: 'button', onClick: () => setSourcesOpen(!sourcesOpen) },
-              t('insightSources') + ' ' + props.sources.length + ' 条', h('span', { 'data-open': sourcesOpen }, ChevronDownIcon())),
+              t('insightSources') + ' ' + props.sources.length + ' ' + t('itemsUnit'), h('span', { 'data-open': sourcesOpen }, ChevronDownIcon())),
             sourcesOpen ? h('div', { className: 'ac-source-list' }, props.sources.map((item) => h('button', {
               key: item.id,
               className: 'ac-source-row',
@@ -2048,8 +2095,14 @@ window.__ModuleLoader__.load({
     }
 
     function entityTypeLabel(type, t) {
-      const map = { person: '人物', org: '机构', product: '产品', project: '项目', topic: '主题', place: '地点', other: '线索' }
-      return map[type] || t('entities')
+      const key = type === 'person' ? 'entityPerson'
+        : type === 'org' ? 'entityOrg'
+        : type === 'product' ? 'entityProduct'
+        : type === 'project' ? 'entityProject'
+        : type === 'topic' ? 'entityTopic'
+        : type === 'place' ? 'entityPlace'
+        : 'entityOther'
+      return t(key) || t('entities')
     }
 
     function EntityModal(props) {
@@ -2192,7 +2245,7 @@ window.__ModuleLoader__.load({
                 h('div', { className: 'ac-device-code' }, device.userCode || ''),
                 h('a', { className: 'ac-device-link', href: device.verificationUri || 'https://github.com/login/device', target: '_blank', rel: 'noreferrer' }, t('openDevice')),
                 h('div', { className: 'ac-footnote', style: { marginTop: 10 } },
-                  device.status === 'provisioning' ? '正在创建私有仓库与中转 Release…' : t('githubWaiting')))
+                  device.status === 'provisioning' ? t('provisioningRelease') : t('githubWaiting')))
             : h('div', { className: 'ac-set-actions' },
                 h('button', { className: 'ac-primary', onClick: props.onConnect, disabled: props.busy }, t('connectGithub'))))
       } else {
@@ -2885,7 +2938,7 @@ window.__ModuleLoader__.load({
         try {
           const response = await fetch(API + '/github/shortcut-file', { cache: 'no-store' })
           if (!response.ok) {
-            let message = '生成快捷指令失败'
+            let message = t('shortcutFailed')
             try {
               const payload = await response.json()
               if (payload && payload.error) message = payload.error
@@ -2963,7 +3016,7 @@ window.__ModuleLoader__.load({
               method: 'POST',
               headers: {
                 'content-type': fileTypeOf(file),
-                'x-auracap-name': encodeURIComponent(file.name || '文件'),
+                'x-auracap-name': encodeURIComponent(file.name || t('untitledFile')),
               },
               body: file,
             })
@@ -3440,7 +3493,7 @@ window.__ModuleLoader__.load({
       inject: ['slots', 'locale'],
       apply(ctx) {
         const t = buildT(ctx)
-        const Panel = () => h(App, { t })
+        const Panel = (props) => h(App, { t: (props && props.t) || t })
         ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
           name: 'sidebar.panellist',
           id: 'auracap',

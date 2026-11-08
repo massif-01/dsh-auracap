@@ -783,7 +783,7 @@ async function generateDigest(llm, items, date) {
     if (content && !/^\s*#{1,6}\s+/m.test(content)) content = '### 今日焦点\n' + content
     const digest = {
       date,
-      title: parsed.title || `${date} 洞察`,
+      title: parsed.title || date,
       content,
       itemCount: ready.length,
       itemIds: [...new Set(ready.flatMap((item) => item.sourceItemIds || [item.id]))],
