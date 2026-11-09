@@ -537,6 +537,8 @@ async function generatePeriodInsight(ctx, items, type, anchorISO, force) {
     error.status = 409
     throw error
   }
+  // Only sources that existed at generation start can be "deleted during generation".
+  // Pre-existing stale lineage must not block the commit.
   const startIds = new Set(items.map((item) => item.id))
   const sourceIdsToCheck = material.itemIds.filter((id) => startIds.has(id))
   const prompt = promptFor('long-insights', language)
@@ -650,7 +652,8 @@ function searchGroupsFor(query, items) {
     if (!members.length) return null
     const primary = members.find((item) => item.id === group.primaryId) || members[0]
     const merged = group.status === 'merged' && group.merged && group.merged.content ? group.merged : null
-    const summaries = merged ? [merged] : members.map((member) => member.summary || {})
+    const memberSummaries = members.map((member) => member.summary || {})
+    const summaries = merged ? [merged, ...memberSummaries] : memberSummaries
     const texts = summaries.map((summary) => {
       const title = summary.title || ''
       const body = [summary.content, summary.excerpt, summary.summary, (summary.tags || []).join(' ')].filter(Boolean).join(' ')
@@ -889,7 +892,11 @@ async function generateDigest(llm, items, date) {
     error.status = 409
     throw error
   }
+  // Only sources that existed when generation started can be "deleted during generation".
+  // Pre-existing stale lineage must not block the commit.
+  const startIds = new Set(items.map((item) => item.id))
   const sourceIds = [...new Set(ready.flatMap((item) => item.sourceItemIds || [item.id]))]
+  const sourceIdsToCheck = sourceIds.filter((id) => startIds.has(id))
   const material = digestMaterial(ready, language)
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 240_000)
@@ -913,15 +920,15 @@ async function generateDigest(llm, items, date) {
       }
     }
     if (!parsed) throw new Error('日洞察格式不完整，已重试一次仍失败')
-    if (missingSourceIds(sourceIds, items).length) throw sourcesChangedError()
+    if (missingSourceIds(sourceIdsToCheck, items).length) throw sourcesChangedError()
     let content = parsed.content
     if (content && !/^\s*#{1,6}\s+/m.test(content)) content = (language === 'en' ? '### What stood out\n' : '### 今日焦点\n') + content
     const digest = {
       date,
       title: parsed.title || date,
       content,
-      itemCount: sourceIds.length,
-      itemIds: sourceIds,
+      itemCount: sourceIdsToCheck.length,
+      itemIds: sourceIdsToCheck,
       createdAt: new Date().toISOString(),
       model: MODEL.model,
     }
@@ -2906,6 +2913,7 @@ export async function mergeGroup(ctx, items, group) {
     throw error
   }
   const memberIds = group.itemIds.slice()
+  // Only members present at generation start can be "deleted during generation".
   const startIds = new Set(items.map((item) => item.id))
   const memberIdsToCheck = memberIds.filter((id) => startIds.has(id))
   const members = groupMemberItems(items, group)
