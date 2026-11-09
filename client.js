@@ -187,6 +187,7 @@ window.__ModuleLoader__.load({
       generating: '正在归纳…',
       preparing: '正在生成…',
       insightRegenerate: '重新生成',
+      insightTimeout: '生成超时，请重试',
       insightAlsoSources: '参考',
       insightUnit: '条洞察',
       insightBasedOn: '基于',
@@ -460,6 +461,7 @@ window.__ModuleLoader__.load({
       generating: 'Reading the day…',
       preparing: 'Preparing…',
       insightRegenerate: 'Regenerate',
+      insightTimeout: 'Generation timed out. Please try again.',
       insightAlsoSources: 'plus',
       insightUnit: 'insights',
       insightBasedOn: 'Based on',
@@ -3173,8 +3175,8 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         let failed = false
         try {
           const payload = type === 'day'
-            ? await request(API + '/digest', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ date: anchor }) })
-            : await request(API + '/insights', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type, anchor, force: true }) })
+            ? await request(API + '/digest', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ date: anchor }), signal: AbortSignal.timeout(360_000) })
+            : await request(API + '/insights', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type, anchor, force: true }), signal: AbortSignal.timeout(360_000) })
           const view = viewRef.current
           if (taskId === generationTask.current && seq === insightSeq.current && type === view.period && anchor === view.anchor) {
             setDigest((type === 'day' ? payload.digest : payload.insight) || null)
@@ -3182,8 +3184,11 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           }
         } catch (insightError) {
           failed = true
+          const message = insightError && (insightError.name === 'TimeoutError' || insightError.name === 'AbortError')
+            ? t('insightTimeout')
+            : (insightError && insightError.message) || t('githubError')
           const view = viewRef.current
-          if (taskId === generationTask.current && type === view.period && anchor === view.anchor) setDigestError(insightError.message)
+          if (taskId === generationTask.current && type === view.period && anchor === view.anchor) setDigestError(message)
         } finally {
           if (taskId === generationTask.current) {
             digestBusyRef.current = false
