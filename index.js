@@ -47,7 +47,7 @@ const GITHUB_POLL_BATTERY_MS = 180_000
 const GITHUB_REQUEST_TIMEOUT_MS = 20_000
 const GITHUB_DOWNLOAD_TIMEOUT_MS = 60_000
 const GITHUB_DOWNLOAD_MAX_BYTES = 40 * 1024 * 1024
-const GITHUB_SYNC_STALE_MS = 3 * 60 * 1000
+const GITHUB_SYNC_WATCH_MS = 5 * 60 * 1000
 const GITHUB_EXPIRY_WARNING_MS = 12 * 60 * 60 * 1000
 const GITHUB_REFRESH_WINDOW_MS = 5 * 60 * 1000
 const DIGEST_REFRESH_MS = 4 * 60 * 60 * 1000
@@ -289,6 +289,17 @@ function saveDigest(digest) {
   renameSync(tmp, file)
 }
 
+function missingSourceIds(ids, items) {
+  const present = new Set(items.map((item) => item.id))
+  return [...new Set(ids || [])].filter((id) => !present.has(id))
+}
+
+function sourcesChangedError() {
+  const error = new Error('内容已变化，请重新生成')
+  error.status = 409
+  return error
+}
+
 function fileReferencesItem(file, itemId) {
   try {
     const data = JSON.parse(readFileSync(file, 'utf8'))
@@ -428,17 +439,18 @@ function itemsInRange(items, start, end) {
 
 function sourceInsightBlocks(type, start, end) {
   const blocks = []
-  const sourceKeys = []
   const seen = new Set()
   const push = (nextType, dateKey) => {
     const info = periodInfo(nextType, dateKey)
-    if (seen.has(info.type + info.key)) return
-    seen.add(info.type + info.key)
+    const id = info.type + ':' + info.key
+    if (seen.has(id)) return
+    seen.add(id)
     const insight = loadPeriodInsight(nextType, info.key)
-    if (insight && insight.content) {
-      blocks.push(`## ${info.key}\n${insight.content}`)
-      sourceKeys.push(info.key)
-    }
+    if (!insight || !insight.content) return
+    const sourceIds = Array.isArray(insight.sourceItemIds)
+      ? insight.sourceItemIds
+      : (Array.isArray(insight.itemIds) ? insight.itemIds : [])
+    blocks.push({ id, block: `## ${info.key}\n${insight.content}`, sourceIds })
   }
   const dates = []
   for (let cursor = start; cursor <= end; cursor = addDays(cursor, 1)) dates.push(cursor)
@@ -452,27 +464,66 @@ function sourceInsightBlocks(type, start, end) {
     if (blocks.length < 3) for (const key of dates) push('week', key)
     if (blocks.length < 3) for (const key of dates) push('day', key)
   }
-  return { blocks: blocks.slice(0, 16), keys: sourceKeys.slice(0, 16) }
+  return blocks.slice(0, 16)
 }
 
 function periodMaterial(type, items, info, language = 'zh') {
   const inRange = itemsInRange(items, info.start, info.end).sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-  const sourceData = sourceInsightBlocks(type, info.start, info.end)
-  const sources = sourceData.blocks
+  const sources = sourceInsightBlocks(type, info.start, info.end)
   const limit = type === 'year' ? 36 : type === 'month' ? 20 : 14
   const english = language === 'en'
   const usedItems = inRange.slice(-limit)
-  const itemsText = usedItems.map((item) => {
-    const summary = item.summary || {}
-    const title = summary.title || (english ? 'Untitled' : '未命名')
-    const content = plainTextOfSummary(summary).slice(0, 420)
-    return `- ${new Date(item.createdAt).toLocaleString(english ? 'en-US' : 'zh-CN', { hour12: false })} | ${title} | ${content}`
-  }).join('\n')
-  const parts = []
-  parts.push(english ? `Period: ${type}` : `周期类型：${type}`, english ? `Range: ${info.start} ~ ${info.end}` : `日期范围：${info.start} ~ ${info.end}`)
-  if (sources.length) parts.push(english ? '# Existing insights' : '# 已有洞察', sources.join('\n\n'))
-  if (itemsText) parts.push(english ? '# Raw moments' : '# 原始片段', itemsText)
-  return { text: parts.join('\n\n').slice(0, 30_000), itemCount: usedItems.length, sourceCount: sources.length, itemIds: [...new Set(usedItems.flatMap((item) => item.sourceItemIds || [item.id]))], sourceInsightKeys: sourceData.keys }
+  const budget = 30_000
+  const parts = [english ? `Period: ${type}` : `周期类型：${type}`, english ? `Range: ${info.start} ~ ${info.end}` : `日期范围：${info.start} ~ ${info.end}`]
+  let size = parts.join('\n\n').length
+  const append = (block) => {
+    const extra = 2 + block.length
+    if (size + extra > budget) return false
+    parts.push(block)
+    size += extra
+    return true
+  }
+
+  const includedSources = []
+  if (sources.length) {
+    const heading = english ? '# Existing insights' : '# 已有洞察'
+    let headingAdded = false
+    for (const source of sources) {
+      const chunk = headingAdded ? source.block : heading + '\n\n' + source.block
+      if (!append(chunk)) break
+      headingAdded = true
+      includedSources.push(source)
+    }
+  }
+
+  const includedItems = []
+  if (usedItems.length) {
+    const heading = english ? '# Raw moments' : '# 原始片段'
+    let headingAdded = false
+    for (const item of usedItems) {
+      const summary = item.summary || {}
+      const title = summary.title || (english ? 'Untitled' : '未命名')
+      const content = plainTextOfSummary(summary).slice(0, 420)
+      const line = `- ${new Date(item.createdAt).toLocaleString(english ? 'en-US' : 'zh-CN', { hour12: false })} | ${title} | ${content}`
+      const chunk = headingAdded ? line : heading + '\n\n' + line
+      if (!append(chunk)) break
+      headingAdded = true
+      includedItems.push(item)
+    }
+  }
+
+  const itemIds = [...new Set([
+    ...includedItems.flatMap((item) => item.sourceItemIds || [item.id]),
+    ...includedSources.flatMap((source) => source.sourceIds),
+  ])]
+  return {
+    text: parts.join('\n\n').slice(0, budget),
+    directCount: includedItems.length,
+    itemCount: itemIds.length,
+    itemIds,
+    sourceCount: includedSources.length,
+    sourceInsightKeys: includedSources.map((source) => source.id),
+  }
 }
 
 async function generatePeriodInsight(ctx, items, type, anchorISO, force) {
@@ -481,7 +532,7 @@ async function generatePeriodInsight(ctx, items, type, anchorISO, force) {
   if (existing && !force) return existing
   const language = resolveContentLanguage()
   const material = periodMaterial(type, groupedInsightEntries(items), info, language)
-  if (!material.itemCount) {
+  if (!material.directCount && !material.sourceInsightKeys.length) {
     const error = new Error('这个周期还没有可用碎片')
     error.status = 409
     throw error
@@ -512,6 +563,7 @@ async function generatePeriodInsight(ctx, items, type, anchorISO, force) {
       }
     }
     if (!parsed) throw new Error('长洞察格式不完整，已重试一次仍失败')
+    if (missingSourceIds(material.itemIds, items).length) throw sourcesChangedError()
     const insight = {
       type,
       key: info.key,
@@ -520,6 +572,7 @@ async function generatePeriodInsight(ctx, items, type, anchorISO, force) {
       title: parsed.title || `${info.start} ~ ${info.end}`,
       content: parsed.content,
       itemCount: material.itemCount,
+      directItemCount: material.directCount,
       sourceCount: material.sourceCount,
       sourceItemIds: material.itemIds,
       sourceInsightKeys: material.sourceInsightKeys,
@@ -592,12 +645,26 @@ function searchGroupsFor(query, items) {
   const grouped = groupsForApi()
   return grouped.map((group) => {
     const members = (group.itemIds || []).map((itemId) => items.find((item) => item.id === itemId)).filter(Boolean)
+    if (!members.length) return null
     const primary = members.find((item) => item.id === group.primaryId) || members[0]
-    const summary = group.merged || (primary && primary.summary) || {}
-    const title = summary.title || '未命名'
-    const body = [summary.content, summary.excerpt, summary.summary, (summary.tags || []).join(' ')].filter(Boolean).join(' ')
-    const haystack = title + ' ' + body
-    if (!terms.every((term) => haystack.toLowerCase().includes(term))) return null
+    const merged = group.status === 'merged' && group.merged && group.merged.content ? group.merged : null
+    const summaries = merged ? [merged] : members.map((member) => member.summary || {})
+    const texts = summaries.map((summary) => {
+      const title = summary.title || ''
+      const body = [summary.content, summary.excerpt, summary.summary, (summary.tags || []).join(' ')].filter(Boolean).join(' ')
+      return { summary, title, body, haystack: (title + ' ' + body).toLowerCase() }
+    })
+    let hit = texts.find((entry) => terms.every((term) => entry.haystack.includes(term)))
+    let body = hit ? (hit.body || hit.title) : ''
+    if (!hit) {
+      const joinedBody = texts.map((entry) => entry.body || entry.title).join(' ')
+      if (terms.every((term) => joinedBody.toLowerCase().includes(term))) {
+        hit = texts[0]
+        body = joinedBody
+      }
+    }
+    if (!hit) return null
+    const title = hit.summary.title || (primary.summary && primary.summary.title) || '未命名'
     return {
       kind: 'group',
       id: group.id,
@@ -605,11 +672,11 @@ function searchGroupsFor(query, items) {
       snippet: searchSnippet(body || title, terms),
       createdAt: group.createdAt,
       count: members.length,
-      score: searchScore(haystack, terms, title) + 1,
+      memberIds: members.map((member) => member.id),
+      score: searchScore(hit.haystack, terms, title) + 1,
     }
   }).filter(Boolean).sort((a, b) => b.score - a.score || String(b.createdAt).localeCompare(String(a.createdAt))).slice(0, 8)
 }
-
 function searchInsightsFor(query) {
   const terms = String(query || '').toLowerCase().split(/\s+/).filter(Boolean)
   if (!terms.length) return []
@@ -819,6 +886,7 @@ async function generateDigest(llm, items, date) {
     error.status = 409
     throw error
   }
+  const sourceIds = [...new Set(ready.flatMap((item) => item.sourceItemIds || [item.id]))]
   const material = digestMaterial(ready, language)
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 240_000)
@@ -842,14 +910,15 @@ async function generateDigest(llm, items, date) {
       }
     }
     if (!parsed) throw new Error('日洞察格式不完整，已重试一次仍失败')
+    if (missingSourceIds(sourceIds, items).length) throw sourcesChangedError()
     let content = parsed.content
     if (content && !/^\s*#{1,6}\s+/m.test(content)) content = (language === 'en' ? '### What stood out\n' : '### 今日焦点\n') + content
     const digest = {
       date,
       title: parsed.title || date,
       content,
-      itemCount: ready.length,
-      itemIds: [...new Set(ready.flatMap((item) => item.sourceItemIds || [item.id]))],
+      itemCount: sourceIds.length,
+      itemIds: sourceIds,
       createdAt: new Date().toISOString(),
       model: MODEL.model,
     }
@@ -1145,7 +1214,7 @@ function githubFailure(response, fallback) {
   return new Error(message + '（HTTP ' + response.status + '）')
 }
 
-async function provisionGithub(ctx, github) {
+async function provisionGithub(ctx, github, isCurrent) {
   const token = await readGithubToken(ctx, github.state)
   if (!token) throw new Error('GitHub 未连接')
   const user = await githubRequest(token, '/user')
@@ -1184,6 +1253,11 @@ async function provisionGithub(ctx, github) {
     })
   }
   if (release.status !== 200 && release.status !== 201) throw githubFailure(release, '创建收件箱 Release 失败')
+  if (typeof isCurrent === 'function' && !isCurrent()) {
+    const error = new Error('已断开连接')
+    error.status = 409
+    throw error
+  }
 
   const previous = github.state.github || {}
   github.state.github = {
@@ -1208,6 +1282,7 @@ async function provisionGithub(ctx, github) {
 }
 
 async function startGithubDevice(ctx, github) {
+  const generation = github.flowGeneration
   const body = new URLSearchParams({ client_id: GITHUB_CLIENT_ID, scope: 'repo read:user' })
   const response = await fetch('https://github.com/login/device/code', {
     method: 'POST',
@@ -1217,9 +1292,14 @@ async function startGithubDevice(ctx, github) {
   })
   const data = await response.json().catch(() => null)
   if (!response.ok || !data || !data.device_code) throw new Error('无法开始 GitHub 授权（' + response.status + '）')
+  if (generation !== github.flowGeneration) {
+    const error = new Error('已断开连接')
+    error.status = 409
+    throw error
+  }
   const flow = {
     id: randomUUID(),
-    generation: github.flowGeneration,
+    generation,
     deviceCode: data.device_code,
     userCode: data.user_code,
     verificationUri: data.verification_uri,
@@ -1229,7 +1309,12 @@ async function startGithubDevice(ctx, github) {
     error: null,
   }
   github.flows.set(flow.id, flow)
-  runGithubDevice(ctx, github, flow).catch(() => {})
+  runGithubDevice(ctx, github, flow).catch((error) => {
+    if (flow.status === 'pending' || flow.status === 'provisioning') {
+      flow.status = 'failed'
+      flow.error = error && error.message ? error.message : String(error)
+    }
+  })
   return { id: flow.id, userCode: flow.userCode, verificationUri: flow.verificationUri, expiresIn: Math.max(1, Math.round((flow.expiresAt - Date.now()) / 1000)) }
 }
 
@@ -1242,13 +1327,21 @@ async function runGithubDevice(ctx, github, flow) {
       device_code: flow.deviceCode,
       grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
     })
-    const response = await fetch('https://github.com/login/oauth/access_token', {
-      method: 'POST',
-      headers: { accept: 'application/json', 'content-type': 'application/x-www-form-urlencoded' },
-      body,
-      signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
-    })
-    const data = await response.json().catch(() => null)
+    let response
+    let data = null
+    try {
+      response = await fetch('https://github.com/login/oauth/access_token', {
+        method: 'POST',
+        headers: { accept: 'application/json', 'content-type': 'application/x-www-form-urlencoded' },
+        body,
+        signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
+      })
+      data = await response.json().catch(() => null)
+    } catch (error) {
+      flow.status = 'failed'
+      flow.error = '授权请求失败，请重试'
+      return
+    }
     if (data && data.access_token) {
       if (flow.generation !== github.flowGeneration) { flow.status = 'cancelled'; flow.error = '已断开连接'; return }
       flow.status = 'provisioning'
@@ -1264,20 +1357,7 @@ async function runGithubDevice(ctx, github, flow) {
         github.state.lastErrorAt = null
         github.state.needsReconnect = false
         github.state.reconnectReason = null
-        await provisionGithub(ctx, github)
-        flow.connectedAt = github.state.github && github.state.github.connectedAt
-        if (flow.generation !== github.flowGeneration) {
-          const ownsState = Boolean(flow.connectedAt && github.state.github && github.state.github.connectedAt === flow.connectedAt)
-          if (ownsState) {
-            await clearGithubToken(ctx, github.state)
-            github.state.github = null
-            github.state.queueCount = 0
-            saveState(github.state)
-          }
-          flow.status = 'cancelled'
-          flow.error = '已断开连接'
-          return
-        }
+        await provisionGithub(ctx, github, () => flow.generation === github.flowGeneration)
         flow.status = 'ready'
         syncGithub(ctx, github).catch(() => {})
       } catch (error) {
@@ -1320,6 +1400,7 @@ function githubStatus(github) {
     needsReconnect: Boolean(repo) && (github.state.needsReconnect === true || (!repo.canRefresh && githubAuthExpired(github.state))),
     reconnectReason: repo ? (github.state.reconnectReason || null) : null,
     syncing: Boolean(github.syncing),
+    syncingForMs: github.syncing && github.syncingSince ? Date.now() - github.syncingSince : 0,
   }
 }
 
@@ -1386,9 +1467,10 @@ async function generateShortcutFile(ctx, github) {
 
 async function syncGithub(ctx, github) {
   if (!githubConnected(github.state)) return
-  if (github.syncing && Date.now() - (github.syncingSince || 0) < GITHUB_SYNC_STALE_MS) return
+  if (github.syncing) return
   github.syncing = true
   github.syncingSince = Date.now()
+  github.syncWarned = false
   github.state.lastAttemptAt = new Date().toISOString()
   try {
     const canRefresh = Boolean(github.state.github.canRefresh)
@@ -1450,6 +1532,7 @@ async function syncGithub(ctx, github) {
   } finally {
     github.syncing = false
     github.syncingSince = null
+    github.syncWarned = false
     saveState(github.state)
   }
 }
@@ -1493,6 +1576,15 @@ function startGithubLoop(ctx, github) {
   let lastAttempt = 0
   const tick = async () => {
     if (!githubConnected(github.state)) return
+    if (github.syncing) {
+      if (!github.syncWarned && github.syncingSince && Date.now() - github.syncingSince > GITHUB_SYNC_WATCH_MS) {
+        github.syncWarned = true
+        github.state.lastError = '同步耗时较长，可能需要重启插件'
+        github.state.lastErrorAt = new Date().toISOString()
+        saveState(github.state)
+      }
+      return
+    }
     const onBattery = await onBatteryPower()
     if (onBattery && Date.now() - lastAttempt < GITHUB_POLL_BATTERY_MS - 5000) return
     lastAttempt = Date.now()
@@ -2142,7 +2234,16 @@ function toolSearch(args, items) {
   const moments = searchItemsFor(items.filter((item) => !groupedIds.has(item.id)), query).slice(0, limit)
   const insights = searchInsightsFor(query).slice(0, limit)
   const lines = [english ? `AuraCap memory search: ${query}` : `AuraCap 本地记忆搜索：${query}`]
-  if (groups.length) { lines.push('', english ? 'Groups:' : '组：'); groups.forEach((group, index) => lines.push(`${index + 1}. [${group.id}] ${group.title} · ${group.count} ${english ? 'screens' : '屏'} · ${group.createdAt || ''}${group.snippet ? ' · ' + String(group.snippet).slice(0, 120) : ''}`)) }
+  if (groups.length) {
+    lines.push('', english ? 'Groups:' : '组：')
+    groups.forEach((group, index) => {
+      const memberIds = Array.isArray(group.memberIds) ? group.memberIds.slice(0, 5) : []
+      const memberText = memberIds.length
+        ? `${english ? ' · member IDs: ' : ' · 成员 ID：'}${memberIds.join(', ')}${group.count > memberIds.length ? ' …' : ''}`
+        : ''
+      lines.push(`${index + 1}. [${group.id}] ${group.title} · ${group.count} ${english ? 'screens' : '屏'} · ${group.createdAt || ''}${group.snippet ? ' · ' + String(group.snippet).slice(0, 120) : ''}${memberText}`)
+    })
+  }
   if (moments.length) { lines.push('', english ? 'Moments:' : '片刻：'); moments.forEach((moment, index) => lines.push(`${index + 1}. [${moment.id}] ${moment.title} · ${moment.createdAt || ''}${moment.snippet ? ' · ' + String(moment.snippet).slice(0, 120) : ''}`)) }
   if (insights.length) { lines.push('', english ? 'Insights:' : '洞察：'); insights.forEach((insight, index) => lines.push(`${index + 1}. [${insight.type}:${insight.key}] ${insight.title} · ${insight.start || insight.date || ''}${insight.snippet ? ' · ' + String(insight.snippet).slice(0, 120) : ''}`)) }
   if (lines.length === 1) lines.push(english ? 'No matching local memories.' : '没有找到匹配的本地记忆。')
@@ -2204,9 +2305,10 @@ function toolInsights(args) {
   const insight = loadPeriodInsight(period, info.key)
   if (!insight) return english ? 'No insight for this period yet.' : '这个周期还没有洞察。'
   const content = String(insight.content || '').replace(/\s+/g, ' ').slice(0, 1200)
-  return english
-    ? `${insight.title || info.key}\n${content}\nSources: ${insight.itemCount || 0} moments`
-    : `${insight.title || info.key}\n${content}\n来源 ${insight.itemCount || 0} 条片刻`
+  const basis = english
+    ? `Sources: ${insight.itemCount || 0} moments` + (insight.sourceCount ? `, plus ${insight.sourceCount} insights` : '')
+    : `来源 ${insight.itemCount || 0} 条片刻` + (insight.sourceCount ? `，参考 ${insight.sourceCount} 条已有洞察` : '')
+  return `${insight.title || info.key}\n${content}\n${basis}`
 }
 
 export function registerMemoryTools(ctx, items) {
@@ -2655,7 +2757,14 @@ export function rebuildGroups(items) {
     if (group.source === 'manual' || group.status === 'merged' || group.dismissed) {
       const valid = (group.itemIds || []).filter((itemId) => items.some((item) => item.id === itemId))
       if (valid.length >= 2) {
-        preserved.groups[id] = Object.assign({}, group, { itemIds: valid })
+        const next = Object.assign({}, group, { itemIds: valid })
+        if (valid.length !== (group.itemIds || []).length) {
+          next.merged = null
+          next.status = 'candidate'
+          next.primaryId = valid.includes(group.primaryId) ? group.primaryId : valid[0]
+          next.updatedAt = new Date().toISOString()
+        }
+        preserved.groups[id] = next
         for (const itemId of valid) preserved.itemIds.add(itemId)
       }
     }
@@ -2793,6 +2902,7 @@ export async function mergeGroup(ctx, items, group) {
     error.status = 400
     throw error
   }
+  const memberIds = group.itemIds.slice()
   const members = groupMemberItems(items, group)
   if (members.length < 2) {
     const error = new Error('组内片刻不完整')
@@ -2827,7 +2937,7 @@ export async function mergeGroup(ctx, items, group) {
     const parsed = parseSummary(result.text, language)
     const content = parsed.content || parsed.summary || ''
     if (!content) throw new Error('合并结果为空')
-    group.merged = {
+    const mergedCandidate = {
       language,
       title: parsed.title || (language === 'en' ? `${members.length} screens merged` : `${members.length} 屏合并`),
       content,
@@ -2838,10 +2948,15 @@ export async function mergeGroup(ctx, items, group) {
       promptVersion: 'merge-zh-v1',
       createdAt: new Date().toISOString(),
     }
-    group.status = 'merged'
-    group.updatedAt = new Date().toISOString()
+    const current = groupStore.groups[group.id]
+    const currentIds = current && Array.isArray(current.itemIds) ? current.itemIds : []
+    const sameMembers = currentIds.length === memberIds.length && memberIds.every((id) => currentIds.includes(id))
+    if (!current || !sameMembers || missingSourceIds(memberIds, items).length) throw sourcesChangedError()
+    current.merged = mergedCandidate
+    current.status = 'merged'
+    current.updatedAt = new Date().toISOString()
     saveGroups()
-    return group
+    return current
   } finally {
     clearTimeout(timer)
   }
@@ -2876,6 +2991,16 @@ export function dismissGroup(group) {
 
 export function apply(ctx) {
   const items = loadItems()
+  let interrupted = false
+  for (const item of items) {
+    if (item && item.status === 'summarizing') {
+      item.status = 'failed'
+      item.error = '生成被中断，请重试'
+      item.updatedAt = new Date().toISOString()
+      interrupted = true
+    }
+  }
+  if (interrupted) saveItems(items)
   loadGroups()
   loadMemoryIndex()
   try { buildMemoryIndex(items) } catch {}
@@ -3071,7 +3196,7 @@ export function apply(ctx) {
           try {
             return sendJson(res, 200, await startGithubDevice(ctx, github))
           } catch (error) {
-            return sendError(res, 502, error && error.message ? error.message : '无法开始 GitHub 授权')
+            return sendError(res, (error && error.status) || 502, error && error.message ? error.message : '无法开始 GitHub 授权')
           }
         }
         const deviceMatch = path.match(/^\/auracap\/api\/github\/device\/([^/]+)$/)
@@ -3101,11 +3226,12 @@ export function apply(ctx) {
           if (req.method !== 'POST') return sendError(res, 405, 'method not allowed')
           if (!trusted(req)) return sendError(res, 403, 'forbidden')
           try {
-            await provisionGithub(ctx, github)
+            const generation = github.flowGeneration
+            await provisionGithub(ctx, github, () => generation === github.flowGeneration)
             await syncGithub(ctx, github)
             return sendJson(res, 200, githubStatus(github))
           } catch (error) {
-            return sendError(res, 502, error && error.message ? error.message : '修复失败')
+            return sendError(res, (error && error.status) || 502, error && error.message ? error.message : '修复失败')
           }
         }
         if (path === `${BASE}/api/github/disconnect`) {

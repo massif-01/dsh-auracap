@@ -187,7 +187,9 @@ window.__ModuleLoader__.load({
       generating: '正在归纳…',
       preparing: '正在生成…',
       insightRegenerate: '重新生成',
-      insightBasedOn: '基于今日片刻',
+      insightAlsoSources: '参考',
+      insightUnit: '条洞察',
+      insightBasedOn: '基于',
       insightUpdated: '生成于',
       insightEmptyTitle: '今天还没有洞察',
       insightEmptyHint: '把今天的片刻放在一起，AuraCap 会从中找主题、未完成信号和值得跟进的事。',
@@ -458,6 +460,8 @@ window.__ModuleLoader__.load({
       generating: 'Reading the day…',
       preparing: 'Preparing…',
       insightRegenerate: 'Regenerate',
+      insightAlsoSources: 'plus',
+      insightUnit: 'insights',
       insightBasedOn: 'Based on',
       insightUpdated: 'Generated',
       insightEmptyTitle: 'No insight yet',
@@ -2006,8 +2010,8 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
               },
                 h('span', { className: 'ac-search-kind' }, kindLabel(result)),
                 h('span', { className: 'ac-search-text' },
-                  h('span', { className: 'ac-search-title' }, highlightText(result.title || '', query)),
-                  h('span', { className: 'ac-search-snippet' }, highlightText(result.snippet || '', query))))))
+                  h('span', { className: 'ac-search-title' }, highlightText(result.title || result.name || '', query)),
+                  h('span', { className: 'ac-search-snippet' }, highlightText(result.snippet || (result.kind === 'entity' ? (result.count || 0) + ' ' + t('occurrences') : ''), query))))))
 
       return h('div', { className: 'ac-search-overlay', onMouseDown: (event) => { if (event.target === event.currentTarget) props.onClose() } },
         h('div', { className: 'ac-search-panel', onMouseDown: (event) => event.stopPropagation() },
@@ -2137,7 +2141,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       } else if (digest) {
         body = h('div', null,
           h('h1', { className: 'ac-digest-h1' }, digest.title || props.periodLabel || t('insightToday')),
-          h('div', { className: 'ac-digest-meta' }, t('insightBasedOn') + ' ' + digest.itemCount + ' ' + t('itemsUnit') + ' · ' + t('insightUpdated') + ' ' + timeText(digest.createdAt)),
+          h('div', { className: 'ac-digest-meta' }, t('insightBasedOn') + ' ' + (digest.itemCount || 0) + ' ' + t('itemsUnit') + (digest.sourceCount ? ' · ' + t('insightAlsoSources') + ' ' + digest.sourceCount + ' ' + t('insightUnit') : '') + ' · ' + t('insightUpdated') + ' ' + timeText(digest.createdAt)),
           props.sources && props.sources.length ? h('div', { className: 'ac-insight-sources' },
             h('button', { className: 'ac-source-toggle', type: 'button', onClick: () => setSourcesOpen(!sourcesOpen) },
               t('insightSources') + ' ' + props.sources.length + ' ' + t('itemsUnit'), h('span', { 'data-open': sourcesOpen }, ChevronDownIcon())),
@@ -2688,6 +2692,11 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           return saved && saved.date === todayKey() ? saved.at : null
         } catch { return null }
       })
+      const insightSeq = useRef(0)
+      const generationTask = useRef(0)
+      const digestBusyRef = useRef(false)
+      const viewRef = useRef({ period, anchor: appliedAnchor })
+      viewRef.current = { period, anchor: appliedAnchor }
       const [settingsOpen, setSettingsOpen] = useState(false)
       const [searchOpen, setSearchOpen] = useState(false)
       const [github, setGithub] = useState(null)
@@ -2886,22 +2895,32 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       }
 
       const loadInsight = useCallback(async (type, anchor) => {
+        const seq = ++insightSeq.current
+        const stillCurrent = () => {
+          const view = viewRef.current
+          return seq === insightSeq.current && type === view.period && anchor === view.anchor
+        }
         try {
           let payload
           if (type === 'day') payload = await request(API + '/digest?date=' + encodeURIComponent(anchor))
           else payload = await request(API + '/insights?type=' + encodeURIComponent(type) + '&anchor=' + encodeURIComponent(anchor))
+          if (!stillCurrent()) return
           setDigest((type === 'day' ? payload.digest : payload.insight) || null)
           setDigestError(null)
         } catch (digestLoadError) {
+          if (!stillCurrent()) return
           setDigestError(digestLoadError.message)
         } finally {
-          setDigestLoaded(true)
+          if (stillCurrent()) setDigestLoaded(true)
         }
       }, [t])
 
       useEffect(() => {
-        loadInsight(period, appliedAnchor)
-        const timer = setInterval(() => loadInsight(period, appliedAnchor), 60_000)
+        insightSeq.current += 1
+        if (!digestBusyRef.current) loadInsight(period, appliedAnchor)
+        const timer = setInterval(() => {
+          if (!digestBusyRef.current) loadInsight(period, appliedAnchor)
+        }, 60_000)
         return () => clearInterval(timer)
       }, [loadInsight, period, appliedAnchor])
 
@@ -3144,20 +3163,34 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       }
 
       const generateInsight = async () => {
+        const taskId = ++generationTask.current
+        const seq = ++insightSeq.current
+        digestBusyRef.current = true
         setDigestBusy(true)
         setDigestError(null)
+        const type = period
+        const anchor = appliedAnchor
+        let failed = false
         try {
-          const type = period
-          const anchor = appliedAnchor
           const payload = type === 'day'
             ? await request(API + '/digest', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ date: anchor }) })
-            : await request(API + '/insights', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type, anchor }) })
-          setDigest((type === 'day' ? payload.digest : payload.insight) || null)
-          setDigestLoaded(true)
+            : await request(API + '/insights', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type, anchor, force: true }) })
+          const view = viewRef.current
+          if (taskId === generationTask.current && seq === insightSeq.current && type === view.period && anchor === view.anchor) {
+            setDigest((type === 'day' ? payload.digest : payload.insight) || null)
+            setDigestLoaded(true)
+          }
         } catch (insightError) {
-          setDigestError(insightError.message)
+          failed = true
+          const view = viewRef.current
+          if (taskId === generationTask.current && type === view.period && anchor === view.anchor) setDigestError(insightError.message)
         } finally {
-          setDigestBusy(false)
+          if (taskId === generationTask.current) {
+            digestBusyRef.current = false
+            setDigestBusy(false)
+            const view = viewRef.current
+            if (!failed || type !== view.period || anchor !== view.anchor) loadInsight(view.period, view.anchor)
+          }
         }
       }
 
