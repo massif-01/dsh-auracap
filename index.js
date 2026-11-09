@@ -46,6 +46,7 @@ const GITHUB_POLL_MS = 60_000
 const GITHUB_POLL_BATTERY_MS = 180_000
 const GITHUB_REQUEST_TIMEOUT_MS = 20_000
 const GITHUB_DOWNLOAD_TIMEOUT_MS = 60_000
+const GITHUB_DOWNLOAD_MAX_BYTES = 40 * 1024 * 1024
 const GITHUB_SYNC_STALE_MS = 3 * 60 * 1000
 const GITHUB_EXPIRY_WARNING_MS = 12 * 60 * 60 * 1000
 const GITHUB_REFRESH_WINDOW_MS = 5 * 60 * 1000
@@ -211,11 +212,11 @@ async function startSystemCapture(ctx, items) {
       try {
         const data = readFileSync(file)
         const digest = createHash('sha256').update(data).digest('hex')
-        if (items.some((item) => item.image && item.image.attachmentId === 'sha256:' + digest)) {
+        if (items.some((item) => (item.image && item.image.attachmentId === 'sha256:' + digest) || (item.source && item.source.digest === digest))) {
           clearInterval(timer); systemCaptureWatch = null; return
         }
         const mediaType = /\.png$/i.test(name) ? 'image/png' : 'image/jpeg'
-        await addImageItem(ctx, items, data, mediaType, name, { kind: 'screenshot', name })
+        await addImageItem(ctx, items, data, mediaType, name, { kind: 'screenshot', name, digest })
       } catch {}
       clearInterval(timer)
       systemCaptureWatch = null
@@ -286,6 +287,40 @@ function saveDigest(digest) {
   const tmp = `${file}.${process.pid}.tmp`
   writeFileSync(tmp, JSON.stringify(digest, null, 2))
   renameSync(tmp, file)
+}
+
+function fileReferencesItem(file, itemId) {
+  try {
+    const data = JSON.parse(readFileSync(file, 'utf8'))
+    const ids = data && (Array.isArray(data.itemIds) ? data.itemIds : (Array.isArray(data.sourceItemIds) ? data.sourceItemIds : null))
+    return Boolean(ids && ids.includes(itemId))
+  } catch {
+    return false
+  }
+}
+
+function removeDerivedForItem(itemId) {
+  try {
+    for (const name of readdirSync(digestsDir())) {
+      if (!name.endsWith('.json')) continue
+      const file = join(digestsDir(), name)
+      if (fileReferencesItem(file, itemId)) {
+        try { unlinkSync(file) } catch {}
+      }
+    }
+  } catch {}
+  for (const type of ['week', 'month', 'year']) {
+    const dir = join(dataDir(), 'insights', type)
+    try {
+      for (const name of readdirSync(dir)) {
+        if (!name.endsWith('.json')) continue
+        const file = join(dir, name)
+        if (fileReferencesItem(file, itemId)) {
+          try { unlinkSync(file) } catch {}
+        }
+      }
+    } catch {}
+  }
 }
 
 function pad2(value) {
@@ -426,7 +461,8 @@ function periodMaterial(type, items, info, language = 'zh') {
   const sources = sourceData.blocks
   const limit = type === 'year' ? 36 : type === 'month' ? 20 : 14
   const english = language === 'en'
-  const itemsText = inRange.slice(-limit).map((item) => {
+  const usedItems = inRange.slice(-limit)
+  const itemsText = usedItems.map((item) => {
     const summary = item.summary || {}
     const title = summary.title || (english ? 'Untitled' : '未命名')
     const content = plainTextOfSummary(summary).slice(0, 420)
@@ -436,7 +472,7 @@ function periodMaterial(type, items, info, language = 'zh') {
   parts.push(english ? `Period: ${type}` : `周期类型：${type}`, english ? `Range: ${info.start} ~ ${info.end}` : `日期范围：${info.start} ~ ${info.end}`)
   if (sources.length) parts.push(english ? '# Existing insights' : '# 已有洞察', sources.join('\n\n'))
   if (itemsText) parts.push(english ? '# Raw moments' : '# 原始片段', itemsText)
-  return { text: parts.join('\n\n').slice(0, 30_000), itemCount: inRange.length, sourceCount: sources.length, itemIds: [...new Set(inRange.flatMap((item) => item.sourceItemIds || [item.id]))], sourceInsightKeys: sourceData.keys }
+  return { text: parts.join('\n\n').slice(0, 30_000), itemCount: usedItems.length, sourceCount: sources.length, itemIds: [...new Set(usedItems.flatMap((item) => item.sourceItemIds || [item.id]))], sourceInsightKeys: sourceData.keys }
 }
 
 async function generatePeriodInsight(ctx, items, type, anchorISO, force) {
@@ -1059,7 +1095,44 @@ async function githubDownload(token, asset) {
     throw networkError(error, '下载队列文件')
   }
   if (!response.ok) throw new Error('下载队列文件失败（HTTP ' + response.status + '）')
-  return Buffer.from(await response.arrayBuffer())
+  const header = response.headers.get('content-length')
+  const declared = header === null ? null : Number(header)
+  if (Number.isFinite(declared) && declared > GITHUB_DOWNLOAD_MAX_BYTES) {
+    try { await response.body?.cancel() } catch {}
+    throw new Error('队列文件超过 40MB 上限，已跳过')
+  }
+  if (!response.body) {
+    const buffer = Buffer.from(await response.arrayBuffer())
+    if (buffer.length > GITHUB_DOWNLOAD_MAX_BYTES) throw new Error('队列文件超过 40MB 上限，已跳过')
+    return buffer
+  }
+  const reader = response.body.getReader()
+  const chunks = []
+  let total = 0
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      total += value.byteLength
+      if (total > GITHUB_DOWNLOAD_MAX_BYTES) throw new Error('队列文件超过 40MB 上限，已跳过')
+      chunks.push(Buffer.from(value))
+    }
+  } finally {
+    try { await reader.cancel() } catch {}
+  }
+  return Buffer.concat(chunks)
+}
+
+async function listGithubAssets(token, repo) {
+  const assets = []
+  for (let page = 1; page <= 10; page += 1) {
+    const response = await githubRequest(token, `/repos/${repo.owner}/${repo.name}/releases/${repo.releaseId}/assets?per_page=100&page=${page}`)
+    if (response.status !== 200) return { response, assets }
+    const batch = Array.isArray(response.data) ? response.data : []
+    assets.push(...batch)
+    if (batch.length < 100) break
+  }
+  return { response: { status: 200, data: null }, assets }
 }
 
 async function deleteGithubAsset(token, repo, id) {
@@ -1112,17 +1185,20 @@ async function provisionGithub(ctx, github) {
   }
   if (release.status !== 200 && release.status !== 201) throw githubFailure(release, '创建收件箱 Release 失败')
 
+  const previous = github.state.github || {}
   github.state.github = {
     login,
     owner: login,
     name: GITHUB_REPO,
     releaseId: release.data.id,
     tag: GITHUB_TAG,
-    connectedAt: (github.state.github && github.state.github.connectedAt) || new Date().toISOString(),
-    expiresAt: (github.state.github && Number(github.state.github.expiresAt)) || null,
-    canRefresh: Boolean(github.state.github && github.state.github.canRefresh),
-    refreshTokenExpiresAt: (github.state.github && Number(github.state.github.refreshTokenExpiresAt)) || null,
+    connectedAt: previous.connectedAt || new Date().toISOString(),
+    expiresAt: Number(previous.expiresAt) || null,
+    canRefresh: Boolean(previous.canRefresh),
+    refreshTokenExpiresAt: Number(previous.refreshTokenExpiresAt) || null,
   }
+  if (typeof previous.token === 'string') github.state.github.token = previous.token
+  if (typeof previous.refreshToken === 'string') github.state.github.refreshToken = previous.refreshToken
   github.state.lastError = null
   github.state.lastErrorAt = null
   github.state.needsReconnect = false
@@ -1143,6 +1219,7 @@ async function startGithubDevice(ctx, github) {
   if (!response.ok || !data || !data.device_code) throw new Error('无法开始 GitHub 授权（' + response.status + '）')
   const flow = {
     id: randomUUID(),
+    generation: github.flowGeneration,
     deviceCode: data.device_code,
     userCode: data.user_code,
     verificationUri: data.verification_uri,
@@ -1173,6 +1250,7 @@ async function runGithubDevice(ctx, github, flow) {
     })
     const data = await response.json().catch(() => null)
     if (data && data.access_token) {
+      if (flow.generation !== github.flowGeneration) { flow.status = 'cancelled'; flow.error = '已断开连接'; return }
       flow.status = 'provisioning'
       try {
         const expiresIn = Number(data.expires_in) || 0
@@ -1187,6 +1265,19 @@ async function runGithubDevice(ctx, github, flow) {
         github.state.needsReconnect = false
         github.state.reconnectReason = null
         await provisionGithub(ctx, github)
+        flow.connectedAt = github.state.github && github.state.github.connectedAt
+        if (flow.generation !== github.flowGeneration) {
+          const ownsState = Boolean(flow.connectedAt && github.state.github && github.state.github.connectedAt === flow.connectedAt)
+          if (ownsState) {
+            await clearGithubToken(ctx, github.state)
+            github.state.github = null
+            github.state.queueCount = 0
+            saveState(github.state)
+          }
+          flow.status = 'cancelled'
+          flow.error = '已断开连接'
+          return
+        }
         flow.status = 'ready'
         syncGithub(ctx, github).catch(() => {})
       } catch (error) {
@@ -1237,7 +1328,9 @@ async function ingestGithubAsset(ctx, github, token, asset) {
   if (!MEDIA.has(mediaType)) throw new Error('不支持的队列文件类型：' + (mediaType || 'unknown'))
   const data = await githubDownload(token, asset)
   const digest = createHash('sha256').update(data).digest('hex')
-  const duplicate = github.items.some((item) => item.image && item.image.attachmentId === 'sha256:' + digest)
+  const duplicate = github.items.some((item) =>
+    (item.image && item.image.attachmentId === 'sha256:' + digest) ||
+    (item.source && item.source.digest === digest))
   if (duplicate) {
     await deleteGithubAsset(token, github.state.github, asset.id)
     return
@@ -1252,7 +1345,7 @@ async function ingestGithubAsset(ctx, github, token, asset) {
     summary: null,
     error: null,
     model: null,
-    source: { kind: 'github', assetId: asset.id, name: asset.name },
+    source: { kind: 'github', assetId: asset.id, name: asset.name, digest },
   }
   try { storeOriginal(item, data) } catch {}
   github.items.unshift(item)
@@ -1310,19 +1403,19 @@ async function syncGithub(ctx, github) {
       token = await refreshGithubToken(ctx, github.state)
     }
     const repo = github.state.github
-    let response = await githubRequest(token, `/repos/${repo.owner}/${repo.name}/releases/${repo.releaseId}/assets?per_page=100`)
-    if (response.status === 401 && canRefresh) {
+    let listed = await listGithubAssets(token, repo)
+    if (listed.response.status === 401 && canRefresh) {
       token = await refreshGithubToken(ctx, github.state)
-      response = await githubRequest(token, `/repos/${repo.owner}/${repo.name}/releases/${repo.releaseId}/assets?per_page=100`)
+      listed = await listGithubAssets(token, repo)
     }
-    if (response.status === 401) {
+    if (listed.response.status === 401) {
       github.state.needsReconnect = true
       github.state.reconnectReason = 'token_invalid'
       throw new Error('GitHub token 已失效，请重新连接')
     }
-    if (response.status !== 200) throw githubFailure(response, '读取队列失败')
+    if (listed.response.status !== 200) throw githubFailure(listed.response, '读取队列失败')
     github.state.lastSyncAt = new Date().toISOString()
-    const assets = Array.isArray(response.data) ? response.data : []
+    const assets = listed.assets
     const processed = new Set(github.state.processed || [])
     const pending = assets
       .filter((asset) => !processed.has(asset.id))
@@ -1433,6 +1526,15 @@ function trusted(req) {
   const origin = req.headers.origin
   if (!origin) return true
   return origin.replace(/^https?:\/\//, '') === req.headers.host
+}
+
+function isLoopbackHost(host) {
+  const value = String(host || '').trim().toLowerCase()
+  if (!value) return false
+  const name = value.startsWith('[')
+    ? value.slice(0, value.indexOf(']') + 1).replace(/^\[|\]$/g, '')
+    : value.replace(/:\d+$/, '')
+  return name === '127.0.0.1' || name === '::1' || name === '::ffff:127.0.0.1' || name === 'localhost'
 }
 
 function readBody(req, limit) {
@@ -1561,27 +1663,8 @@ function entityId(type, name) {
 
 const PREFIX_TYPES = new Set(['org', 'product', 'project'])
 
-function commonPrefixLength(left, right) {
-  let index = 0
-  while (index < left.length && index < right.length && left[index] === right[index]) index += 1
-  return index
-}
-
-function commonPrefixDisplay(name, length) {
-  let result = ''
-  let count = 0
-  for (const char of normalizeEntityName(name)) {
-    if (!/\s/.test(char)) {
-      if (count >= length) break
-      count += 1
-    }
-    result += char
-  }
-  return result.trim()
-}
-
 function prefixThreshold(prefix) {
-  return /[\u3400-\u9fff]/.test(prefix) ? 2 : 4
+  return /[\u3400-\u9fff]/.test(prefix) ? 3 : 5
 }
 
 export function normalizeEntities(value) {
@@ -1754,16 +1837,12 @@ export function buildMemoryIndex(items) {
       if (!PREFIX_TYPES.has(a.type) || !PREFIX_TYPES.has(b.type)) continue
       const ka = entityMatchKey(a.name)
       const kb = entityMatchKey(b.name)
-      if (ka.length < 2 || kb.length < 2) continue
-      const length = commonPrefixLength(ka, kb)
-      const prefix = ka.slice(0, length)
-      if (!prefix || length < prefixThreshold(prefix)) continue
       const oneIsPrefix = ka.startsWith(kb) || kb.startsWith(ka)
+      if (!oneIsPrefix) continue
+      const shorter = ka.length <= kb.length ? ka : kb
+      if (!shorter || shorter.length < prefixThreshold(shorter)) continue
       union(a.id, b.id)
-      const preferred = oneIsPrefix
-        ? (ka.length <= kb.length ? a.name : b.name)
-        : commonPrefixDisplay(a.name, length)
-      if (preferred) preferences.push({ a: a.id, preferred })
+      preferences.push({ a: a.id, preferred: ka.length <= kb.length ? a.name : b.name })
     }
   }
 
@@ -2670,8 +2749,9 @@ function groupedInsightEntries(items) {
         sourceItemIds: members.map((member) => member.id),
       })
     } else {
-      const primary = members.find((member) => member.id === group.primaryId) || members[0]
-      entries.push(Object.assign({}, primary, { sourceItemIds: [primary.id], groupId: group.id }))
+      for (const member of members) {
+        entries.push(Object.assign({}, member, { sourceItemIds: [member.id], groupId: group.id }))
+      }
     }
   }
   return entries
@@ -2774,7 +2854,7 @@ export function apply(ctx) {
   loadMemoryIndex()
   try { buildMemoryIndex(items) } catch {}
   try { rebuildGroups(items) } catch {}
-  const github = { items, state: loadState(), flows: new Map(), syncing: false, syncingSince: null, digestBusy: false, longBusy: false }
+  const github = { items, state: loadState(), flows: new Map(), flowGeneration: 0, syncing: false, syncingSince: null, digestBusy: false, longBusy: false }
   registerMemoryTools(ctx, items)
   registerMemorySystemContext(ctx)
   startGithubLoop(ctx, github)
@@ -2863,6 +2943,8 @@ export function apply(ctx) {
   const remove = (req, res, id) => {
     const removed = removeItem(id)
     if (!removed) return sendError(res, 404, 'not found')
+    removeDerivedForItem(id)
+    try { buildMemoryIndex(items) } catch {}
     saveItems(items)
     try { rebuildGroups(items) } catch {}
     sendJson(res, 200, { ok: true })
@@ -2872,7 +2954,11 @@ export function apply(ctx) {
     const group = groupStore.groups[id]
     if (!group) return sendError(res, 404, '组不存在')
     const ids = (group.itemIds || []).slice()
-    for (const itemId of ids) removeItem(itemId)
+    for (const itemId of ids) {
+      removeItem(itemId)
+      removeDerivedForItem(itemId)
+    }
+    try { buildMemoryIndex(items) } catch {}
     delete groupStore.groups[id]
     saveItems(items)
     saveGroups()
@@ -2886,6 +2972,7 @@ export function apply(ctx) {
     async handler(req, res) {
       const url = new URL(req.url || '/', 'http://localhost')
       const path = url.pathname
+      if (!isLoopbackHost(req.headers.host)) return sendError(res, 403, 'forbidden')
       try {
         if (path === `${BASE}/api/insights/status`) {
           if (req.method !== 'GET') return sendError(res, 405, 'method not allowed')
@@ -2998,6 +3085,14 @@ export function apply(ctx) {
         if (path === `${BASE}/api/github/disconnect`) {
           if (req.method !== 'POST') return sendError(res, 405, 'method not allowed')
           if (!trusted(req)) return sendError(res, 403, 'forbidden')
+          github.flowGeneration += 1
+          for (const flow of github.flows.values()) {
+            if (flow.status === 'pending' || flow.status === 'provisioning') {
+              flow.status = 'cancelled'
+              flow.error = '已断开连接'
+            }
+          }
+          github.flows.clear()
           await clearGithubToken(ctx, github.state)
           github.state.github = null
           github.state.queueCount = 0

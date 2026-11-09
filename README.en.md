@@ -147,7 +147,9 @@ Everything lives in:
 - Image reading and summaries send the relevant content to DeepSeek, under the same data boundary as your everyday conversations.
 - GitHub is only a private relay from phone to Mac; the queued original is deleted after it is fetched.
 - Local data is not additionally encrypted and is not backed up automatically. Back up the folder yourself if it matters.
-- Deleting a moment or a group deletes its local originals.
+- Deleting a moment or a group deletes its local original and memory entry, and removes the daily/weekly insights that referenced it (they are regenerated from what remains). The host's attachment store keeps a copy that the plugin cannot delete.
+- The phone shortcut stores a GitHub authorization (the same key the Mac uses). Clear its config before sharing the shortcut.
+- The plugin's HTTP endpoints only accept requests addressed to `127.0.0.1` / `localhost`. Do not reverse-proxy DSH without adding authentication.
 
 ## Boundaries
 
