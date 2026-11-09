@@ -204,6 +204,15 @@ window.__ModuleLoader__.load({
       githubRepo: '仓库',
       githubQueueCount: '待处理',
       githubLastSync: '上次同步',
+      githubLastAttempt: '上次尝试',
+      githubLongLived: '授权长期有效，不需要定期重新登录。',
+      githubPollHint: '接电源时每分钟同步一次；电池模式下放宽到每 3 分钟一次。',
+      githubExpiresSoon: 'GitHub 授权即将过期：',
+      githubNeedsReconnect: 'GitHub 授权已失效，需要重新连接一次',
+      githubReconnectRefreshExpired: 'GitHub 续期令牌已过期（GitHub 规定有效期 6 个月，期间未使用），请重新连接。',
+      githubReconnectTokenInvalid: 'GitHub 授权已失效，请重新连接。',
+      githubReconnectExpired: 'GitHub 授权已过期，请重新连接。',
+      githubReconnect: '重新连接 GitHub',
       githubSyncNow: '立即同步',
       githubRepair: '检查 / 修复',
       githubDisconnect: '断开连接',
@@ -466,6 +475,15 @@ window.__ModuleLoader__.load({
       githubRepo: 'Repository',
       githubQueueCount: 'Pending',
       githubLastSync: 'Last sync',
+      githubLastAttempt: 'Last attempt',
+      githubLongLived: 'Authorization stays valid; no periodic re-login needed.',
+      githubPollHint: 'Syncs every minute on power; every 3 minutes on battery.',
+      githubExpiresSoon: 'GitHub authorization expires soon:',
+      githubNeedsReconnect: 'GitHub authorization expired. Reconnect to resume.',
+      githubReconnectRefreshExpired: 'The GitHub renewal token expired (GitHub sets a 6-month lifetime, and it was not used), so please reconnect.',
+      githubReconnectTokenInvalid: 'GitHub authorization is no longer valid. Please reconnect.',
+      githubReconnectExpired: 'GitHub authorization expired. Please reconnect.',
+      githubReconnect: 'Reconnect GitHub',
       githubSyncNow: 'Sync now',
       githubRepair: 'Check / repair',
       githubDisconnect: 'Disconnect',
@@ -767,6 +785,7 @@ window.__ModuleLoader__.load({
 .ac-settings-sub { margin-top: 3px; font-size: 11px; color: var(--dsw-alias-label-secondary); }
 .ac-settings-status { display: flex; align-items: center; gap: 7px; margin-top: 4px; margin-bottom: 2px; font-size: 12px; color: var(--dsw-alias-label-secondary); }
 .ac-settings-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dsw-alias-state-success-primary); flex: none; }
+.ac-settings-status-dot[data-state="error"] { background: var(--dsw-alias-state-error-primary); }
 .ac-settings-status-repo { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
 .ac-settings-section-title { font-size: 13px; font-weight: 600; letter-spacing: -.01em; line-height: 1.35; color: var(--dsw-alias-label-primary); margin-bottom: 12px; }
 .ac-settings-subsection { font-size: 10.5px; font-weight: 500; letter-spacing: .06em; color: var(--dsw-alias-label-secondary); margin-bottom: 8px; }
@@ -1166,6 +1185,10 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       return new Intl.DateTimeFormat(uiLocale(), { year: 'numeric', month: 'short' }).format(startDate)
         + ' – '
         + new Intl.DateTimeFormat(uiLocale(), { year: 'numeric', month: 'short' }).format(endDate)
+    }
+
+    function shortDateTime(date) {
+      return new Intl.DateTimeFormat(uiLocale(), { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date)
     }
 
     function timeText(iso) {
@@ -2264,6 +2287,20 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       const [indexOpen, setIndexOpen] = useState(false)
       const connected = Boolean(github && github.connected)
       const waiting = device && (device.status === 'pending' || device.status === 'provisioning')
+      const reconnectMessage = (g) => {
+        if (g.reconnectReason === 'refresh_expired') return t('githubReconnectRefreshExpired')
+        if (g.reconnectReason === 'token_invalid') return t('githubReconnectTokenInvalid')
+        if (g.reconnectReason === 'auth_expired') return t('githubReconnectExpired')
+        return g.lastError || t('githubNeedsReconnect')
+      }
+      const devicePanel = waiting
+        ? h('div', { className: 'ac-device' },
+            h('div', { className: 'ac-set-label' }, t('deviceCode')),
+            h('div', { className: 'ac-device-code' }, device.userCode || ''),
+            h('a', { className: 'ac-device-link', href: device.verificationUri || 'https://github.com/login/device', target: '_blank', rel: 'noreferrer' }, t('openDevice')),
+            h('div', { className: 'ac-footnote', style: { marginTop: 10 } },
+              device.status === 'provisioning' ? t('provisioningRelease') : t('githubWaiting')))
+        : null
       useEffect(() => {
         if (!confirmDisconnect) return undefined
         const timer = setTimeout(() => setConfirmDisconnect(false), 4000)
@@ -2286,12 +2323,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           h('div', { className: 'ac-section-eyebrow' }, t('connectGithub')),
           h('p', { className: 'ac-settings-hint', style: { marginTop: 0 } }, t('githubHint')),
           waiting
-            ? h('div', { className: 'ac-device' },
-                h('div', { className: 'ac-set-label' }, t('deviceCode')),
-                h('div', { className: 'ac-device-code' }, device.userCode || ''),
-                h('a', { className: 'ac-device-link', href: device.verificationUri || 'https://github.com/login/device', target: '_blank', rel: 'noreferrer' }, t('openDevice')),
-                h('div', { className: 'ac-footnote', style: { marginTop: 10 } },
-                  device.status === 'provisioning' ? t('provisioningRelease') : t('githubWaiting')))
+            ? devicePanel
             : h('div', { className: 'ac-set-actions' },
                 h('button', { className: 'ac-primary', onClick: props.onConnect, disabled: props.busy }, t('connectGithub'))))
       } else {
@@ -2327,7 +2359,13 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
                 h('span', { className: 'ac-set-value' }, String(github.queueCount || 0) + ' ' + t('itemsUnit'))),
               h('div', { className: 'ac-set-row' },
                 h('span', { className: 'ac-set-label' }, t('githubLastSync')),
-                h('span', { className: 'ac-set-value' }, github.lastSyncAt ? timeText(github.lastSyncAt) : '—'))))
+                h('span', { className: 'ac-set-value' }, github.lastSyncAt ? timeText(github.lastSyncAt) : '—')),
+              github.lastAttemptAt && github.lastAttemptAt !== github.lastSyncAt
+                ? h('div', { className: 'ac-set-row' },
+                    h('span', { className: 'ac-set-label' }, t('githubLastAttempt')),
+                    h('span', { className: 'ac-set-value' }, timeText(github.lastAttemptAt)))
+                : null,
+              h('div', { className: 'ac-settings-hint', style: { marginTop: 8 } }, t('githubPollHint'))))
           : null)
 
         const memorySection = h('section', { className: 'ac-settings-section ac-memory-section' },
@@ -2383,11 +2421,27 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
 
         status = h('div', null,
           h('div', { className: 'ac-settings-status' },
-            h('span', { className: 'ac-settings-status-dot' }),
+            h('span', { className: 'ac-settings-status-dot', 'data-state': github.lastError ? 'error' : 'ok' }),
             h('span', null, t('connectedTo')),
             h('span', { className: 'ac-settings-status-repo' }, github.repo.owner + '/' + github.repo.name),
             h('div', { className: 'ac-grow' }),
             h('button', { className: 'ac-ghost ac-status-sync', onClick: props.onSync, disabled: props.busy }, RetryIcon(), t('githubSyncNow'))),
+
+          github.lastError
+            ? h('div', { className: 'ac-error', style: { marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
+                h('span', null, github.needsReconnect ? reconnectMessage(github) : github.lastError),
+                github.needsReconnect
+                  ? h('button', { className: 'ac-primary', onClick: props.onConnect, disabled: props.busy }, t('githubReconnect'))
+                  : null)
+            : null,
+          github.expiresSoon && !github.lastError
+            ? h('div', { className: 'ac-settings-hint', style: { marginTop: 8 } },
+                t('githubExpiresSoon') + ' ' + shortDateTime(new Date(github.tokenExpiresAt)))
+            : null,
+          github.connected && !github.tokenExpiresAt
+            ? h('div', { className: 'ac-settings-hint', style: { marginTop: 8 } }, t('githubLongLived'))
+            : null,
+          waiting ? h('div', { style: { marginTop: 12 } }, devicePanel) : null,
 
           memorySection,
           usageSection,
@@ -2896,6 +2950,12 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         }
       }, [t])
 
+      const loadGithubStatus = useCallback(async () => {
+        try {
+          setGithub(await request(API + '/github/status'))
+        } catch {}
+      }, [])
+
       useEffect(() => {
         if (typeof document === 'undefined' || !document.documentElement || typeof MutationObserver === 'undefined') return undefined
         const observer = new MutationObserver(() => setUiLang(uiLocale()))
@@ -2920,6 +2980,40 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       useEffect(() => {
         loadGithub()
       }, [loadGithub])
+
+      useEffect(() => {
+        let lastNudge = 0
+        const nudge = async () => {
+          const now = Date.now()
+          if (now - lastNudge < 15_000) return
+          lastNudge = now
+          try {
+            const payload = await request(API + '/github/sync?background=1', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: '{}',
+            })
+            if (payload && payload.connected) setGithub(payload)
+          } catch {}
+        }
+        const onVisible = () => {
+          if (document.visibilityState !== 'visible') return
+          load()
+          loadGithub()
+          nudge()
+        }
+        nudge()
+        document.addEventListener('visibilitychange', onVisible)
+        window.addEventListener('focus', nudge)
+        const timer = setInterval(() => {
+          if (document.visibilityState === 'visible') loadGithubStatus()
+        }, 30_000)
+        return () => {
+          document.removeEventListener('visibilitychange', onVisible)
+          window.removeEventListener('focus', nudge)
+          clearInterval(timer)
+        }
+      }, [load, loadGithub, loadGithubStatus])
 
       useEffect(() => {
         if (!device || !device.id) return undefined

@@ -43,6 +43,12 @@ const GITHUB_REPO = 'auracap-inbox'
 const GITHUB_TAG = 'auracap-inbox'
 const GITHUB_KEY = 'auracap/github'
 const GITHUB_POLL_MS = 60_000
+const GITHUB_POLL_BATTERY_MS = 180_000
+const GITHUB_REQUEST_TIMEOUT_MS = 20_000
+const GITHUB_DOWNLOAD_TIMEOUT_MS = 60_000
+const GITHUB_SYNC_STALE_MS = 3 * 60 * 1000
+const GITHUB_EXPIRY_WARNING_MS = 12 * 60 * 60 * 1000
+const GITHUB_REFRESH_WINDOW_MS = 5 * 60 * 1000
 const DIGEST_REFRESH_MS = 4 * 60 * 60 * 1000
 const DIGEST_CHECK_MS = 30 * 60 * 1000
 
@@ -156,6 +162,19 @@ async function screenshotDirectory() {
     if (location) return location.startsWith('~') ? join(homedir(), location.slice(1)) : location
   } catch {}
   return join(homedir(), 'Desktop')
+}
+
+let powerStateCache = { at: 0, onBattery: false }
+
+async function onBatteryPower() {
+  if (Date.now() - powerStateCache.at < 30_000) return powerStateCache.onBattery
+  let onBattery = false
+  try {
+    const result = await execFileAsync('/usr/bin/pmset', ['-g', 'batt'], { timeout: 3000 })
+    onBattery = /drawing from 'Battery Power'/i.test(String(result.stdout || ''))
+  } catch {}
+  powerStateCache = { at: Date.now(), onBattery }
+  return onBattery
 }
 
 async function startSystemCapture(ctx, items) {
@@ -847,11 +866,15 @@ function loadState() {
       github: parsed.github && typeof parsed.github === 'object' ? parsed.github : null,
       processed: Array.isArray(parsed.processed) ? parsed.processed : [],
       lastSyncAt: parsed.lastSyncAt || null,
+      lastAttemptAt: parsed.lastAttemptAt || null,
+      lastErrorAt: parsed.lastErrorAt || null,
       queueCount: Number.isFinite(parsed.queueCount) ? parsed.queueCount : 0,
       lastError: parsed.lastError || null,
+      needsReconnect: parsed.needsReconnect === true,
+      reconnectReason: parsed.reconnectReason || null,
     }
   } catch {
-    return { github: null, processed: [], lastSyncAt: null, queueCount: 0, lastError: null }
+    return { github: null, processed: [], lastSyncAt: null, lastAttemptAt: null, lastErrorAt: null, queueCount: 0, lastError: null, needsReconnect: false, reconnectReason: null }
   }
 }
 
@@ -867,26 +890,118 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-async function readGithubToken(ctx, state) {
+async function readGithubAuth(ctx, state) {
+  const empty = { token: null, expiresAt: null, refreshToken: null, refreshTokenExpiresAt: null, login: '' }
+  const meta = state.github || {}
+  const fallback = typeof meta.token === 'string'
+    ? { token: meta.token, expiresAt: Number(meta.expiresAt) || null, refreshToken: typeof meta.refreshToken === 'string' ? meta.refreshToken : null, refreshTokenExpiresAt: Number(meta.refreshTokenExpiresAt) || null, login: meta.login || '' }
+    : null
   const credentials = ctx.get('credentials')
   if (credentials) {
     try {
       const record = await credentials.readRecord(GITHUB_KEY)
-      if (record && record.payload && typeof record.payload.token === 'string') return record.payload.token
+      if (record && record.payload && typeof record.payload.token === 'string') {
+        return {
+          token: record.payload.token,
+          expiresAt: Number(record.payload.expiresAt) || (fallback ? fallback.expiresAt : null),
+          refreshToken: typeof record.payload.refreshToken === 'string' ? record.payload.refreshToken : (fallback ? fallback.refreshToken : null),
+          refreshTokenExpiresAt: Number(record.payload.refreshTokenExpiresAt) || (fallback ? fallback.refreshTokenExpiresAt : null),
+          login: record.payload.login || (fallback ? fallback.login : '') || '',
+        }
+      }
     } catch {}
   }
-  return state.github && typeof state.github.token === 'string' ? state.github.token : null
+  return fallback || empty
 }
 
-async function writeGithubToken(ctx, state, token, login) {
+async function readGithubToken(ctx, state) {
+  return (await readGithubAuth(ctx, state)).token
+}
+
+async function writeGithubToken(ctx, state, token, login, options = {}) {
+  const expiresAt = Number(options.expiresAt) || null
+  const refreshToken = typeof options.refreshToken === 'string' && options.refreshToken ? options.refreshToken : null
+  const refreshTokenExpiresAt = Number(options.refreshTokenExpiresAt) || null
+  const patch = { expiresAt, canRefresh: Boolean(refreshToken) }
+  if (refreshTokenExpiresAt) patch.refreshTokenExpiresAt = refreshTokenExpiresAt
   const credentials = ctx.get('credentials')
   if (credentials) {
     try {
-      await credentials.modifyRecord(GITHUB_KEY, async () => ({ kind: 'grant', payload: { token, login, provider: 'github' } }))
+      const payload = { token, login: login || '', provider: 'github' }
+      if (expiresAt) payload.expiresAt = expiresAt
+      if (refreshToken) payload.refreshToken = refreshToken
+      if (refreshTokenExpiresAt) payload.refreshTokenExpiresAt = refreshTokenExpiresAt
+      await credentials.modifyRecord(GITHUB_KEY, async () => ({ kind: 'grant', payload }))
+      state.github = Object.assign({}, state.github, patch)
       return
     } catch {}
   }
-  state.github = Object.assign({}, state.github, { token })
+  state.github = Object.assign({}, state.github, patch, { token })
+  if (refreshToken) state.github.refreshToken = refreshToken
+}
+
+function githubAuthExpired(state) {
+  const expiresAt = Number(state.github && state.github.expiresAt)
+  return Number.isFinite(expiresAt) && expiresAt > 0 && Date.now() >= expiresAt
+}
+
+function githubConnected(state) {
+  const repo = state.github
+  return Boolean(repo && repo.owner && repo.releaseId)
+}
+
+function githubAuthExpiringWithin(state, windowMs) {
+  const expiresAt = Number(state.github && state.github.expiresAt)
+  return Number.isFinite(expiresAt) && expiresAt > 0 && expiresAt - Date.now() <= windowMs
+}
+
+function githubAuthExpiringSoon(state) {
+  return githubAuthExpiringWithin(state, GITHUB_EXPIRY_WARNING_MS)
+}
+
+async function refreshGithubToken(ctx, state) {
+  const auth = await readGithubAuth(ctx, state)
+  if (!auth.refreshToken) {
+    state.reconnectReason = 'auth_expired'
+    const error = new Error('GitHub 授权已失效，请重新连接')
+    error.needsReconnect = true
+    throw error
+  }
+  let response
+  let data = null
+  try {
+    response = await fetch('https://github.com/login/oauth/access_token', {
+      method: 'POST',
+      headers: { accept: 'application/json', 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ client_id: GITHUB_CLIENT_ID, grant_type: 'refresh_token', refresh_token: auth.refreshToken }),
+      signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
+    })
+    data = await response.json().catch(() => null)
+  } catch (error) {
+    throw networkError(error, '刷新 GitHub 授权')
+  }
+  if (!response.ok || !data || !data.access_token) {
+    const code = data && (data.error || data.error_description)
+    const fatal = code === 'bad_refresh_token' || code === 'invalid_grant'
+    if (fatal) {
+      state.github.canRefresh = false
+      state.reconnectReason = 'refresh_expired'
+    }
+    const error = new Error(fatal
+      ? 'GitHub 续期令牌已过期（GitHub 规定有效期 6 个月，期间未使用），请重新连接'
+      : '刷新 GitHub 授权失败（' + (code || response.status) + '），稍后自动重试')
+    if (fatal) error.needsReconnect = true
+    throw error
+  }
+  const expiresIn = Number(data.expires_in) || 0
+  const refreshExpiresIn = Number(data.refresh_token_expires_in) || 0
+  await writeGithubToken(ctx, state, data.access_token, auth.login || '', {
+    expiresAt: expiresIn ? Date.now() + expiresIn * 1000 : null,
+    refreshToken: typeof data.refresh_token === 'string' && data.refresh_token ? data.refresh_token : auth.refreshToken,
+    refreshTokenExpiresAt: refreshExpiresIn ? Date.now() + refreshExpiresIn * 1000 : auth.refreshTokenExpiresAt,
+  })
+  state.github.lastRefreshAt = new Date().toISOString()
+  return data.access_token
 }
 
 async function clearGithubToken(ctx, state) {
@@ -897,18 +1012,31 @@ async function clearGithubToken(ctx, state) {
   if (state.github) delete state.github.token
 }
 
+function networkError(error, label) {
+  const name = error && error.name
+  if (name === 'TimeoutError' || name === 'AbortError') return new Error(label + ' 请求超时，请检查网络后重试')
+  if (name === 'TypeError') return new Error(label + ' 连接失败，请检查网络后重试')
+  return error instanceof Error ? error : new Error(String(error))
+}
+
 async function githubRequest(token, path, options = {}) {
-  const response = await fetch('https://api.github.com' + path, {
-    method: options.method || 'GET',
-    headers: Object.assign({
-      accept: 'application/vnd.github+json',
-      authorization: 'Bearer ' + token,
-      'x-github-api-version': '2022-11-28',
-      'user-agent': 'dsh-auracap',
-    }, options.headers || {}),
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    redirect: 'follow',
-  })
+  let response
+  try {
+    response = await fetch('https://api.github.com' + path, {
+      method: options.method || 'GET',
+      headers: Object.assign({
+        accept: 'application/vnd.github+json',
+        authorization: 'Bearer ' + token,
+        'x-github-api-version': '2022-11-28',
+        'user-agent': 'dsh-auracap',
+      }, options.headers || {}),
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      redirect: 'follow',
+      signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
+    })
+  } catch (error) {
+    throw networkError(error, 'GitHub')
+  }
   const text = await response.text()
   let data = null
   try { data = text ? JSON.parse(text) : null } catch { data = text }
@@ -916,14 +1044,20 @@ async function githubRequest(token, path, options = {}) {
 }
 
 async function githubDownload(token, asset) {
-  const response = await fetch(asset.url, {
-    headers: {
-      accept: 'application/octet-stream',
-      authorization: 'Bearer ' + token,
-      'user-agent': 'dsh-auracap',
-    },
-    redirect: 'follow',
-  })
+  let response
+  try {
+    response = await fetch(asset.url, {
+      headers: {
+        accept: 'application/octet-stream',
+        authorization: 'Bearer ' + token,
+        'user-agent': 'dsh-auracap',
+      },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(GITHUB_DOWNLOAD_TIMEOUT_MS),
+    })
+  } catch (error) {
+    throw networkError(error, '下载队列文件')
+  }
   if (!response.ok) throw new Error('下载队列文件失败（HTTP ' + response.status + '）')
   return Buffer.from(await response.arrayBuffer())
 }
@@ -985,8 +1119,14 @@ async function provisionGithub(ctx, github) {
     releaseId: release.data.id,
     tag: GITHUB_TAG,
     connectedAt: (github.state.github && github.state.github.connectedAt) || new Date().toISOString(),
+    expiresAt: (github.state.github && Number(github.state.github.expiresAt)) || null,
+    canRefresh: Boolean(github.state.github && github.state.github.canRefresh),
+    refreshTokenExpiresAt: (github.state.github && Number(github.state.github.refreshTokenExpiresAt)) || null,
   }
   github.state.lastError = null
+  github.state.lastErrorAt = null
+  github.state.needsReconnect = false
+  github.state.reconnectReason = null
   saveState(github.state)
   return github.state.github
 }
@@ -997,6 +1137,7 @@ async function startGithubDevice(ctx, github) {
     method: 'POST',
     headers: { accept: 'application/json', 'content-type': 'application/x-www-form-urlencoded' },
     body,
+    signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
   })
   const data = await response.json().catch(() => null)
   if (!response.ok || !data || !data.device_code) throw new Error('无法开始 GitHub 授权（' + response.status + '）')
@@ -1028,12 +1169,23 @@ async function runGithubDevice(ctx, github, flow) {
       method: 'POST',
       headers: { accept: 'application/json', 'content-type': 'application/x-www-form-urlencoded' },
       body,
+      signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
     })
     const data = await response.json().catch(() => null)
     if (data && data.access_token) {
       flow.status = 'provisioning'
       try {
-        await writeGithubToken(ctx, github.state, data.access_token, '')
+        const expiresIn = Number(data.expires_in) || 0
+        const refreshTokenExpiresIn = Number(data.refresh_token_expires_in) || 0
+        await writeGithubToken(ctx, github.state, data.access_token, '', {
+          expiresAt: expiresIn ? Date.now() + expiresIn * 1000 : null,
+          refreshToken: typeof data.refresh_token === 'string' ? data.refresh_token : null,
+          refreshTokenExpiresAt: refreshTokenExpiresIn ? Date.now() + refreshTokenExpiresIn * 1000 : null,
+        })
+        github.state.lastError = null
+        github.state.lastErrorAt = null
+        github.state.needsReconnect = false
+        github.state.reconnectReason = null
         await provisionGithub(ctx, github)
         flow.status = 'ready'
         syncGithub(ctx, github).catch(() => {})
@@ -1059,7 +1211,7 @@ async function runGithubDevice(ctx, github, flow) {
 }
 
 function githubStatus(github) {
-  const repo = github.state.github
+  const repo = githubConnected(github.state) ? github.state.github : null
   return {
     connected: Boolean(repo),
     login: repo ? repo.login : null,
@@ -1067,7 +1219,15 @@ function githubStatus(github) {
     release: repo ? repo.releaseId : null,
     queueCount: github.state.queueCount || 0,
     lastSyncAt: github.state.lastSyncAt || null,
+    lastAttemptAt: github.state.lastAttemptAt || null,
     lastError: github.state.lastError || null,
+    lastErrorAt: github.state.lastErrorAt || null,
+    tokenExpiresAt: repo ? Number(repo.expiresAt) || null : null,
+    refreshTokenExpiresAt: repo ? Number(repo.refreshTokenExpiresAt) || null : null,
+    autoRefresh: Boolean(repo && repo.canRefresh && repo.expiresAt),
+    expiresSoon: Boolean(repo) && !repo.canRefresh && githubAuthExpiringSoon(github.state),
+    needsReconnect: Boolean(repo) && (github.state.needsReconnect === true || (!repo.canRefresh && githubAuthExpired(github.state))),
+    reconnectReason: repo ? (github.state.reconnectReason || null) : null,
     syncing: Boolean(github.syncing),
   }
 }
@@ -1132,39 +1292,78 @@ async function generateShortcutFile(ctx, github) {
 }
 
 async function syncGithub(ctx, github) {
-  if (github.syncing) return
-  if (!github.state.github) return
+  if (!githubConnected(github.state)) return
+  if (github.syncing && Date.now() - (github.syncingSince || 0) < GITHUB_SYNC_STALE_MS) return
   github.syncing = true
+  github.syncingSince = Date.now()
+  github.state.lastAttemptAt = new Date().toISOString()
   try {
-    const token = await readGithubToken(ctx, github.state)
+    const canRefresh = Boolean(github.state.github.canRefresh)
+    if (!canRefresh && githubAuthExpired(github.state)) {
+      github.state.needsReconnect = true
+      github.state.reconnectReason = 'auth_expired'
+      throw new Error('GitHub 授权已过期，请重新连接')
+    }
+    let token = await readGithubToken(ctx, github.state)
     if (!token) throw new Error('GitHub 未连接')
+    if (canRefresh && githubAuthExpiringWithin(github.state, GITHUB_REFRESH_WINDOW_MS)) {
+      token = await refreshGithubToken(ctx, github.state)
+    }
     const repo = github.state.github
-    const response = await githubRequest(token, `/repos/${repo.owner}/${repo.name}/releases/${repo.releaseId}/assets?per_page=100`)
-    if (response.status === 401) throw new Error('GitHub token 已失效，请重新连接')
+    let response = await githubRequest(token, `/repos/${repo.owner}/${repo.name}/releases/${repo.releaseId}/assets?per_page=100`)
+    if (response.status === 401 && canRefresh) {
+      token = await refreshGithubToken(ctx, github.state)
+      response = await githubRequest(token, `/repos/${repo.owner}/${repo.name}/releases/${repo.releaseId}/assets?per_page=100`)
+    }
+    if (response.status === 401) {
+      github.state.needsReconnect = true
+      github.state.reconnectReason = 'token_invalid'
+      throw new Error('GitHub token 已失效，请重新连接')
+    }
     if (response.status !== 200) throw githubFailure(response, '读取队列失败')
+    github.state.lastSyncAt = new Date().toISOString()
     const assets = Array.isArray(response.data) ? response.data : []
     const processed = new Set(github.state.processed || [])
     const pending = assets
       .filter((asset) => !processed.has(asset.id))
       .sort((left, right) => new Date(left.created_at || 0) - new Date(right.created_at || 0))
     github.state.queueCount = pending.length
+    github.state.needsReconnect = false
+    github.state.reconnectReason = null
+    let failure = null
     for (const asset of pending) {
       try {
         await ingestGithubAsset(ctx, github, token, asset)
         github.state.processed = (github.state.processed || []).concat(asset.id).slice(-1000)
         saveState(github.state)
       } catch (error) {
-        github.state.lastError = error && error.message ? error.message : String(error)
+        failure = error
       }
     }
-    github.state.lastSyncAt = new Date().toISOString()
-    if (!github.state.lastError) github.state.lastError = null
+    const done = new Set(github.state.processed || [])
+    const unfinished = pending.filter((asset) => !done.has(asset.id)).length
+    github.state.queueCount = unfinished
+    if (failure) {
+      github.state.lastError = failure && failure.message ? failure.message : String(failure)
+      github.state.lastErrorAt = new Date().toISOString()
+    } else {
+      github.state.lastError = null
+      github.state.lastErrorAt = null
+    }
   } catch (error) {
     github.state.lastError = error && error.message ? error.message : String(error)
+    github.state.lastErrorAt = new Date().toISOString()
+    if (error && error.needsReconnect) github.state.needsReconnect = true
   } finally {
     github.syncing = false
+    github.syncingSince = null
     saveState(github.state)
   }
+}
+
+function requestGithubSync(ctx, github) {
+  if (!githubConnected(github.state)) return
+  syncGithub(ctx, github).catch(() => {})
 }
 
 async function refreshLongInsights(ctx, github) {
@@ -1198,10 +1397,17 @@ function startLongInsightLoop(ctx, github) {
 }
 
 function startGithubLoop(ctx, github) {
-  if (!github.state.github) return
-  const timer = setInterval(() => { syncGithub(ctx, github).catch(() => {}) }, GITHUB_POLL_MS)
+  let lastAttempt = 0
+  const tick = async () => {
+    if (!githubConnected(github.state)) return
+    const onBattery = await onBatteryPower()
+    if (onBattery && Date.now() - lastAttempt < GITHUB_POLL_BATTERY_MS - 5000) return
+    lastAttempt = Date.now()
+    syncGithub(ctx, github).catch(() => {})
+  }
+  const timer = setInterval(() => { tick().catch(() => {}) }, GITHUB_POLL_MS)
   if (typeof timer.unref === 'function') timer.unref()
-  const startup = setTimeout(() => { syncGithub(ctx, github).catch(() => {}) }, 4000)
+  const startup = setTimeout(() => { tick().catch(() => {}) }, 4000)
   if (typeof startup.unref === 'function') startup.unref()
   ctx.effect(() => () => {
     clearInterval(timer)
@@ -2568,7 +2774,7 @@ export function apply(ctx) {
   loadMemoryIndex()
   try { buildMemoryIndex(items) } catch {}
   try { rebuildGroups(items) } catch {}
-  const github = { items, state: loadState(), flows: new Map(), syncing: false, digestBusy: false, longBusy: false }
+  const github = { items, state: loadState(), flows: new Map(), syncing: false, syncingSince: null, digestBusy: false, longBusy: false }
   registerMemoryTools(ctx, items)
   registerMemorySystemContext(ctx)
   startGithubLoop(ctx, github)
@@ -2771,6 +2977,10 @@ export function apply(ctx) {
         if (path === `${BASE}/api/github/sync`) {
           if (req.method !== 'POST') return sendError(res, 405, 'method not allowed')
           if (!trusted(req)) return sendError(res, 403, 'forbidden')
+          if (url.searchParams.get('background') === '1') {
+            requestGithubSync(ctx, github)
+            return sendJson(res, 202, githubStatus(github))
+          }
           await syncGithub(ctx, github)
           return sendJson(res, 200, githubStatus(github))
         }
