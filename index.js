@@ -537,6 +537,8 @@ async function generatePeriodInsight(ctx, items, type, anchorISO, force) {
     error.status = 409
     throw error
   }
+  const startIds = new Set(items.map((item) => item.id))
+  const sourceIdsToCheck = material.itemIds.filter((id) => startIds.has(id))
   const prompt = promptFor('long-insights', language)
   if (!prompt) throw new Error('长洞察提示词缺失')
   const controller = new AbortController()
@@ -563,7 +565,7 @@ async function generatePeriodInsight(ctx, items, type, anchorISO, force) {
       }
     }
     if (!parsed) throw new Error('长洞察格式不完整，已重试一次仍失败')
-    if (missingSourceIds(material.itemIds, items).length) throw sourcesChangedError()
+    if (missingSourceIds(sourceIdsToCheck, items).length) throw sourcesChangedError()
     const insight = {
       type,
       key: info.key,
@@ -571,10 +573,10 @@ async function generatePeriodInsight(ctx, items, type, anchorISO, force) {
       end: info.end,
       title: parsed.title || `${info.start} ~ ${info.end}`,
       content: parsed.content,
-      itemCount: material.itemCount,
+      itemCount: sourceIdsToCheck.length,
       directItemCount: material.directCount,
       sourceCount: material.sourceCount,
-      sourceItemIds: material.itemIds,
+      sourceItemIds: sourceIdsToCheck,
       sourceInsightKeys: material.sourceInsightKeys,
       createdAt: new Date().toISOString(),
       model: MODEL.model,
@@ -677,6 +679,7 @@ function searchGroupsFor(query, items) {
     }
   }).filter(Boolean).sort((a, b) => b.score - a.score || String(b.createdAt).localeCompare(String(a.createdAt))).slice(0, 8)
 }
+
 function searchInsightsFor(query) {
   const terms = String(query || '').toLowerCase().split(/\s+/).filter(Boolean)
   if (!terms.length) return []
@@ -2903,6 +2906,8 @@ export async function mergeGroup(ctx, items, group) {
     throw error
   }
   const memberIds = group.itemIds.slice()
+  const startIds = new Set(items.map((item) => item.id))
+  const memberIdsToCheck = memberIds.filter((id) => startIds.has(id))
   const members = groupMemberItems(items, group)
   if (members.length < 2) {
     const error = new Error('组内片刻不完整')
@@ -2951,7 +2956,7 @@ export async function mergeGroup(ctx, items, group) {
     const current = groupStore.groups[group.id]
     const currentIds = current && Array.isArray(current.itemIds) ? current.itemIds : []
     const sameMembers = currentIds.length === memberIds.length && memberIds.every((id) => currentIds.includes(id))
-    if (!current || !sameMembers || missingSourceIds(memberIds, items).length) throw sourcesChangedError()
+    if (!current || !sameMembers || missingSourceIds(memberIdsToCheck, items).length) throw sourcesChangedError()
     current.merged = mergedCandidate
     current.status = 'merged'
     current.updatedAt = new Date().toISOString()
