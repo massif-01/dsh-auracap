@@ -188,6 +188,7 @@ window.__ModuleLoader__.load({
       preparing: '正在生成…',
       insightRegenerate: '重新生成',
       insightTimeout: '生成超时，请重试',
+      insightLoading: '读取中…',
       insightAlsoSources: '参考',
       insightUnit: '条洞察',
       insightBasedOn: '基于',
@@ -462,6 +463,7 @@ window.__ModuleLoader__.load({
       preparing: 'Preparing…',
       insightRegenerate: 'Regenerate',
       insightTimeout: 'Generation timed out. Please try again.',
+      insightLoading: 'Loading…',
       insightAlsoSources: 'plus',
       insightUnit: 'insights',
       insightBasedOn: 'Based on',
@@ -2138,6 +2140,13 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           h('div', { className: 'ac-skeleton', style: { width: '88%', marginBottom: 10 } }),
           h('div', { className: 'ac-skeleton', style: { width: '64%' } }),
           h('div', { className: 'ac-footnote', style: { marginTop: 16 } }, t('generating')))
+      } else if (props.loading) {
+        body = h('div', null,
+          h('div', { className: 'ac-skeleton', style: { width: '58%', height: 22, marginBottom: 18 } }),
+          h('div', { className: 'ac-skeleton', style: { width: '92%', marginBottom: 10 } }),
+          h('div', { className: 'ac-skeleton', style: { width: '88%', marginBottom: 10 } }),
+          h('div', { className: 'ac-skeleton', style: { width: '64%' } }),
+          h('div', { className: 'ac-footnote', style: { marginTop: 16 } }, t('insightLoading')))
       } else if (props.error) {
         body = h('div', { className: 'ac-error' }, props.error)
       } else if (digest) {
@@ -2670,6 +2679,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       const [digestBusy, setDigestBusy] = useState(false)
       const [digestError, setDigestError] = useState(null)
       const [digestLoaded, setDigestLoaded] = useState(false)
+      const [digestLoading, setDigestLoading] = useState(false)
       const [period, setPeriod] = useState('day')
       const [appliedAnchor, setAppliedAnchor] = useState(() => todayKey())
       const [rangeStart, setRangeStart] = useState(null)
@@ -2913,12 +2923,18 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           if (!stillCurrent()) return
           setDigestError(digestLoadError.message)
         } finally {
-          if (stillCurrent()) setDigestLoaded(true)
+          if (stillCurrent()) {
+            setDigestLoaded(true)
+            setDigestLoading(false)
+          }
         }
       }, [t])
 
       useEffect(() => {
         insightSeq.current += 1
+        setDigest(null)
+        setDigestError(null)
+        setDigestLoading(true)
         if (!digestBusyRef.current) loadInsight(period, appliedAnchor)
         const timer = setInterval(() => {
           if (!digestBusyRef.current) loadInsight(period, appliedAnchor)
@@ -3181,6 +3197,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           if (taskId === generationTask.current && seq === insightSeq.current && type === view.period && anchor === view.anchor) {
             setDigest((type === 'day' ? payload.digest : payload.insight) || null)
             setDigestLoaded(true)
+            setDigestLoading(false)
           }
         } catch (insightError) {
           failed = true
@@ -3188,7 +3205,10 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
             ? t('insightTimeout')
             : (insightError && insightError.message) || t('githubError')
           const view = viewRef.current
-          if (taskId === generationTask.current && type === view.period && anchor === view.anchor) setDigestError(message)
+          if (taskId === generationTask.current && type === view.period && anchor === view.anchor) {
+            setDigestError(message)
+            setDigestLoading(false)
+          }
         } finally {
           if (taskId === generationTask.current) {
             digestBusyRef.current = false
@@ -3546,6 +3566,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           rangeLabel: rangeText(insightBounds.start, insightBounds.end),
           digest,
           busy: digestBusy,
+          loading: digestLoading,
           error: digestError,
           onGenerate: generateInsight,
           onPeriodChange: changePeriod,

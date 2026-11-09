@@ -1,5 +1,5 @@
 import { execFile, execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { createHash, randomUUID } from 'node:crypto'
@@ -662,7 +662,7 @@ function searchGroupsFor(query, items) {
     let hit = texts.find((entry) => terms.every((term) => entry.haystack.includes(term)))
     let body = hit ? (hit.body || hit.title) : ''
     if (!hit) {
-      const joinedBody = texts.map((entry) => entry.body || entry.title).join(' ')
+      const joinedBody = texts.map((entry) => [entry.title, entry.body].filter(Boolean).join(' ')).join(' ')
       if (terms.every((term) => joinedBody.toLowerCase().includes(term))) {
         hit = texts[0]
         body = joinedBody
@@ -961,7 +961,7 @@ async function refreshDigestIfDue(ctx, github) {
 }
 
 function startDigestLoop(ctx, github) {
-  const check = () => { refreshDigestIfDue(ctx, github).catch(() => {}) }
+  const check = () => { refreshDigestIfDue(ctx, github).catch((error) => recordJobFailure('digest', error)) }
   const timer = setInterval(check, DIGEST_CHECK_MS)
   if (typeof timer.unref === 'function') timer.unref()
   const startup = setTimeout(check, 30_000)
@@ -1564,14 +1564,15 @@ async function refreshLongInsights(ctx, github) {
       if (itemsInRange(github.items, info.start, info.end).length < minimum) continue
       await generatePeriodInsight(ctx, github.items, type, anchor, false)
     }
-  } catch {}
-  finally {
+  } catch (error) {
+    recordJobFailure('long-insight', error)
+  } finally {
     github.longBusy = false
   }
 }
 
 function startLongInsightLoop(ctx, github) {
-  const check = () => { refreshLongInsights(ctx, github).catch(() => {}) }
+  const check = () => { refreshLongInsights(ctx, github).catch((error) => recordJobFailure('long-insight', error)) }
   const timer = setInterval(check, 30 * 60 * 1000)
   if (typeof timer.unref === 'function') timer.unref()
   const startup = setTimeout(check, 45_000)
@@ -2449,6 +2450,14 @@ function emptyParts() {
   return { total: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
 }
 
+
+function recordJobFailure(scope, error) {
+  const message = error && error.message ? error.message : String(error)
+  try {
+    mkdirSync(dataDir(), { recursive: true })
+    appendFileSync(join(dataDir(), 'jobs.log'), `${new Date().toISOString()}\t${scope}\t${message}\n`)
+  } catch {}
+}
 
 function recordUsage(kind, usage, model = MODEL.model) {
   const parts = usageParts(usage)
