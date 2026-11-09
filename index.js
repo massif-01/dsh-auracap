@@ -5,13 +5,15 @@ import { homedir } from 'node:os'
 import { createHash, randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
-import { PDFParse } from 'pdf-parse'
 
 export const name = 'auracap'
 export const inject = ['webServer', 'llm', 'attachments']
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url))
 const promptCache = new Map()
+// Both item and group writes invalidate the client's lightweight list snapshot.
+const libraryInstance = randomUUID()
+let libraryRevision = 0
 
 function readPrompt(name) {
   const file = join(ROOT, 'prompts', name)
@@ -145,6 +147,7 @@ function addDocumentItem(ctx, items, { data, mediaType, name, text, source }) {
 }
 
 async function extractPdfText(data) {
+  const { PDFParse } = await import('pdf-parse')
   const parser = new PDFParse({ data })
   try {
     const result = await parser.getText()
@@ -256,6 +259,7 @@ function loadItems() {
 }
 
 function saveItems(items) {
+  libraryRevision += 1
   mkdirSync(dataDir(), { recursive: true })
   const file = itemsFile()
   const tmp = `${file}.${process.pid}.tmp`
@@ -1877,6 +1881,7 @@ function saveMemoryIndex(index) {
 
 export function buildMemoryIndex(items) {
   const index = { version: 1, entities: {}, aliases: {} }
+  const itemsById = new Map(items.map((item) => [item.id, item]))
   const itemEntities = new Map()
   const parent = new Map()
   let changed = false
@@ -1932,14 +1937,15 @@ export function buildMemoryIndex(items) {
   // This is structural, not a brand whitelist: only org/product/project names,
   // with a two-character CJK or four-character Latin shared prefix.
   const entries = Object.values(index.entities)
+  const matchKeys = new Map(entries.map((entry) => [entry.id, entityMatchKey(entry.name)]))
   const preferences = []
   for (let left = 0; left < entries.length; left += 1) {
     for (let right = left + 1; right < entries.length; right += 1) {
       const a = entries[left]
       const b = entries[right]
       if (!PREFIX_TYPES.has(a.type) || !PREFIX_TYPES.has(b.type)) continue
-      const ka = entityMatchKey(a.name)
-      const kb = entityMatchKey(b.name)
+      const ka = matchKeys.get(a.id)
+      const kb = matchKeys.get(b.id)
       const oneIsPrefix = ka.startsWith(kb) || kb.startsWith(ka)
       if (!oneIsPrefix) continue
       const shorter = ka.length <= kb.length ? ka : kb
@@ -1989,7 +1995,7 @@ export function buildMemoryIndex(items) {
   }
 
   for (const [itemId, entities] of itemEntities) {
-    const item = items.find((entry) => entry.id === itemId)
+    const item = itemsById.get(itemId)
     if (!item || !item.summary) continue
     const mapped = []
     const seen = new Set()
@@ -2661,6 +2667,7 @@ function loadGroups() {
 }
 
 function saveGroups() {
+  libraryRevision += 1
   mkdirSync(dataDir(), { recursive: true })
   const file = groupsFile()
   const tmp = `${file}.${process.pid}.tmp`
@@ -2768,13 +2775,14 @@ function pruneGroups(items) {
 }
 
 export function rebuildGroups(items) {
+  const itemIds = new Set(items.map((item) => item.id))
   const preserved = {
     groups: {},
     itemIds: new Set(),
   }
   for (const [id, group] of Object.entries(groupStore.groups)) {
     if (group.source === 'manual' || group.status === 'merged' || group.dismissed) {
-      const valid = (group.itemIds || []).filter((itemId) => items.some((item) => item.id === itemId))
+      const valid = (group.itemIds || []).filter((itemId) => itemIds.has(itemId))
       if (valid.length >= 2) {
         const next = Object.assign({}, group, { itemIds: valid })
         if (valid.length !== (group.itemIds || []).length) {
@@ -2803,10 +2811,14 @@ export function rebuildGroups(items) {
     if (a !== b) parent.set(b, a)
   }
   const pairScores = new Map()
-  for (let leftIndex = 0; leftIndex < candidates.length; leftIndex += 1) {
-    for (let rightIndex = leftIndex + 1; rightIndex < candidates.length; rightIndex += 1) {
-      const left = candidates[leftIndex]
-      const right = candidates[rightIndex]
+  const byTime = candidates.map((item) => ({ item, at: Date.parse(item.createdAt) }))
+    .filter((entry) => Number.isFinite(entry.at))
+    .sort((left, right) => left.at - right.at)
+  for (let leftIndex = 0; leftIndex < byTime.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < byTime.length; rightIndex += 1) {
+      if (byTime[rightIndex].at - byTime[leftIndex].at > GROUP_WINDOW_MS) break
+      const left = byTime[leftIndex].item
+      const right = byTime[rightIndex].item
       const score = groupScore(left, right)
       if (score > 0) {
         union(left.id, right.id)
@@ -2866,6 +2878,20 @@ function groupsForApi() {
   return Object.values(groupStore.groups)
     .filter((group) => !group.dismissed && (group.itemIds || []).length >= 2)
     .sort((left, right) => String(right.updatedAt || '').localeCompare(String(left.updatedAt || '')))
+}
+
+function itemsForList(items, requestedVersion) {
+  const version = libraryInstance + ':' + libraryRevision
+  if (requestedVersion === version) return { version, unchanged: true }
+  return {
+    version,
+    items: items.map(({ text, ...item }) => {
+      // Old document records may not yet have an explicit kind.
+      if (!item.image && text) item.kind = 'document'
+      return item
+    }),
+    groups: groupsForApi(),
+  }
 }
 
 function groupedInsightEntries(items) {
@@ -3416,6 +3442,7 @@ export function apply(ctx) {
         }
         if (path === `${BASE}/api/items`) {
           if (req.method !== 'GET') return sendError(res, 405, 'method not allowed')
+          if (url.searchParams.get('view') === 'list') return sendJson(res, 200, itemsForList(items, url.searchParams.get('version')))
           return sendJson(res, 200, { items, groups: groupsForApi() })
         }
         if (path === `${BASE}/api/groups`) {

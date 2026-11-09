@@ -1075,6 +1075,16 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       return payload || {}
     }
 
+    function usePolledState(initial) {
+      // Only small status/settings payloads use this; the library has its own revision.
+      const [value, setValue] = useState(initial)
+      const update = useCallback((next) => setValue((current) => {
+        const resolved = typeof next === 'function' ? next(current) : next
+        return JSON.stringify(current) === JSON.stringify(resolved) ? current : resolved
+      }), [])
+      return [value, update]
+    }
+
     function pad(value) { return String(value).padStart(2, '0') }
 
     function isToday(iso) {
@@ -1139,8 +1149,30 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       return /^zh/i.test(uiLocale())
     }
 
+    const timeFormatters = new Map()
+    let formatterTimeZone
+    function refreshTimeZone() {
+      const timeZone = new Intl.DateTimeFormat().resolvedOptions().timeZone
+      if (timeZone !== formatterTimeZone) {
+        timeFormatters.clear()
+        formatterTimeZone = timeZone
+      }
+      return timeZone
+    }
+
+    function formatsForLocale() {
+      const locale = uiLocale()
+      if (!timeFormatters.has(locale)) timeFormatters.set(locale, {
+        monthDay: new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }),
+        monthYear: new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'short' }),
+        shortDateTime: new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        relative: new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }),
+      })
+      return timeFormatters.get(locale)
+    }
+
     function formatMonthDay(date) {
-      return new Intl.DateTimeFormat(uiLocale(), { month: 'short', day: 'numeric' }).format(date)
+      return formatsForLocale().monthDay.format(date)
     }
 
     function todayKey() {
@@ -1190,13 +1222,13 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       const endDate = new Date(ey, em - 1, ed, 12)
       if (sy === ey && sm === em && sd === ed) return formatMonthDay(startDate)
       if (sy === ey) return formatMonthDay(startDate) + ' – ' + formatMonthDay(endDate)
-      return new Intl.DateTimeFormat(uiLocale(), { year: 'numeric', month: 'short' }).format(startDate)
+      return formatsForLocale().monthYear.format(startDate)
         + ' – '
-        + new Intl.DateTimeFormat(uiLocale(), { year: 'numeric', month: 'short' }).format(endDate)
+        + formatsForLocale().monthYear.format(endDate)
     }
 
     function shortDateTime(date) {
-      return new Intl.DateTimeFormat(uiLocale(), { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date)
+      return formatsForLocale().shortDateTime.format(date)
     }
 
     function timeText(iso) {
@@ -1205,10 +1237,10 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       const diff = now.getTime() - date.getTime()
       if (diff < 60_000) return localeIsZh() ? '刚刚' : 'just now'
       if (diff < 3_600_000) {
-        return new Intl.RelativeTimeFormat(uiLocale(), { numeric: 'auto' }).format(-Math.floor(diff / 60_000), 'minute')
+        return formatsForLocale().relative.format(-Math.floor(diff / 60_000), 'minute')
       }
       if (isToday(iso)) return pad(date.getHours()) + ':' + pad(date.getMinutes())
-      return new Intl.DateTimeFormat(uiLocale(), { month: 'short', day: 'numeric' }).format(date)
+      return formatsForLocale().monthDay.format(date)
     }
 
     function formatTokens(value) {
@@ -1868,7 +1900,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         return map
       }, {})
       const months = []
-      const cursor = new Date(Math.floor(minDay / 86400000) * 86400000)
+      const cursor = new Date(minDay * 86400000)
       cursor.setUTCDate(1)
       while (cursor.getTime() <= maxDay * 86400000) {
         const key = cursor.getUTCFullYear() + '-' + pad(cursor.getUTCMonth() + 1) + '-01'
@@ -2654,8 +2686,24 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
 
     function App(props) {
       const t = props.t
-      const [items, setItems] = useState([])
-      const [groups, setGroups] = useState([])
+      const [items, replaceItems] = useState([])
+      const [groups, replaceGroups] = useState([])
+      const listVersion = useRef(null)
+      const loadSequence = useRef(0)
+      // Local writes no longer represent the saved snapshot or any in-flight list read.
+      const setItems = useCallback((next) => {
+        listVersion.current = null
+        loadSequence.current += 1
+        replaceItems(next)
+      }, [])
+      const setGroups = useCallback((next) => {
+        listVersion.current = null
+        loadSequence.current += 1
+        replaceGroups(next)
+      }, [])
+      const [minute, setMinute] = useState(() => Math.floor(Date.now() / 60_000))
+      const [timeZone, setTimeZone] = useState(refreshTimeZone)
+      const today = todayKey()
       const [selectedGroupId, setSelectedGroupId] = useState(null)
       const [groupModalId, setGroupModalId] = useState(null)
       const [groupBusy, setGroupBusy] = useState(false)
@@ -2689,12 +2737,12 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       const [entityDetail, setEntityDetail] = useState(null)
       const [entityBusy, setEntityBusy] = useState(false)
       const [related, setRelated] = useState([])
-      const [memoryStatus, setMemoryStatus] = useState(null)
-      const [usage, setUsage] = useState(null)
-      const [memoryProfile, setMemoryProfile] = useState(null)
-      const [memorySettings, setMemorySettings] = useState(null)
+      const [memoryStatus, setMemoryStatus] = usePolledState(null)
+      const [usage, setUsage] = usePolledState(null)
+      const [memoryProfile, setMemoryProfile] = usePolledState(null)
+      const [memorySettings, setMemorySettings] = usePolledState(null)
       const [uiLang, setUiLang] = useState(() => uiLocale())
-      const [insightStatus, setInsightStatus] = useState({})
+      const [insightStatus, setInsightStatus] = usePolledState({})
       const [seenPeriods, setSeenPeriods] = useState(() => {
         try { return JSON.parse(localStorage.getItem('auracap.periodSeen') || '{}') || {} } catch { return {} }
       })
@@ -2711,7 +2759,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       viewRef.current = { period, anchor: appliedAnchor }
       const [settingsOpen, setSettingsOpen] = useState(false)
       const [searchOpen, setSearchOpen] = useState(false)
-      const [github, setGithub] = useState(null)
+      const [github, setGithub] = usePolledState(null)
       const [githubBusy, setGithubBusy] = useState(false)
       const [githubError, setGithubError] = useState(null)
       const [device, setDevice] = useState(null)
@@ -2723,6 +2771,18 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       const [shortcutFileMessage, setShortcutFileMessage] = useState(null)
       const fileRef = useRef(null)
       const dragDepth = useRef(0)
+
+      useEffect(() => {
+        const tick = () => {
+          if (document.visibilityState !== 'hidden') {
+            setTimeZone(refreshTimeZone())
+            setMinute(Math.floor(Date.now() / 60_000))
+          }
+        }
+        const timer = setInterval(tick, 60_000)
+        document.addEventListener('visibilitychange', tick)
+        return () => { clearInterval(timer); document.removeEventListener('visibilitychange', tick) }
+      }, [])
 
       useEffect(() => {
         const onKeyDown = (event) => {
@@ -2739,12 +2799,16 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       }, [])
 
       const load = useCallback(async () => {
+        const sequence = ++loadSequence.current
         try {
-          const payload = await request(API + '/items')
-          setItems(Array.isArray(payload.items) ? payload.items : [])
-          setGroups(Array.isArray(payload.groups) ? payload.groups : [])
+          const version = listVersion.current
+          const payload = await request(API + '/items?view=list' + (version ? '&version=' + encodeURIComponent(version) : ''))
+          if (sequence !== loadSequence.current || payload.unchanged) return
+          replaceItems(Array.isArray(payload.items) ? payload.items : [])
+          replaceGroups(Array.isArray(payload.groups) ? payload.groups : [])
+          listVersion.current = payload.version || null
         } catch (loadError) {
-          setError(loadError.message || t('loadFailed'))
+          if (sequence === loadSequence.current) setError(loadError.message || t('loadFailed'))
         }
       }, [t])
 
@@ -2809,7 +2873,9 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         return () => { alive = false; clearInterval(timer) }
       }, [])
 
-      const rangeFilter = rangeStart && rangeEnd ? { start: rangeStart, end: rangeEnd } : null
+      const rangeFilter = useMemo(() => rangeStart && rangeEnd ? { start: rangeStart, end: rangeEnd } : null, [rangeStart, rangeEnd])
+      const itemsById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items])
+      const listTimeKey = useMemo(() => items.some((item) => Date.now() - Date.parse(item.createdAt) < 3_600_000) ? minute : today, [items, minute, today])
       const visible = useMemo(() => {
         const base = scope === 'today' ? items.filter((item) => isToday(item.createdAt)) : items
         let result = base
@@ -2821,8 +2887,8 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         }
         if (tagFilter) result = result.filter((item) => item.summary && Array.isArray(item.summary.tags) && item.summary.tags.includes(tagFilter))
         return result
-      }, [items, scope, rangeFilter, tagFilter])
-      const todayCount = useMemo(() => items.filter((item) => isToday(item.createdAt)).length, [items])
+      }, [items, scope, rangeFilter, tagFilter, today, timeZone])
+      const todayCount = useMemo(() => items.filter((item) => isToday(item.createdAt)).length, [items, today, timeZone])
       const itemToGroup = useMemo(() => {
         const map = new Map()
         for (const group of groups) for (const itemId of group.itemIds || []) map.set(itemId, group)
@@ -2830,7 +2896,6 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       }, [groups])
       const groupedIds = useMemo(() => new Set(Array.from(itemToGroup.keys())), [itemToGroup])
       const visibleEntries = useMemo(() => {
-        const visibleIds = new Set(visible.map((item) => item.id))
         const seenGroups = new Set()
         const entries = []
         for (const item of visible) {
@@ -2841,27 +2906,27 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           }
           if (seenGroups.has(group.id)) continue
           seenGroups.add(group.id)
-          const members = (group.itemIds || []).map((itemId) => items.find((entry) => entry.id === itemId)).filter(Boolean)
+          const members = (group.itemIds || []).map((itemId) => itemsById.get(itemId)).filter(Boolean)
           if (!members.length) continue
           const primary = members.find((entry) => entry.id === group.primaryId) || members[0]
           entries.push({ kind: 'group', id: group.id, group, items: members, primary })
         }
         return entries
-      }, [visible, itemToGroup, items])
+      }, [visible, itemToGroup, itemsById])
       const selectedGroup = selectedGroupId ? groups.find((group) => group.id === selectedGroupId) : null
       const selectedGroupItems = selectedGroup
-        ? (selectedGroup.itemIds || []).map((itemId) => items.find((entry) => entry.id === itemId)).filter(Boolean)
+        ? (selectedGroup.itemIds || []).map((itemId) => itemsById.get(itemId)).filter(Boolean)
         : []
       const modalGroup = groupModalId ? groups.find((group) => group.id === groupModalId) : null
       const modalGroupItems = modalGroup
-        ? (modalGroup.itemIds || []).map((itemId) => items.find((entry) => entry.id === itemId)).filter(Boolean)
+        ? (modalGroup.itemIds || []).map((itemId) => itemsById.get(itemId)).filter(Boolean)
         : []
       const digestUnread = Boolean(digest && digest.createdAt && digest.createdAt !== digestSeenAt)
       const digestSources = useMemo(() => {
         if (!digest) return []
         const ids = Array.isArray(digest.itemIds) ? digest.itemIds : (Array.isArray(digest.sourceItemIds) ? digest.sourceItemIds : [])
-        return ids.map((id) => items.find((item) => item.id === id)).filter(Boolean)
-      }, [digest, items])
+        return ids.map((id) => itemsById.get(id)).filter(Boolean)
+      }, [digest, itemsById])
       const periodUnread = ['day', 'week', 'month', 'year'].reduce((acc, type) => {
         const at = insightStatus[type] && insightStatus[type].createdAt
         if (at && at !== seenPeriods[type]) acc[type] = true
@@ -2874,8 +2939,8 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         if (!selectedId || !visible.some((item) => item.id === selectedId)) setSelectedId(visible[0].id)
       }, [visible, selectedId])
 
-      const selected = items.find((item) => item.id === selectedId) || null
-      const modalItem = items.find((item) => item.id === modalId) || null
+      const selected = itemsById.get(selectedId) || null
+      const modalItem = itemsById.get(modalId) || null
 
       const chooseView = (next) => {
         setView(next)
@@ -3309,14 +3374,14 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       const hasOlder = scope === 'today' && visible.length === 0 && items.length > 0
 
       const changePeriod = (next) => setPeriod(next)
-      const changeRange = (start, end) => {
+      const changeRange = useCallback((start, end) => {
         setRangeStart(start)
         setRangeEnd(end)
-      }
-      const resetRange = () => {
+      }, [])
+      const resetRange = useCallback(() => {
         setRangeStart(null)
         setRangeEnd(null)
-      }
+      }, [])
       const applyTagFilter = (tag) => {
         setTagFilter(tag)
         setScope('all')
@@ -3341,13 +3406,13 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         setSelectedId(id)
         if (view === 'grid') setModalId(id)
       }
-      const openGroup = (id) => {
+      const openGroup = useCallback((id) => {
         setSelectedId(null)
         setModalId(null)
         setSelectedGroupId(id)
         setGroupError(null)
         if (view === 'grid') setGroupModalId(id)
-      }
+      }, [view])
       const closeGroup = () => { setSelectedGroupId(null); setGroupModalId(null); setGroupError(null) }
       const refreshGroups = async () => {
         try {
@@ -3496,6 +3561,15 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       }
       const periodLabels = { day: t('periodDay'), week: t('periodWeek'), month: t('periodMonth'), year: t('periodYear') }
       const insightBounds = periodBounds(period, appliedAnchor)
+      // Reuse the element tree across unrelated status updates; refresh relative times separately.
+      const entryNodes = useMemo(() => scope === 'digest' ? null : visibleEntries.map((entry) => {
+        if (view === 'grid') return entry.kind === 'group'
+          ? h(GroupCard, { key: 'group-' + entry.id, group: entry.group, items: entry.items, t, onClick: () => openGroup(entry.id) })
+          : h(Card, { key: entry.item.id, item: entry.item, t, onClick: () => { setSelectedGroupId(null); setGroupModalId(null); setModalId(entry.item.id) } })
+        return entry.kind === 'group'
+          ? h(GroupRow, { key: 'group-' + entry.id, group: entry.group, items: entry.items, t, active: entry.id === selectedGroupId, onClick: () => openGroup(entry.id) })
+          : h(Row, { key: entry.item.id, item: entry.item, t, active: entry.item.id === selectedId && !selectedGroupId, onClick: () => { setSelectedGroupId(null); setSelectedId(entry.item.id) } })
+      }), [scope, visibleEntries, view, t, uiLang, selectedId, selectedGroupId, openGroup, listTimeKey, timeZone])
 
       const header = h('header', { className: 'ac-header' },
         h('div', { className: 'ac-mark' }, BrandMark()),
@@ -3534,14 +3608,14 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         h('div', { className: 'ac-grow' }),
         h('span', { className: 'ac-hint' }, t('localOnly')))
 
-      const timeline = scope === 'all' ? h(TimeFlow, {
+      const timeline = useMemo(() => scope === 'all' ? h(TimeFlow, {
         t,
         items,
         start: rangeStart,
         end: rangeEnd,
         onChange: changeRange,
         onReset: resetRange,
-      }) : null
+      }) : null, [scope, t, uiLang, items, rangeStart, rangeEnd, changeRange, resetRange, today, timeZone])
 
       let content
       if (onboarding) {
@@ -3580,15 +3654,11 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         content = h(Empty, { t, busy, hasOlder, onImport: openPicker, onShowAll: () => setScope('all') })
       } else if (view === 'grid') {
         content = h('div', { className: 'ac-grid-wrap' },
-          h('div', { className: 'ac-grid' }, visibleEntries.map((entry) => entry.kind === 'group'
-            ? h(GroupCard, { key: 'group-' + entry.id, group: entry.group, items: entry.items, t, onClick: () => openGroup(entry.id) })
-            : h(Card, { key: entry.item.id, item: entry.item, t, onClick: () => { setSelectedGroupId(null); setGroupModalId(null); setModalId(entry.item.id) } }))))
+          h('div', { className: 'ac-grid' }, entryNodes))
       } else {
         content = h('div', { className: 'ac-body' },
           h('div', { className: 'ac-list', role: 'list' },
-            visibleEntries.map((entry) => entry.kind === 'group'
-              ? h(GroupRow, { key: 'group-' + entry.id, group: entry.group, items: entry.items, t, active: entry.id === selectedGroupId, onClick: () => openGroup(entry.id) })
-              : h(Row, { key: entry.item.id, item: entry.item, t, active: entry.item.id === selectedId && !selectedGroupId, onClick: () => { setSelectedGroupId(null); setSelectedId(entry.item.id) } }))),
+            entryNodes),
           selectedGroup
             ? h(GroupDetail, { group: selectedGroup, items: selectedGroupItems, t, onOpenItem: openItemById, onMerge: mergeGroupAction, onSplit: splitGroupAction, onDismiss: dismissGroupAction, busy: groupBusy, error: groupError })
             : selected
