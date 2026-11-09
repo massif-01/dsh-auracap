@@ -2124,7 +2124,8 @@ function compactItemLine(item, index) {
   const summary = item.summary || {}
   const title = summary.title || '未命名'
   const date = localDateKey(item.createdAt)
-  return `${index + 1}. ${title} · ${date}`
+  const excerpt = String(summary.excerpt || makeExcerpt(summary.content || summary.summary || '')).slice(0, 120)
+  return `${index + 1}. [${item.id}] ${title} · ${date}${excerpt ? ' · ' + excerpt : ''}`
 }
 
 function compactInsightLine(insight, index) {
@@ -2141,9 +2142,9 @@ function toolSearch(args, items) {
   const moments = searchItemsFor(items.filter((item) => !groupedIds.has(item.id)), query).slice(0, limit)
   const insights = searchInsightsFor(query).slice(0, limit)
   const lines = [english ? `AuraCap memory search: ${query}` : `AuraCap 本地记忆搜索：${query}`]
-  if (groups.length) { lines.push('', english ? 'Groups:' : '组：'); groups.forEach((group, index) => lines.push(`${index + 1}. ${group.title} · ${group.count} ${english ? 'screens' : '屏'} · ${group.createdAt || ''}`)) }
-  if (moments.length) { lines.push('', english ? 'Moments:' : '片刻：'); moments.forEach((moment, index) => lines.push(`${index + 1}. ${moment.title} · ${moment.createdAt || ''}`)) }
-  if (insights.length) { lines.push('', english ? 'Insights:' : '洞察：'); insights.forEach((insight, index) => lines.push(`${index + 1}. ${insight.title} · ${insight.start || insight.date || ''}`)) }
+  if (groups.length) { lines.push('', english ? 'Groups:' : '组：'); groups.forEach((group, index) => lines.push(`${index + 1}. [${group.id}] ${group.title} · ${group.count} ${english ? 'screens' : '屏'} · ${group.createdAt || ''}${group.snippet ? ' · ' + String(group.snippet).slice(0, 120) : ''}`)) }
+  if (moments.length) { lines.push('', english ? 'Moments:' : '片刻：'); moments.forEach((moment, index) => lines.push(`${index + 1}. [${moment.id}] ${moment.title} · ${moment.createdAt || ''}${moment.snippet ? ' · ' + String(moment.snippet).slice(0, 120) : ''}`)) }
+  if (insights.length) { lines.push('', english ? 'Insights:' : '洞察：'); insights.forEach((insight, index) => lines.push(`${index + 1}. [${insight.type}:${insight.key}] ${insight.title} · ${insight.start || insight.date || ''}${insight.snippet ? ' · ' + String(insight.snippet).slice(0, 120) : ''}`)) }
   if (lines.length === 1) lines.push(english ? 'No matching local memories.' : '没有找到匹配的本地记忆。')
   return lines.join('\n').slice(0, 6000)
 }
@@ -2170,7 +2171,29 @@ function toolRelated(args, items) {
   if (!itemId) return english ? 'Provide a moment ID.' : '请提供片刻 ID。'
   const related = relatedItems(items, itemId, 8)
   if (!related.length) return english ? 'No related moments found.' : '没有找到相关片刻。'
-  return related.map(({ item, reason }, index) => `${index + 1}. ${(item.summary && item.summary.title) || (english ? 'Untitled' : '未命名')} · ${reason}`).join('\n').slice(0, 6000)
+  return related.map(({ item, reason }, index) => `${index + 1}. [${item.id}] ${(item.summary && item.summary.title) || (english ? 'Untitled' : '未命名')} · ${reason}`).join('\n').slice(0, 6000)
+}
+
+function toolMoment(args, items) {
+  const english = resolveContentLanguage() === 'en'
+  const itemId = String(args.itemId || '').trim()
+  if (!itemId) return english ? 'Provide a moment ID (from auracap_search or auracap_about).' : '请提供片刻 ID（来自 auracap_search 或 auracap_about 的结果）。'
+  const item = items.find((entry) => entry.id === itemId)
+  if (!item) return english ? 'No moment found for that ID.' : '没有找到这条片刻。'
+  const summary = item.summary || {}
+  const content = String(summary.content || summary.summary || '').trim()
+  if (!content) return english ? 'This moment has no generated content yet.' : '这条片刻还没有生成内容。'
+  const lines = [
+    `${summary.title || (english ? 'Untitled' : '未命名')} · ${localDateKey(item.createdAt)}`,
+    '',
+    content.slice(0, 4000),
+  ]
+  if (content.length > 4000) lines.push('', english ? '(content truncated)' : '（内容已截断）')
+  const tags = Array.isArray(summary.tags) ? summary.tags.filter(Boolean).slice(0, 6) : []
+  if (tags.length) lines.push('', (english ? 'Tags: ' : '标签：') + tags.join(', '))
+  const entities = Array.isArray(summary.entities) ? summary.entities.map((entity) => entity && entity.name).filter(Boolean).slice(0, 8) : []
+  if (entities.length) lines.push((english ? 'Clues: ' : '线索：') + entities.join(', '))
+  return lines.join('\n').slice(0, 6000)
 }
 
 function toolInsights(args) {
@@ -2190,7 +2213,7 @@ export function registerMemoryTools(ctx, items) {
   const tools = ctx.get('tools')
   if (!tools) return
   const definitions = [
-    memoryToolDefinition("auracap_search", "Search the user's local AuraCap moments, insight groups and insights. Read-only. Results are bounded and contain summaries, not images or file paths.", {
+    memoryToolDefinition("auracap_search", "Search the user's local AuraCap moments, insight groups and insights. Read-only. Results are bounded, include the moment or group ID with a short excerpt, and never include images or file paths. Use auracap_moment afterwards to read one moment's full content when the user asks about it.", {
       query: { type: 'string', description: 'Text to search for in local AuraCap memory.', required: true },
       limit: { type: 'integer', minimum: 1, maximum: 8, description: 'Maximum results per category. Default 5.' },
     }, (args) => toolSearch(args, items)),
@@ -2198,6 +2221,9 @@ export function registerMemoryTools(ctx, items) {
       entity: { type: 'string', description: 'Clue name, for example AuraCap or Geist.', required: true },
       days: { type: 'integer', minimum: 1, maximum: 3650, description: 'Look back window in days. Default 90.' },
     }, (args) => toolAbout(args, items)),
+    memoryToolDefinition('auracap_moment', 'Read the generated core content of one local AuraCap moment by ID. Read-only. Use it only when the user asks what a specific moment says; list or search first to get the ID.', {
+      itemId: { type: 'string', description: 'Local AuraCap moment ID, as returned by auracap_search or auracap_about.', required: true },
+    }, (args) => toolMoment(args, items)),
     memoryToolDefinition('auracap_related', 'Find moments related to one local AuraCap moment, with explicit reasons. Read-only.', {
       itemId: { type: 'string', description: 'Local AuraCap moment ID.', required: true },
     }, (args) => toolRelated(args, items)),
