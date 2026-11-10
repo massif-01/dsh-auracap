@@ -5,11 +5,11 @@ import { homedir } from 'node:os'
 import { createHash, randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
-import { ContentGate, backupError, hasNewMaterial } from './backup/runtime.js'
+import { ContentGate, backupError, hasNewMaterial, restoreBaseline, validBaseline } from './backup/runtime.js'
 import { BackupTasks } from './backup/tasks.js'
 import { recoverRestore } from './backup/restore.js'
-import { readJson } from './backup/io.js'
-import { imageType, insightFile } from './backup/format.js'
+import { readJson, writeJson } from './backup/io.js'
+import { imageType, insightFile, readContent, validateContent, isDocument, validMediaPath } from './backup/format.js'
 
 export const name = 'auracap'
 export const inject = ['webServer', 'llm', 'attachments']
@@ -21,6 +21,7 @@ const libraryInstance = randomUUID()
 let libraryRevision = 0
 let operationGate = null
 let restoredBaseline = null
+let baselineIssue = null
 const trackedTask = (fn, kind = 'content') => operationGate ? operationGate.run(fn, kind) : fn()
 const assertCurrentTask = () => operationGate?.assertCurrent()
 
@@ -89,9 +90,11 @@ function imageTypeFromName(name) {
 function storeOriginal(item, data) {
   assertCurrentTask()
   mkdirSync(mediaDir(), { recursive: true })
-  const relative = join('media', `${item.id}.${extensionOf(item.image.mediaType)}`)
+  const type = imageType(data)
+  const relative = join('media', `${item.id}.${extensionOf(type)}`)
   writeFileSync(join(dataDir(), relative), data)
   item.imageFile = relative
+  item.imageFileMediaType = type
 }
 
 async function addImageItem(ctx, items, data, mediaType, name, source) {
@@ -270,12 +273,10 @@ async function migrateMedia(ctx, items) {
 }
 
 function loadItems() {
-  try {
-    const parsed = JSON.parse(readFileSync(itemsFile(), 'utf8'))
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
+  if (!existsSync(itemsFile()) && ['media', 'digests', 'insights'].some(path => existsSync(join(dataDir(), path)) && readdirSync(join(dataDir(), path)).length)) {
+    throw backupError('LIBRARY_UNREADABLE', '片刻文件缺失，已暂停内容修改。请从完整备份恢复。', 503)
   }
+  return readJson(itemsFile(), [])
 }
 
 function saveItems(items) {
@@ -968,6 +969,7 @@ async function generateDigest(llm, items, date) {
 }
 
 async function automaticMaterialChanged(items, sourceIds, insightKeys = []) {
+  if (baselineIssue) return false
   if (!restoredBaseline) return true
   const ids = new Set(sourceIds)
   const selected = items.filter(item => ids.has(item.id))
@@ -1035,8 +1037,8 @@ function loadState() {
       needsReconnect: parsed.needsReconnect === true,
       reconnectReason: parsed.reconnectReason || null,
     }
-  } catch {
-    return { github: null, processed: [], lastSyncAt: null, lastAttemptAt: null, lastErrorAt: null, queueCount: 0, lastError: null, needsReconnect: false, reconnectReason: null }
+  } catch (error) {
+    return { github: null, processed: [], lastSyncAt: null, lastAttemptAt: null, lastErrorAt: null, queueCount: 0, lastError: null, needsReconnect: error.code !== 'ENOENT', reconnectReason: error.code !== 'ENOENT' ? '手机连接信息无法读取，请重新连接。已保存内容不受影响。' : null }
   }
 }
 
@@ -2362,6 +2364,7 @@ function memoryToolDefinition(name, description, parameters, execute) {
     timeoutMs: 15_000,
     async execute(args) {
       if (operationGate?.readBlocked) throw backupError('BUSY', '内容正在恢复', 503)
+      if (operationGate?.contentError) throw operationGate.contentError
       if (!loadMemorySettings().agentMemory) return 'AuraCap Agent memory is disabled by the user.'
       const result = await execute(args || {})
       return (resolveContentLanguage() === 'en'
@@ -2506,7 +2509,7 @@ export function registerMemorySystemContext(ctx) {
     order: 1500,
     interpolate: false,
     text: () => {
-      if (!loadMemorySettings().agentMemory) return ''
+      if (operationGate?.readBlocked || operationGate?.contentError || !loadMemorySettings().agentMemory) return ''
       const language = resolveContentLanguage()
       const context = profilePrompt(loadMemoryProfile(), language)
       if (language === 'en') {
@@ -2811,13 +2814,6 @@ const GROUP_WINDOW_MS = 15 * 60 * 1000
 const GROUP_MAX = 8
 const GROUP_THRESHOLD = 0.62
 
-function loadGroups() {
-  try {
-    const parsed = JSON.parse(readFileSync(groupsFile(), 'utf8'))
-    if (parsed && parsed.groups && typeof parsed.groups === 'object') groupStore = { version: 1, groups: parsed.groups }
-  } catch {}
-  return groupStore
-}
 
 function saveGroups() {
   assertCurrentTask()
@@ -3200,39 +3196,72 @@ export function apply(ctx) {
 function applyRuntime(ctx, gate) {
   let recoveryError = null
   try { recoverRestore(dataDir()) } catch (error) { recoveryError = error; operationGate.readBlocked = true; operationGate.mode = 'restore' }
-  let items = recoveryError ? [] : loadItems()
-  restoredBaseline = recoveryError ? null : readJson(join(memoryDir(), 'restore-baseline.json'), null)
-  let interrupted = false
-  for (const item of items) {
-    if (item && item.status === 'summarizing') {
-      item.status = 'failed'
-      item.error = '生成被中断，请重试'
-      item.updatedAt = new Date().toISOString()
-      interrupted = true
-    }
-  }
-  if (interrupted) saveItems(items)
+  let items = []
   groupStore = { version: 1, groups: {} }
   memoryIndex = { version: 1, entities: {}, aliases: {} }
+  restoredBaseline = null
+  baselineIssue = null
   if (!recoveryError) {
-    loadGroups()
-    loadMemoryIndex()
-    try { buildMemoryIndex(items, { rewrite: !restoredBaseline }) } catch {}
-    if (!restoredBaseline) { try { rebuildGroups(items) } catch {} }
+    try {
+      const loaded = loadItems()
+      const groups = readJson(groupsFile(), { version: 1, groups: {} })
+      validateContent(loaded, groups, readJson(memoryProfileFile(), { version: 1, note: '' }))
+      items = loaded
+      groupStore = groups
+    } catch (error) {
+      gate.contentError = backupError('LIBRARY_UNREADABLE', '内容库无法完整读取，已暂停内容修改。请从完整备份恢复。', 503)
+      recordJobFailure('library-load', error)
+    }
+    if (!gate.contentError) {
+      try {
+        const value = readJson(join(memoryDir(), 'restore-baseline.json'), null)
+        if ((value !== null || existsSync(join(memoryDir(), 'restore-baseline.json'))) && !validBaseline(value)) throw Error('恢复保护基线结构无效')
+        restoredBaseline = value
+      } catch (error) {
+        baselineIssue = backupError('BASELINE_UNAVAILABLE', '恢复保护信息无法读取，自动生成已暂停。请从完整备份恢复。', 503)
+        recordJobFailure('baseline-load', error)
+      }
+      let interrupted = false
+      for (const item of items) if (item.status === 'summarizing') {
+        item.status = 'failed'
+        item.error = '生成被中断，请重试'
+        item.updatedAt = new Date().toISOString()
+        interrupted = true
+      }
+      if (interrupted) saveItems(items)
+      loadMemoryIndex()
+      try { buildMemoryIndex(items, { rewrite: !restoredBaseline && !baselineIssue }) } catch {}
+      if (!restoredBaseline && !baselineIssue) { try { rebuildGroups(items) } catch {} }
+    }
   }
   const github = { items, state: loadState(), flows: new Map(), flowGeneration: 0, syncing: false, syncingSince: null, digestBusy: false, longBusy: false }
   registerMemoryTools(ctx, () => items)
   registerMemorySystemContext(ctx)
-  if (!recoveryError) {
+  let loopsStarted = false, migration = null, migrationRequested = false, baselineRepair = null, disposed = false
+  const startLoops = () => {
+    if (loopsStarted || disposed || gate.contentError || baselineIssue || gate.readBlocked) return
+    loopsStarted = true
     startGithubLoop(ctx, github)
     startDigestLoop(ctx, github)
     startLongInsightLoop(ctx, github)
+  }
+  const resumeMigration = () => {
+    if (disposed || gate.mode || gate.contentError || gate.readBlocked) return
+    if (migration) { migrationRequested = true; return }
+    migrationRequested = false
+    const current = items
+    migration = migrateMedia(ctx, current).catch(error => recordJobFailure('media', error)).finally(() => {
+      migration = null
+      if (migrationRequested || current !== items) resumeMigration()
+    })
   }
   const publish = (value) => {
     items = value.items
     groupStore = value.groups
     memoryIndex = value.index
     restoredBaseline = value.baseline
+    baselineIssue = null
+    gate.contentError = null
     github.items = items
     github.state = loadState()
     memoryBackfill = null
@@ -3240,23 +3269,24 @@ function applyRuntime(ctx, gate) {
     libraryRevision += 1
     gate.rotate()
   }
-  const rollback = () => {
-    const old = readJson(itemsFile(), [])
-    publish({ items: old, groups: readJson(groupsFile(), { version: 1, groups: {} }), index: buildMemoryIndex(old, { persist: false, rewrite: false }), baseline: readJson(join(memoryDir(), 'restore-baseline.json'), null) })
-  }
-  const backups = new BackupTasks({ dir: dataDir(), gate: operationGate, attachments: ctx.attachments,
-    current: () => ({ items, groups: groupStore }), buildIndex: value => buildMemoryIndex(value, { persist: false, rewrite: false }), publish, rollback,
-    hasAuthorization: () => [...operationGate.jobs].some(job => job.kind === 'authorization') || [...github.flows.values()].some(flow => ['pending', 'provisioning'].includes(flow.status)), recoveryError })
+  const resume = () => { startLoops(); resumeMigration() }
+  const backups = new BackupTasks({ dir: dataDir(), gate, attachments: ctx.attachments,
+    current: () => ({ items, groups: groupStore }), buildIndex: value => buildMemoryIndex(value, { persist: false, rewrite: false }), publish,
+    deviceFiles: () => ({ 'state.json': loadState(), 'memory/settings.json': loadMemorySettings() }), onIdle: resume,
+    notice: () => gate.contentError || (!baselineRepair && baselineIssue),
+    hasAuthorization: () => [...gate.jobs].some(job => job.kind === 'authorization') || [...github.flows.values()].some(flow => ['pending', 'provisioning'].includes(flow.status)), recoveryError })
   const cleanupTimer = setInterval(() => { backups.cleanup().catch(error => recordJobFailure('backup-cleanup', error)) }, 60_000)
   cleanupTimer.unref?.()
   ctx.effect(() => async () => {
+    disposed = true
+    gate.onIdle = null
     clearInterval(cleanupTimer)
     github.flowGeneration += 1
     await Promise.all([...github.flows.values()].map(cancelGithubDevice))
     if (systemCaptureWatch) { clearInterval(systemCaptureWatch.timer); systemCaptureWatch = null }
     for (const task of backups.tasks.values()) if (task.type === 'export' || ['CREATED', 'RECEIVING', 'CHECKING', 'WAITING'].includes(task.state)) task.controller.abort(backupError('CANCELLED', '插件已卸载'))
     gate.mode = 'restore'
-    await Promise.allSettled([...backups.tasks.values()].map(task => task.work).filter(Boolean))
+    await Promise.allSettled([...backups.tasks.values()].map(task => task.work).concat(baselineRepair, migration).filter(Boolean))
     gate.rotate()
     gate.mode = 'restore'
   })
@@ -3299,7 +3329,8 @@ function applyRuntime(ctx, gate) {
 
   const serveMedia = async (req, res, id) => {
     const item = items.find((entry) => entry.id === id)
-    if (!item) return sendError(res, 404, 'not found')
+    if (!item || isDocument(item)) return sendError(res, 404, '图片不存在')
+    if (item.imageFile && !validMediaPath(item)) return sendError(res, 422, '图片路径无效')
     const original = item.imageFile ? join(dataDir(), item.imageFile) : null
     try {
       const data = original && existsSync(original)
@@ -3373,7 +3404,9 @@ function applyRuntime(ctx, gate) {
       res.setHeader('x-auracap-generation', operationGate.generation)
       try {
         if (url.pathname.startsWith(`${BASE}/api/backup/`)) return await backupRoute(req, res, url, backups)
-        if (operationGate.readBlocked) throw backupError('RECOVERY_REQUIRED', '内容正在恢复或需要重新载入', 503)
+        if (operationGate.readBlocked) throw backupError(backups.recoveryError ? 'RECOVERY_REQUIRED' : 'BUSY', backups.recoveryError ? '恢复需要重新载入，请重启插件后查看结果' : '正在恢复内容，请稍候', 503)
+        const deviceConfig = /^\/auracap\/api\/(github\/|memory\/(settings|locale)$)/.test(url.pathname)
+        if (gate.contentError && url.pathname.startsWith(`${BASE}/api/`) && !deviceConfig) throw gate.contentError
         if (!['GET', 'HEAD'].includes(req.method) || url.pathname === `${BASE}/api/github/shortcut-file`) {
           const kind = url.pathname === `${BASE}/api/github/device` ? 'authorization' : /\/github\/(disconnect|shortcut-file)$|\/github\/device\/[^/]+\/cancel$|\/memory\/(settings|locale)$/.test(url.pathname) ? 'config' : 'content'
           const freshInput = url.pathname.startsWith(`${BASE}/api/github/`) || ['ingest', 'import', 'capture-screen', 'memory/locale'].some(path => url.pathname === `${BASE}/api/${path}`)
@@ -3777,5 +3810,17 @@ function applyRuntime(ctx, gate) {
       }
   }
 
-  if (!recoveryError) void migrateMedia(ctx, items).catch(error => recordJobFailure('media', error))
+  if (!recoveryError && !gate.contentError) {
+    if (baselineIssue) {
+      baselineRepair = gate.exclusive('export', new AbortController().signal, async () => {
+        const content = await readContent(dataDir())
+        const baseline = restoreBaseline(items, groupStore, content.insights)
+        if (disposed) return
+        assertCurrentTask()
+        writeJson(join(memoryDir(), 'restore-baseline.json'), baseline)
+        restoredBaseline = baseline
+        baselineIssue = null
+      }).catch(error => recordJobFailure('baseline-rebuild', error)).finally(() => { baselineRepair = null; resume() })
+    } else resume()
+  }
 }

@@ -9,7 +9,7 @@ const checkpoint = stage => { if (stage === point) process.kill(process.pid, 'SI
 if (point.startsWith('rollback-')) recoverRestore(dir, checkpoint)
 else {
   const content = await unpack(archive, join(dirname(dir), 'checked'), new AbortController().signal)
-  await restorePackage({ dir, content, task: { id: randomUUID(), type: 'restore' }, gate: new ContentGate(), phase() {}, checkpoint, publish() {}, rollback() {}, buildIndex: () => ({ version: 1, entities: {}, aliases: {} }),
+  await restorePackage({ dir, content, task: { id: randomUUID(), type: 'restore' }, gate: new ContentGate(), phase() {}, checkpoint, publish() {}, buildIndex: () => ({ version: 1, entities: {}, aliases: {} }),
     attachments: { async saveImage({ data, mediaType }) { return { attachmentId: createHash('sha256').update(data).digest('hex'), mediaType, bytes: data.length } } },
   })
 }

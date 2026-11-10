@@ -7,7 +7,7 @@ import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
 const connected = process.env.AURACAP_PREVIEW_CONNECTED !== '0'
-const app = await fixture({ empty: process.env.AURACAP_PREVIEW_EMPTY === '1', network: async url => {
+const app = await fixture({ home: process.env.AURACAP_PREVIEW_HOME, empty: process.env.AURACAP_PREVIEW_EMPTY === '1', network: async url => {
   if (url === 'https://github.com/login/device/code') return new Response(JSON.stringify({ device_code: 'fixture-device', user_code: 'DEMO-CODE', verification_uri: 'https://github.com/login/device', interval: 5, expires_in: 900 }))
   throw Error('No external network in isolated UI verification: ' + url)
 } })

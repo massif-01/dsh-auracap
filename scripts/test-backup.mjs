@@ -8,9 +8,11 @@ import { randomUUID } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import { fixture, untilTask, sample } from './backup-fixture.mjs'
 import { ContentGate } from '../backup/runtime.js'
-import { unpack } from '../backup/format.js'
+import { unpack, inventory, zipDirectory } from '../backup/format.js'
 import { restorePackage, recoverRestore, controlDir } from '../backup/restore.js'
 import { readJson } from '../backup/io.js'
+import fs from 'node:fs'
+import { syncBuiltinESMExports } from 'node:module'
 
 const post = body => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
 async function exported(app, kind = 'package') {
@@ -137,7 +139,7 @@ test('restore failure at each namespace boundary rolls back once; a committed in
       const dir = join(root, point, 'auracap');await mkdir(dir,{recursive:true})
       await writeFile(join(dir,'items.json'),'[]')
       const gate = new ContentGate(), task = { id: randomUUID(), type:'restore' }
-      const run = () => restorePackage({ dir,task,content,attachments:source.attachments,buildIndex:()=>({version:1,entities:{},aliases:{}}), publish:()=>{},rollback:()=>{},gate,phase:()=>{},checkpoint:stage=>{if(stage===point)throw Error('injected interruption')} })
+      const run = () => restorePackage({ dir,task,content,attachments:source.attachments,buildIndex:()=>({version:1,entities:{},aliases:{}}), publish:()=>{},gate,phase:()=>{},checkpoint:stage=>{if(stage===point)throw Error('injected interruption')} })
       if(point==='committed') {
         await assert.rejects(run(),error=>error.code==='RECOVERY_REQUIRED')
         assert.equal(recoverRestore(dir).state,'SUCCEEDED')
@@ -147,6 +149,27 @@ test('restore failure at each namespace boundary rolls back once; a committed in
         assert.deepEqual(readJson(join(dir,'items.json')),[])
       }
       assert.equal(recoverRestore(dir),null)
+    }
+    for (const afterRename of [false, true]) {
+      const dir = join(root, 'commit-' + afterRename, 'auracap'); await mkdir(dir, {recursive:true})
+      await writeFile(join(dir, 'items.json'), '{broken')
+      const originalRename = fs.renameSync
+      fs.renameSync = (from, to) => {
+        if (to.endsWith('/transaction.json') && readJson(from).decision === 'committed') {
+          if (afterRename) originalRename(from, to)
+          throw Object.assign(Error('injected commit write failure'), {code:'EIO'})
+        }
+        return originalRename(from, to)
+      }
+      syncBuiltinESMExports()
+      try {
+        const run = () => restorePackage({dir, task:{id:randomUUID(),type:'restore'}, content, attachments:source.attachments,
+          buildIndex:()=>({version:1,entities:{},aliases:{}}), publish:()=>assert.fail('unloaded commit must not publish'), gate:new ContentGate(), phase:()=>{}})
+        if (afterRename) await assert.rejects(run(), e=>e.code==='RECOVERY_REQUIRED')
+        else assert.equal((await run()).state,'FAILED')
+      } finally { fs.renameSync = originalRename; syncBuiltinESMExports() }
+      if (afterRename) assert.equal(recoverRestore(dir).state,'SUCCEEDED')
+      else assert.equal(await readFile(join(dir,'items.json'),'utf8'),'{broken')
     }
   } finally { await source.close(); await rm(root,{recursive:true,force:true}) }
 })
@@ -169,4 +192,79 @@ test('SIGKILL and a second interruption during rollback recover using durable on
       assert.equal(recoverRestore(dir),null)
     }
   } finally {await source.close();await rm(root,{recursive:true,force:true})}
+})
+
+
+test('a damaged destination remains recoverable without rewriting groups or calling models', async () => {
+  const source = await fixture()
+  try {
+    const bytes = (await exported(source)).bytes
+    for (const path of ['items.json','groups.json','memory/profile.json','state.json','memory/settings.json','library.json']) {
+      let target = await fixture(); const home = target.home
+      await target.close({preserve:true})
+      await writeFile(join(home,'auracap',path),'{broken')
+      target = await fixture({home})
+      try {
+        if (['items.json','groups.json','memory/profile.json'].includes(path)) {
+          await assert.rejects(target.request('items'), e=>e.code==='LIBRARY_UNREADABLE')
+          if (path==='items.json') assert.equal(Object.keys(readJson(join(target.dir,'groups.json')).groups).length,1)
+          await assert.rejects(target.request('items/image-a/delete',{method:'POST'}),e=>e.code==='LIBRARY_UNREADABLE')
+        }
+        const checked = await preview(target,bytes)
+        await target.request('backup/tasks/'+checked.id+'/restore',{method:'POST'})
+        await untilTask(target,checked.id,t=>t.state==='SUCCEEDED')
+        assert.equal((await target.request('items')).items.length,3)
+        assert.equal((await target.request('backup/status')).notice,null)
+        assert.equal(target.modelCalls,0)
+      } finally { await target.close() }
+    }
+  } finally { await source.close() }
+})
+
+test('a malformed restore baseline is rebuilt from saved content and stays protected across restart', async () => {
+  let app = await fixture(); const home=app.home
+  try {
+    await app.close({preserve:true})
+    await writeFile(join(home,'auracap/memory/restore-baseline.json'),JSON.stringify({version:1,nodes:[]}))
+    app = await fixture({home})
+    const deadline=Date.now()+3000
+    while(app.gate.mode && Date.now()<deadline) await new Promise(r=>setTimeout(r,10))
+    assert.equal(app.gate.mode,null)
+    assert.equal(readJson(join(app.dir,'memory/restore-baseline.json')).nodes['item:image-a'].length,64)
+    for(const timer of app.timers.filter(x=>[30_000,45_000].includes(x.ms)))timer.fn()
+    await new Promise(r=>setTimeout(r,20))
+    assert.equal(app.modelCalls,0)
+    await app.close({preserve:true});app=await fixture({home})
+    for(const timer of app.timers.filter(x=>[30_000,45_000].includes(x.ms)))timer.fn()
+    await new Promise(r=>setTimeout(r,20))
+    assert.equal(app.modelCalls,0)
+  } finally { await app.close() }
+})
+
+test('accepted legacy images rebuild attachments and document media references are rejected', async () => {
+  const source=await fixture(), target=await fixture({empty:true})
+  try {
+    const file=join(source.home,'input.zip');await writeFile(file,(await exported(source)).bytes)
+    const content=await unpack(file,join(source.home,'checked'),new AbortController().signal)
+    delete content.items[0].kind
+    const archive=join(source.home,'modified.zip')
+    const pack=async()=>{
+      await writeFile(join(content.root,'items.json'),JSON.stringify(content.items))
+      content.manifest.files=(await inventory(content.root)).filter(x=>x.path!=='manifest.json')
+      await writeFile(join(content.root,'manifest.json'),JSON.stringify(content.manifest))
+      await zipDirectory(content.root,archive,new AbortController().signal)
+      return readFile(archive)
+    }
+    const checked=await preview(target,await pack())
+    await target.request('backup/tasks/'+checked.id+'/restore',{method:'POST'})
+    await untilTask(target,checked.id,t=>t.state==='SUCCEEDED')
+    const item=(await target.request('items')).items.find(x=>x.id==='image-a')
+    assert.equal(item.kind,'image');assert.ok(item.image)
+    assert.deepEqual(Buffer.from((await target.attachments.readImage(item.image)).data),sample)
+    content.items.find(x=>x.kind==='document').imageFile='../secret.png'
+    const incoming=await target.request('backup/tasks',post({type:'restore',operationId:randomUUID()}))
+    await target.request('backup/tasks/'+incoming.id+'/archive',{method:'PUT',body:await pack()})
+    assert.equal((await untilTask(target,incoming.id,t=>t.state==='FAILED')).code,'INVALID_BACKUP')
+    assert.equal((await fetch(target.origin+'/auracap/api/media/document-a')).status,404)
+  } finally {await source.close();await target.close()}
 })

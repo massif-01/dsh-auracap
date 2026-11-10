@@ -13,7 +13,9 @@ export class ContentGate {
   generation = randomUUID()
   mode = null
   readBlocked = false
+  contentError = null
   listeners = new Set()
+  onIdle = null
 
   run(fn, kind = 'content', expected) {
     const parent = this.context.getStore()
@@ -21,6 +23,7 @@ export class ContentGate {
       throw backupError('LIBRARY_CHANGED', '内容库已更新，请重新查看后操作', 409)
     }
     const inherited = parent && this.jobs.has(parent)
+    if (kind === 'content' && !inherited && this.contentError) throw this.contentError
     if (this.mode && ((!inherited && (kind === 'content' || this.mode === 'restore')) || (inherited && kind === 'content' && !parent.content))) {
       throw backupError('BUSY', '正在导出或恢复，请稍后重试', 409)
     }
@@ -58,7 +61,10 @@ export class ContentGate {
       signal.throwIfAborted()
       return await fn()
     } finally {
-      if (!this.readBlocked) this.mode = null
+      if (!this.readBlocked) {
+        this.mode = null
+        this.onIdle?.()
+      }
     }
   }
 
@@ -90,6 +96,11 @@ export function restoreBaseline(items, groups, insights) {
   for (const group of Object.values(groups.groups)) nodes['group:' + group.id] = materialKey({ id: group.id, itemIds: group.itemIds, status: group.status, dismissed: group.dismissed, merged: group.merged && { title: group.merged.title, content: group.merged.content, tags: group.merged.tags, entities: group.merged.entities } })
   for (const entry of insights) nodes['insight:' + entry.type + ':' + entry.key] = entry.fingerprint || insightKey(entry)
   return { version: 1, nodes }
+}
+
+export function validBaseline(value) {
+  return value?.version === 1 && value.nodes && typeof value.nodes === 'object' && !Array.isArray(value.nodes)
+    && Object.entries(value.nodes).every(([key, fingerprint]) => /^(item|group|insight):/.test(key) && /^[a-f0-9]{64}$/.test(fingerprint))
 }
 
 export function hasNewMaterial(baseline, items, groups, insights = []) {

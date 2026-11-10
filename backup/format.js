@@ -141,6 +141,11 @@ export function validateContent(items, groups, profile) {
 
 export function isDocument(item) { return item.kind === 'document' || typeof item.text === 'string' }
 
+export function validMediaPath(item) {
+  return !isDocument(item) && ID.test(item.id) && typeof item.imageFile === 'string'
+    && ['png', 'jpg', 'gif', 'webp'].some(ext => item.imageFile === 'media/' + item.id + '.' + ext)
+}
+
 export function countsOf(content) {
   return { items: content.items.length, images: content.items.filter(item => !isDocument(item)).length, documents: content.items.filter(isDocument).length, groups: Object.keys(content.groups.groups).length,
     insights: content.insights.length, day: content.insights.filter(x => x.type === 'day').length, week: content.insights.filter(x => x.type === 'week').length, month: content.insights.filter(x => x.type === 'month').length, year: content.insights.filter(x => x.type === 'year').length }
@@ -166,7 +171,7 @@ export async function snapshot(dir, root, attachments, kind, runtime, signal, pr
     signal.throwIfAborted()
     let data, mediaType
     try {
-      if (!item.imageFile || !/^media\/[^/]+$/.test(item.imageFile)) throw backupError('IMAGE_UNAVAILABLE', '无本地图片')
+      if (!validMediaPath(item)) throw backupError('IMAGE_UNAVAILABLE', '无本地图片')
       if ((await stat(join(dir, item.imageFile))).size > LIMITS.image) throw backupError('LIMIT_EXCEEDED', '图片过大')
       data = await readFile(join(dir, item.imageFile))
       mediaType = imageType(data)
@@ -337,6 +342,12 @@ export async function unpack(archive, root, signal) {
   if (expected.size !== paths.size) throw backupError('INVALID_BACKUP', '文件清单与备份内容不一致')
   for (const path of ['items.json', 'groups.json', 'memory/profile.json']) if (!expected.has(path)) throw backupError('INVALID_BACKUP', '必需内容文件缺失')
   const content = await readContent(root)
+  for (const item of content.items) {
+    item.kind = isDocument(item) ? 'document' : 'image'
+    if (item.image !== undefined || item.imageFileMediaType !== undefined || (isDocument(item) && item.imageFile !== undefined)) {
+      throw backupError('INVALID_BACKUP', '备份包含不适用的本机图片引用')
+    }
+  }
   const images = content.items.filter(item => !isDocument(item))
   if (manifest.media.length !== images.length || new Set(manifest.media.map(x => x.itemId)).size !== images.length) throw backupError('INVALID_BACKUP', '图片清单不完整')
   for (const item of images) {

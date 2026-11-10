@@ -1,0 +1,33 @@
+{
+  "base": "d25be5e",
+  "sources": {
+    "index.js": "38b5b27bbc3bff07c2aaa25876baf3b4de9d0554192a19bb65adb615b537553b",
+    "client.js": "afdd7ba77396d6467e9c72e1eb8441fe77af0e041124e8220e5064f8e1db5e64",
+    "backup/format.js": "c727c4100c9266d380a3fdc6e103f2085ad48b3119fa88879b0f9375ab8fa31c",
+    "backup/restore.js": "89ac2535b8359719a888462c085c77ea09313dc93d98d44bf57e6e2047eb1904",
+    "backup/runtime.js": "55532a3e1745899e7849048c88de14ac51656969cb202bc29935db4cd154cf32",
+    "backup/tasks.js": "a872b7e278179a000597efa1b511a411e9de3eb3042c2c7409a6be6c20c7efa0"
+  },
+  "cssUnchanged": true,
+  "cssSha256": "90fc9d1b9f302d64b4cf9164891536b08c7c1c295e2bc648e639088c4ed56e1a",
+  "checks": {
+    "backup": 9,
+    "authorization": 6,
+    "performanceGroups": 8,
+    "insightParser": "passed",
+    "syntax": "passed",
+    "diffCheck": "passed"
+  },
+  "browser": [
+    "corrupt items.json -> select real exported archive -> preview -> restore -> done",
+    "390px and 1200px viewport; focus inside dialog; gray headings #81858c; no horizontal overflow",
+    "abandoned CREATED task survives refresh without blocking export",
+    "missing device poll with authoritative null permits reconnect",
+    "healthy card and settings pages render after restore and reload"
+  ],
+  "runtimeProbes": [
+    "migration resumes after export interrupted startup batch",
+    "rollback retains runtime generation and active screenshot listener; success rotates and stops it; no actual system screenshot triggered"
+  ],
+  "boundary": "Real production client and backup API in isolated temporary library; no installation into active Harness and no user data modified."
+}

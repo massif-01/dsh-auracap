@@ -68,7 +68,7 @@ export async function fixture({ empty = false, home = mkdtempSync(join(tmpdir(),
     if (!response.ok) throw Object.assign(Error(payload.error), { code: payload.code, status: response.status })
     return payload
   }
-  await request('items?view=list')
+  await request('backup/status')
   return { home, dir, origin, request, attachments, timers, gate: mod.namespace.testGate(), get modelCalls() { return modelCalls },
     async close({ preserve = false } = {}) { for (const fn of cleanup.reverse()) await fn(); await new Promise(resolve => server.close(resolve)); if (!preserve) rmSync(home, { recursive: true, force: true }) },
   }

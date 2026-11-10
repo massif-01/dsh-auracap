@@ -16,9 +16,10 @@ export class BackupTasks {
   tasks = new Map()
   active = null
 
-  constructor({ dir, gate, attachments, current, buildIndex, publish, rollback, hasAuthorization, recoveryError = null }) {
-    Object.assign(this, { dir, gate, attachments, current, buildIndex, publish, rollback, hasAuthorization, recoveryError })
+  constructor({ dir, gate, attachments, current, buildIndex, publish, deviceFiles, hasAuthorization, onIdle, notice, recoveryError = null }) {
+    Object.assign(this, { dir, gate, attachments, current, buildIndex, publish, deviceFiles, hasAuthorization, notice, recoveryError })
     this.control = controlDir(dir)
+    gate.onIdle = onIdle
   }
 
   path(id, file = '') { return join(this.control, 'jobs', id, file) }
@@ -31,6 +32,22 @@ export class BackupTasks {
 
   persist(task) { writeJson(this.receipt(task.id), this.view(task)) }
 
+  expire(task) {
+    if (['CREATED', 'PREVIEW_READY', 'DOWNLOAD_READY'].includes(task.state) && Date.now() - task.touchedAt > RETENTION && !task.work && !task.uploading && !task.downloads) {
+      task.state = 'EXPIRED'
+      delete task.content
+      delete task.archiveHash
+      if (this.active === task.id) this.active = null
+      this.persist(task)
+    }
+  }
+
+  acquire(task) {
+    if (this.recoveryError || this.gate.readBlocked) throw backupError('RECOVERY_REQUIRED', '恢复需要处理，已暂停内容读写', 503)
+    if (this.active) throw backupError('BUSY', '已有导出或恢复正在进行', 409)
+    this.active = task.id
+  }
+
   get(id) {
     if (!UUID.test(id)) throw backupError('TASK_EXPIRED', '任务不存在或已过期', 404)
     let task = this.tasks.get(id)
@@ -42,19 +59,14 @@ export class BackupTasks {
       this.tasks.set(id, task)
     }
     if (Date.now() - Date.parse(task.createdAt) > 7 * 86400_000) throw backupError('TASK_EXPIRED', '任务已过期', 410)
-    if (['CREATED', 'PREVIEW_READY', 'DOWNLOAD_READY'].includes(task.state) && Date.now() - task.touchedAt > RETENTION && !task.downloads) {
-      task.state = 'EXPIRED'
-      delete task.content
-      delete task.archiveHash
-      if (this.active === id) this.active = null
-      this.persist(task)
-    }
+    this.expire(task)
     return task
   }
 
   status() {
     const last = existsSync(join(this.control, 'export-history.json')) ? readJson(join(this.control, 'export-history.json')) : null
-    return { generation: this.gate.generation, active: this.active ? this.view(this.get(this.active)) : null, lastExport: last, recoveryError: this.recoveryError?.message || (this.gate.readBlocked ? '恢复需要完成载入，请重启插件' : null) }
+    const notice = this.notice?.()
+    return { generation: this.gate.generation, active: this.active ? this.view(this.get(this.active)) : null, lastExport: last, recoveryError: this.recoveryError?.message || null, notice: notice ? { code: notice.code, message: notice.message } : null }
   }
 
   create({ type, kind, operationId }) {
@@ -66,9 +78,11 @@ export class BackupTasks {
     if (!['export', 'restore'].includes(type) || (type === 'export' && !['package', 'images', 'text'].includes(kind))) throw backupError('INVALID_REQUEST', '导出类型无效', 400)
     const task = { id: randomUUID(), operationId, type, kind, state: type === 'export' ? 'WAITING' : 'CREATED', createdAt: new Date().toISOString(), touchedAt: Date.now(), controller: new AbortController(), generation: this.gate.generation }
     this.tasks.set(task.id, task)
-    this.active = task.id
-    this.persist(task)
-    writeJson(opFile, { taskId: task.id, createdAt: task.createdAt })
+    try {
+      this.persist(task)
+      writeJson(opFile, { taskId: task.id, createdAt: task.createdAt })
+    } catch (error) { this.tasks.delete(task.id); throw error }
+    if (type === 'export') this.acquire(task)
     if (type === 'export') this.start(task, () => this.export(task))
     return task
   }
@@ -77,11 +91,15 @@ export class BackupTasks {
 
   start(task, work) {
     task.work = Promise.resolve().then(work).catch(error => {
+      if (this.gate.readBlocked) this.recoveryError = error
+      if (error.committed) task.committed = true
       Object.assign(task, { state: task.controller.signal.aborted ? 'CANCELLED' : this.gate.readBlocked ? 'RECOVERY_REQUIRED' : 'FAILED', code: error.code || 'TRANSFER_FAILED', error: error.message, completedAt: new Date().toISOString() })
     }).finally(() => {
+      delete task.work
       if (this.active === task.id) this.active = null
       if (['SUCCEEDED', 'FAILED', 'CANCELLED', 'RECOVERY_REQUIRED'].includes(task.state)) { delete task.content; delete task.archiveHash }
-      this.persist(task)
+      // A committed restore owns its durable receipt; do not overwrite its decision.
+      if (!task.committed) this.persist(task)
     }).catch(error => {
       Object.assign(task, { state: this.gate.readBlocked ? 'RECOVERY_REQUIRED' : 'FAILED', code: 'RECEIPT_WRITE_FAILED', error: '无法保存任务结果：' + error.message })
     })
@@ -113,11 +131,13 @@ export class BackupTasks {
   }
 
   async upload(task, req) {
-    if (task.type !== 'restore' || task.state !== 'CREATED' || this.active !== task.id) throw backupError('INVALID_STATE', '请重新选择备份文件', 409)
-    this.phase(task, 'RECEIVING', { filename: decodeURIComponent(String(req.headers['x-auracap-name'] || 'AuraCap.auracap.zip')) })
+    if (task.type !== 'restore' || task.state !== 'CREATED') throw backupError('INVALID_STATE', '请重新选择备份文件', 409)
+    const filename = decodeURIComponent(String(req.headers['x-auracap-name'] || 'AuraCap.auracap.zip'))
+    this.acquire(task)
+    this.phase(task, 'RECEIVING', { filename })
     task.uploading = true
-    await mkdir(this.path(task.id), { recursive: true })
     try {
+      await mkdir(this.path(task.id), { recursive: true })
       await pipeline(req, byteLimit(LIMITS.archive, task.controller.signal, done => { task.done = done }), createWriteStream(this.path(task.id, 'incoming.zip'), { flags: 'wx' }), { signal: task.controller.signal })
     } catch (error) {
       this.phase(task, task.controller.signal.aborted ? 'CANCELLED' : 'FAILED', { code: error.code, error: error.message })
@@ -142,21 +162,22 @@ export class BackupTasks {
     if (generation !== this.gate.generation || task.generation !== generation) throw backupError('LIBRARY_CHANGED', '内容库已更新，请重新选择备份', 409)
     if (this.hasAuthorization()) throw backupError('PHONE_CONNECTION_PENDING', '请先完成或取消正在进行的手机连接', 409)
     if (this.active) throw backupError('BUSY', '已有导出或恢复正在进行', 409)
+    this.acquire(task)
     task.accepted = true
     task.touchedAt = Date.now()
-    this.active = task.id
     this.phase(task, 'WAITING')
-    this.persist(task)
     this.start(task, async () => {
+      this.persist(task)
       if (this.hasAuthorization() || generation !== this.gate.generation) throw backupError('BUSY', '连接或内容状态已改变，请重新选择备份', 409)
       await this.gate.exclusive('restore', task.controller.signal, async () => {
         if (await fileHash(this.path(task.id, 'incoming.zip')) !== task.archiveHash) throw backupError('INVALID_BACKUP', '已检查的备份文件已改变')
         task.controller.signal.throwIfAborted()
         const disk = await statfs(this.control)
+        // New library files plus host attachment storage; the expanded input already exists.
         const needed = task.content.manifest.files.reduce((n, file) => n + file.bytes, 0) + task.content.media.reduce((n, file) => n + file.bytes, 0)
         if (disk.bavail * disk.bsize < needed) throw backupError('NO_SPACE', '空间不足，无法准备恢复内容')
         this.phase(task, 'PREPARING', { done: 0, total: task.content.media.length })
-        const result = await restorePackage({ dir: this.dir, task: this.view(task), content: task.content, attachments: this.attachments, buildIndex: this.buildIndex, publish: this.publish, rollback: this.rollback, gate: this.gate, phase: (state, values) => this.phase(task, state, values) })
+        const result = await restorePackage({ dir: this.dir, task: this.view(task), content: task.content, attachments: this.attachments, buildIndex: this.buildIndex, publish: this.publish, deviceFiles: this.deviceFiles, gate: this.gate, phase: (state, values) => this.phase(task, state, values) })
         Object.assign(task, result)
       })
     })
@@ -190,6 +211,7 @@ export class BackupTasks {
   }
 
   async cleanup() {
+    for (const task of this.tasks.values()) this.expire(task)
     await mkdir(join(this.control, 'jobs'), { recursive: true })
     const pointer = existsSync(join(this.control, 'active-restore.json')) ? readJson(join(this.control, 'active-restore.json')).taskId : null
     for (const entry of await readdir(join(this.control, 'jobs'))) {

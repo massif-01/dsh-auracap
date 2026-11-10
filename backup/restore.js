@@ -1,22 +1,29 @@
-import { existsSync, renameSync, rmSync, statSync, unlinkSync } from 'node:fs'
+import { existsSync, readdirSync, renameSync, rmSync, statSync, unlinkSync } from 'node:fs'
 import { mkdir, readFile, rm, copyFile } from 'node:fs/promises'
 import { join, dirname } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { readJson, writeJson, syncPath, fileHashSync } from './io.js'
-import { inventory, filesUnder, readContent } from './format.js'
+import { inventory, filesUnder, isDocument } from './format.js'
 import { backupError, restoreBaseline } from './runtime.js'
 
 export const controlDir = dir => join(dirname(dir), '.auracap-transfer')
 
-function identity(dir) {
-  return existsSync(join(dir, 'library.json')) ? readJson(join(dir, 'library.json')).storeId : null
-}
-
-function verified(dir, id, files) {
-  if (identity(dir) !== id) return false
+function verified(dir, files) {
+  if (!existsSync(dir)) return false
+  const actual = []
+  const walk = (prefix = '') => {
+    for (const entry of readdirSync(join(dir, prefix), { withFileTypes: true })) {
+      const path = prefix ? prefix + '/' + entry.name : entry.name
+      if (entry.isDirectory()) { if (!walk(path)) return false }
+      else if (entry.isFile()) actual.push(path)
+      else return false
+    }
+    return true
+  }
+  if (!walk() || actual.length !== files.length) return false
   return files.every(file => {
     const path = join(dir, file.path)
-    return existsSync(path) && statSync(path).size === file.bytes && fileHashSync(path) === file.sha256
+    return existsSync(path) && statSync(path).isFile() && statSync(path).size === file.bytes && fileHashSync(path) === file.sha256
   })
 }
 
@@ -44,17 +51,25 @@ export function recoverRestore(dir, checkpoint = () => {}) {
   if (tx.taskId !== taskId || !Array.isArray(tx.oldFiles) || !Array.isArray(tx.newFiles)) fail()
   let result
   if (tx.decision === 'committed') {
-    if (!verified(dir, tx.newId, tx.newFiles)) fail()
+    if (!verified(dir, tx.newFiles)) fail()
     result = { ...tx.result, state: 'SUCCEEDED', committed: true, completedAt: new Date().toISOString() }
   } else if (tx.decision === 'uncommitted') {
-    const current = identity(dir), previous = identity(old)
-    if (current === tx.newId && previous === tx.oldId) {
+    if (existsSync(old)) {
+      if (!verified(old, tx.oldFiles)) fail()
+      if (existsSync(dir)) {
+        if (!verified(dir, tx.newFiles) || existsSync(quarantine)) fail()
+        durableRename(dir, quarantine)
+        checkpoint('rollback-quarantined')
+      }
+      durableRename(old, dir)
+      checkpoint('rollback-restored')
+    } else if (!existsSync(dir) && tx.oldExisted === false) {
+      // An initially absent library is already back in its original state.
+    } else if (tx.oldExisted === false && verified(dir, tx.newFiles)) {
       if (existsSync(quarantine)) fail()
       durableRename(dir, quarantine)
       checkpoint('rollback-quarantined')
-    } else if (current && current !== tx.oldId) fail()
-    if (!existsSync(dir) && identity(old) === tx.oldId && verified(old, tx.oldId, tx.oldFiles)) { durableRename(old, dir); checkpoint('rollback-restored') }
-    if (existsSync(old) || !verified(dir, tx.oldId, tx.oldFiles)) fail()
+    } else if (!verified(dir, tx.oldFiles)) fail()
     result = { ...tx.result, state: 'FAILED', code: 'INTERRUPTED', error: '恢复未完成，已保留恢复前的内容', completedAt: new Date().toISOString() }
   } else fail()
   writeJson(join(control, 'receipts', taskId + '.json'), result)
@@ -66,12 +81,11 @@ export function recoverRestore(dir, checkpoint = () => {}) {
   return result
 }
 
-export async function restorePackage({ dir, task, content, attachments, buildIndex, publish, rollback, gate, phase, checkpoint = () => {} }) {
+export async function restorePackage({ dir, task, content, attachments, buildIndex, publish, deviceFiles = () => ({}), gate, phase, checkpoint = () => {} }) {
   const control = controlDir(dir), work = join(control, 'jobs', task.id), next = join(work, 'next'), previous = join(work, 'previous')
-  await readContent(dir)
   await mkdir(next, { recursive: true })
   const items = structuredClone(content.items)
-  for (const [index, item] of items.filter(x => x.kind === 'image').entries()) {
+  for (const [index, item] of items.filter(x => !isDocument(x)).entries()) {
     const media = content.media.find(x => x.itemId === item.id)
     const data = await readFile(join(content.root, media.path))
     item.image = await attachments.saveImage({ data, mediaType: media.mediaType, name: media.name || item.source?.name })
@@ -93,34 +107,28 @@ export async function restorePackage({ dir, task, content, attachments, buildInd
   writeJson(join(next, 'memory/restore-baseline.json'), baseline)
   const index = buildIndex(items)
   writeJson(join(next, 'memory/entities.json'), index)
-  for (const path of ['state.json', 'memory/settings.json']) if (existsSync(join(dir, path))) {
-    readJson(join(dir, path))
-    await copyFile(join(dir, path), join(next, path))
-  }
-  await mkdir(dir, { recursive: true })
-  if (!identity(dir)) writeJson(join(dir, 'library.json'), { version: 1, storeId: randomUUID() })
-  const oldId = identity(dir), newId = randomUUID()
+  for (const [path, value] of Object.entries(deviceFiles())) writeJson(join(next, path), value)
+  const oldExisted = existsSync(dir), newId = randomUUID()
   writeJson(join(next, 'library.json'), { version: 1, storeId: newId })
   for (const path of await filesUnder(next)) syncPath(join(next, path))
   for (const path of [join(next, 'memory'), join(next, 'media'), join(next, 'digests'), ...['week', 'month', 'year'].map(x => join(next, 'insights', x)), join(next, 'insights'), next]) if (existsSync(path)) syncPath(path)
-  const tx = { taskId: task.id, oldId, newId, decision: 'uncommitted', intent: 'prepared', oldFiles: await inventory(dir), newFiles: await inventory(next), result: { ...task, counts: content.manifest.counts } }
+  const tx = { taskId: task.id, oldExisted, newId, decision: 'uncommitted', intent: 'prepared', oldFiles: oldExisted ? await inventory(dir) : [], newFiles: await inventory(next), result: { ...task, counts: content.manifest.counts } }
   const txFile = join(work, 'transaction.json')
   writeJson(txFile, tx)
-  writeJson(join(control, 'active-restore.json'), { taskId: task.id })
   gate.readBlocked = true
   try {
+    writeJson(join(control, 'active-restore.json'), { taskId: task.id })
     checkpoint('prepared')
     tx.intent = 'switching'
     writeJson(txFile, tx)
     phase('SWITCHING')
     checkpoint('before-old-rename')
-    durableRename(dir, previous)
+    if (oldExisted) durableRename(dir, previous)
     checkpoint('after-old-rename')
     durableRename(next, dir)
     checkpoint('after-new-rename')
-    if (!verified(dir, newId, tx.newFiles)) throw backupError('INVALID_BACKUP', '恢复内容校验失败')
-    tx.decision = 'committed'
-    writeJson(txFile, tx)
+    if (!verified(dir, tx.newFiles)) throw backupError('INVALID_BACKUP', '恢复内容校验失败')
+    writeJson(txFile, { ...tx, decision: 'committed' })
     phase('COMMITTED')
     checkpoint('committed')
     publish({ items, groups: content.groups, index, baseline })
@@ -131,10 +139,11 @@ export async function restorePackage({ dir, task, content, attachments, buildInd
     try { await rm(previous, { recursive: true, force: true }) } catch {}
     return result
   } catch (error) {
-    if (tx.decision === 'committed') throw backupError('RECOVERY_REQUIRED', '内容已恢复，需要重新载入，请重启插件', 503)
+    let decision
+    try { decision = readJson(txFile).decision } catch {}
+    if (decision !== 'uncommitted') throw Object.assign(backupError('RECOVERY_REQUIRED', '恢复尚未完成载入，请重启插件后查看结果', 503), { committed: decision === 'committed' })
     phase('ROLLING_BACK')
-    const result = recoverRestore(dir)
-    rollback()
+    const result = existsSync(join(control, 'active-restore.json')) ? recoverRestore(dir) : { state: 'FAILED', code: error.code || 'TRANSFER_FAILED' }
     gate.readBlocked = false
     return { ...result, error: '恢复失败，已保留恢复前的内容：' + error.message }
   }

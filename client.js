@@ -1260,6 +1260,8 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       PHONE_CONNECTION_PENDING: 'Finish or cancel the phone connection in Settings, then try restoring again.',
       BUSY: 'Another operation is running. Check its status and wait for it to finish, or cancel it.',
       TASK_EXPIRED: 'This task has expired. Start a new export or select the full backup again.',
+      LIBRARY_UNREADABLE: 'The content library could not be read. Changes are paused. Restore a full backup.',
+      BASELINE_UNAVAILABLE: 'Restore protection could not be loaded. Automatic generation is paused. Restore a full backup.',
       RECOVERY_REQUIRED: 'Recovery needs to finish loading. Restart AuraCap from Harness plugin settings, then check the result.',
       INVALID_BACKUP: 'This file is not a valid full AuraCap backup. Select a complete .auracap.zip backup.',
       UNSUPPORTED_VERSION: 'This backup uses an unsupported version. Update AuraCap before restoring it.',
@@ -2499,17 +2501,19 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       const [starting, setStarting] = useState(false)
       const [error, setError] = useState('')
       const [lastExport, setLastExport] = useState(null)
+      const [statusNotice, setStatusNotice] = useState(null)
       const [pollVersion, setPollVersion] = useState(0)
       const [menuPosition, setMenuPosition] = useState(null)
       const taskRef = useRef(task)
       const opener = useRef(null)
       const section = useRef(null), exportButton = useRef(null), restoreButton = useRef(null), fileInput = useRef(null), dialog = useRef(null)
-      const active = starting || Boolean(task && !['PREVIEW_READY', 'DOWNLOAD_READY', 'SUCCEEDED', 'FAILED', 'CANCELLED', 'EXPIRED', 'RECOVERY_REQUIRED'].includes(task.state))
+      const active = starting || Boolean(task && !['CREATED', 'PREVIEW_READY', 'DOWNLOAD_READY', 'SUCCEEDED', 'FAILED', 'CANCELLED', 'EXPIRED', 'RECOVERY_REQUIRED'].includes(task.state))
       const cancellable = task && ['CREATED', 'RECEIVING', 'CHECKING', 'PREVIEW_READY', 'WAITING'].includes(task.state)
       const locked = restoreOpen && active && !cancellable
       const onTask = useCallback(value => {
         taskRef.current = value
         setTask(value)
+        if (value?.state === 'SUCCEEDED') setStatusNotice(null)
         try {
           if (value) localStorage.setItem('auracap.backupTask', JSON.stringify({ id: value.id, type: value.type, downloadRequested: downloadedBackups.has(value.id) }))
           else localStorage.removeItem('auracap.backupTask')
@@ -2522,11 +2526,11 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         request(API + '/backup/status').then(value => {
           if (!alive || taskRef.current?.id !== id) return
           setLastExport(value.lastExport)
-          if (value.recoveryError) setError(Object.assign(new Error(value.recoveryError), { code: 'RECOVERY_REQUIRED' }))
+          setStatusNotice(value.recoveryError ? { message: value.recoveryError, code: 'RECOVERY_REQUIRED' } : value.notice)
           if (value.active) onTask(value.active)
         }).catch(e => { if (alive && e.code !== 'LIBRARY_CHANGED') setError(e) })
         return () => { alive = false }
-      }, [pollVersion, settingsOpen])
+      }, [pollVersion, settingsOpen, task?.state === 'SUCCEEDED'])
       useEffect(() => { if (!settingsOpen) setMenu(false) }, [settingsOpen])
       useEffect(() => {
         if (!task?.id || task.state === 'EXPIRED' || (task.state === 'DOWNLOAD_READY' && !settingsOpen)) return
@@ -2637,13 +2641,13 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         setRestoreOpen(true)
       }
       const retryStatus = () => { setError(''); setPollVersion(value => value + 1) }
-      return { task, onTask, menu, setMenu, restoreOpen, starting, error, lastExport, retryStatus, section, exportButton, restoreButton, fileInput, dialog, active, cancellable, menuPosition, close, menuKeys, exportKind, chooseFile, cancel, confirm, again, done, openRestore }
+      return { statusNotice, task, onTask, menu, setMenu, restoreOpen, starting, error, lastExport, retryStatus, section, exportButton, restoreButton, fileInput, dialog, active, cancellable, menuPosition, close, menuKeys, exportKind, chooseFile, cancel, confirm, again, done, openRestore }
     }
 
     function BackupError({ backup }) {
       const tr = (zh, en) => localeIsZh() ? zh : en
       const defaults = { FAILED: tr('处理失败，请重新操作', 'Processing failed. Try the action again.'), EXPIRED: tr('任务已过期，请重新选择文件', 'Task expired. Select the file again.'), RECOVERY_REQUIRED: tr('恢复状态需要重新载入，请重启插件后查看结果', 'Recovery needs to reload. Restart the plugin to check the result.') }
-      const problem = backup.error || (defaults[backup.task?.state] ? backup.task : null)
+      const problem = backup.error || (defaults[backup.task?.state] ? backup.task : null) || (!backup.restoreOpen ? backup.statusNotice : null)
       const message = problem ? localizeError(problem.message || problem.error || (typeof problem === 'string' ? problem : defaults[backup.task?.state]), problem.code) : ''
       return message ? h('div', null, h('p', { className: 'ac-error', role: 'alert' }, message),
         backup.error ? h('button', { className: 'ac-secondary', onClick: backup.retryStatus }, tr('重新检查状态', 'Check status again')) : null) : null
@@ -2946,7 +2950,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
             : null,
           waiting ? h('div', { style: { marginTop: 12 } }, devicePanel) : null) : h('div', null,
           h('div', { className: 'ac-settings-subsection' }, tr('尚未连接手机', 'Phone not connected')),
-          h('p', { className: 'ac-settings-hint' }, tr('本机导入、记忆和备份可以直接使用，手机连接可稍后完成。', 'Local import, memory and backup are ready to use. You can connect your phone later.')),
+          h('p', { className: 'ac-settings-hint' }, props.libraryUnavailable ? tr('内容库暂时无法读取，请先从完整备份恢复。手机连接设置仍可查看。', 'Restore a full backup to make the content library available again. Phone connection settings remain accessible.') : tr('本机导入、记忆和备份可以直接使用，手机连接可稍后完成。', 'Local import, memory and backup are ready to use. You can connect your phone later.')),
           waiting ? devicePanel : h('div', { className: 'ac-set-actions' }, h('button', { className: 'ac-primary', onClick: props.onConnect, disabled: props.busy }, props.busy ? t('connecting') : t('connectPhone'))))
       return h('div', { className: 'ac-modal', 'data-underlay': props.backup.restoreOpen || undefined, 'aria-hidden': props.backup.restoreOpen || undefined, onMouseDown: event => { if (event.target === event.currentTarget) props.onClose() } },
         h('div', { className: 'ac-settings', ref: panel, role: 'dialog', 'aria-modal': !props.backup.restoreOpen, 'aria-labelledby': 'ac-settings-title', tabIndex: -1 },
@@ -3118,6 +3122,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       const [items, replaceItems] = useState([])
       const [listLoaded, setListLoaded] = useState(false)
       const [listError, setListError] = useState(null)
+      const libraryUnavailable = ['LIBRARY_UNREADABLE', 'RECOVERY_REQUIRED'].includes(listError?.code)
       const [groups, replaceGroups] = useState([])
       const listVersion = useRef(null)
       const loadSequence = useRef(0)
@@ -3256,11 +3261,12 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           listVersion.current = payload.version || null
           setListLoaded(true)
         } catch (loadError) {
-          if (sequence === loadSequence.current) setListError(loadError.message || t('loadFailed'))
+          if (sequence === loadSequence.current) setListError(loadError)
         }
       }, [t])
 
       useEffect(() => {
+        if (libraryUnavailable) return
         let stopped = false
         let timer = null
         const schedule = () => {
@@ -3287,7 +3293,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           if (timer) clearTimeout(timer)
           document.removeEventListener('visibilitychange', onVisibility)
         }
-      }, [load, hasPending])
+      }, [load, hasPending, libraryUnavailable])
 
       useEffect(() => {
         let alive = true
@@ -3313,10 +3319,11 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         return localSettingsRead.current
       }, [])
       useEffect(() => {
+        if (libraryUnavailable) return
         loadLocalSettings()
         const timer = setInterval(loadLocalSettings, 10_000)
         return () => { localSettingsVersion.current++; clearInterval(timer) }
-      }, [loadLocalSettings])
+      }, [loadLocalSettings, libraryUnavailable])
 
       const rangeFilter = useMemo(() => rangeStart && rangeEnd ? { start: rangeStart, end: rangeEnd } : null, [rangeStart, rangeEnd])
       const itemsById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items])
@@ -3447,6 +3454,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
 
       useEffect(() => {
         insightSeq.current += 1
+        if (libraryUnavailable) return
         setDigest(null)
         setDigestError(null)
         setDigestLoading(true)
@@ -3455,7 +3463,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           if (!digestBusyRef.current) loadInsight(period, appliedAnchor)
         }, 60_000)
         return () => clearInterval(timer)
-      }, [loadInsight, period, appliedAnchor])
+      }, [loadInsight, period, appliedAnchor, libraryUnavailable])
 
       const insightStatusVersion = useRef(0)
       const loadInsightStatus = useCallback(async () => {
@@ -3468,10 +3476,11 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         }
       }, [])
       useEffect(() => {
+        if (libraryUnavailable) return
         loadInsightStatus()
         const timer = setInterval(loadInsightStatus, 60_000)
         return () => { insightStatusVersion.current++; clearInterval(timer) }
-      }, [loadInsightStatus])
+      }, [loadInsightStatus, libraryUnavailable])
       const retryLibrary = async () => {
         setLibraryRetrying(true)
         try { await Promise.all([load(), loadInsightStatus()]) }
@@ -3496,13 +3505,20 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         try { localStorage.setItem('auracap.digestSeen', JSON.stringify({ date: todayKey(), at: digest.createdAt })) } catch {}
       }, [scope, digest])
 
+      const reconcileDevice = useCallback(value => {
+        setDevice(current => {
+          if (value) return current?.status === value.status && current?.id === value.id ? current : value
+          return current && ['pending', 'provisioning'].includes(current.status) ? null : current
+        })
+      }, [])
+
       const loadGithub = useCallback(async () => {
         const version = deviceRequest.current
         try {
           const payload = await request(API + '/github/status')
           if (version !== deviceRequest.current) return null
           setGithub(payload)
-          if (payload.device) setDevice(payload.device)
+          reconcileDevice(payload.device)
           if (payload.connected) {
             try { setShortcut(await request(API + '/github/shortcut')) } catch { setShortcut(null) }
           } else {
@@ -3513,7 +3529,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           setGithubError(githubLoadError.message)
           return null
         }
-      }, [t])
+      }, [t, reconcileDevice])
 
       const loadGithubStatus = useCallback(async () => {
         const version = deviceRequest.current
@@ -3521,9 +3537,9 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           const payload = await request(API + '/github/status')
           if (version !== deviceRequest.current) return
           setGithub(payload)
-          if (payload.device) setDevice(current => current?.status === payload.device.status && current?.id === payload.device.id ? current : payload.device)
+          reconcileDevice(payload.device)
         } catch {}
-      }, [])
+      }, [reconcileDevice])
 
       useEffect(() => {
         if (typeof document === 'undefined' || !document.documentElement || typeof MutationObserver === 'undefined') return undefined
@@ -3553,6 +3569,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       useEffect(() => {
         let lastNudge = 0
         const nudge = async () => {
+          if (libraryUnavailable) return
           const now = Date.now()
           if (now - lastNudge < 15_000) return
           lastNudge = now
@@ -3567,7 +3584,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         }
         const onVisible = () => {
           if (document.visibilityState !== 'visible') return
-          load()
+          if (!libraryUnavailable) load()
           loadGithub()
           nudge()
         }
@@ -3582,7 +3599,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           window.removeEventListener('focus', nudge)
           clearInterval(timer)
         }
-      }, [load, loadGithub, loadGithubStatus])
+      }, [load, loadGithub, loadGithubStatus, libraryUnavailable])
 
       useEffect(() => {
         if (!device || !device.id) return undefined
@@ -3777,6 +3794,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       }
 
       const importFiles = useCallback(async (fileList) => {
+        if (!listLoaded || libraryUnavailable) return
         const files = Array.from(fileList || []).filter((file) => file && isImportableFile(file))
         if (!files.length) { setError(t('unsupportedFile')); return }
         setBusy(true)
@@ -3802,10 +3820,10 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         } finally {
           setBusy(false)
         }
-      }, [t])
+      }, [t, listLoaded, libraryUnavailable])
 
       const captureScreen = async () => {
-        if (captureBusy) return
+        if (captureBusy || !listLoaded || libraryUnavailable) return
         setCaptureBusy(true)
         setError(null)
         try {
@@ -3862,7 +3880,10 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         if (event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files.length) importFiles(event.dataTransfer.files)
       }
 
-      const openPicker = () => { if (fileRef.current) fileRef.current.click() }
+      const openPicker = () => {
+        if (!listLoaded || libraryUnavailable) return
+        if (fileRef.current) fileRef.current.click()
+      }
       const hasOlder = scope === 'today' && visible.length === 0 && items.length > 0
 
       const changePeriod = (next) => setPeriod(next)
@@ -4071,8 +4092,8 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           h('button', { type: 'button', 'aria-pressed': view === 'split', 'data-tip': t('split'), 'aria-label': t('split'), onClick: () => chooseView('split') }, SplitIcon()),
           h('button', { type: 'button', 'aria-pressed': view === 'grid', 'data-tip': t('grid'), 'aria-label': t('grid'), onClick: () => chooseView('grid') }, GridIcon())),
         h('div', { className: 'ac-header-actions' },
-          h('button', { className: 'ac-icon-button', type: 'button', 'data-tip': t('screenshot'), 'aria-label': t('screenshot'), onClick: () => setScreenshotPromptOpen(true), disabled: captureBusy || busy }, ScreenshotIcon()),
-          h('button', { className: 'ac-icon-button', type: 'button', 'data-tip': t('import'), 'aria-label': t('import'), onClick: openPicker, disabled: busy }, UploadIcon())),
+          h('button', { className: 'ac-icon-button', type: 'button', 'data-tip': t('screenshot'), 'aria-label': t('screenshot'), onClick: () => setScreenshotPromptOpen(true), disabled: captureBusy || busy || !listLoaded || libraryUnavailable }, ScreenshotIcon()),
+          h('button', { className: 'ac-icon-button', type: 'button', 'data-tip': t('import'), 'aria-label': t('import'), onClick: openPicker, disabled: busy || !listLoaded || libraryUnavailable }, UploadIcon())),
         h('input', {
           ref: fileRef,
           type: 'file',
@@ -4091,8 +4112,8 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       const hasInsights = Object.values(insightStatus || {}).some(value => value?.createdAt)
       const onboarding = !loadingLibrary && !initialLibraryError && items.length === 0 && !hasInsights
       const tabs = h('div', { className: 'ac-tabs' },
-        h('button', { className: 'ac-tab', 'aria-selected': scope === 'today', onClick: () => setScope('today') }, t('today'), h('span', { className: 'ac-tab-count' }, String(todayCount))),
-        h('button', { className: 'ac-tab', 'aria-selected': scope === 'all', onClick: () => setScope('all') }, t('all'), h('span', { className: 'ac-tab-count' }, String(items.length))),
+        h('button', { className: 'ac-tab', 'aria-selected': scope === 'today', onClick: () => setScope('today') }, t('today'), h('span', { className: 'ac-tab-count' }, listLoaded ? String(todayCount) : '—')),
+        h('button', { className: 'ac-tab', 'aria-selected': scope === 'all', onClick: () => setScope('all') }, t('all'), h('span', { className: 'ac-tab-count' }, listLoaded ? String(items.length) : '—')),
         h('button', { className: 'ac-tab', 'aria-selected': scope === 'digest', onClick: () => setScope('digest') }, t('insights'), (anyPeriodUnread || digestUnread) ? h('span', { className: 'ac-tab-dot', 'aria-hidden': true }) : null),
         h('button', { className: 'ac-search-trigger', type: 'button', onClick: () => setSearchOpen(true), title: t('search') + '  /' }, SearchIcon(), h('span', null, t('search')), h('kbd', null, '/')),
         h('div', { className: 'ac-grow' }),
@@ -4111,10 +4132,10 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       if (initialLibraryError) {
         content = h('div', { className: 'ac-empty' },
           h('h2', null, localeIsZh() ? '暂时无法载入内容' : 'Content could not load'),
-          h('p', { role: 'alert' }, initialLibraryError),
+          h('p', { role: 'alert' }, initialLibraryError.message || initialLibraryError),
           h('div', { className: 'ac-action-row ac-load-actions' },
             h('button', { className: 'ac-primary', disabled: libraryRetrying, onClick: retryLibrary }, localeIsZh() ? (libraryRetrying ? '正在重试…' : '重新载入') : (libraryRetrying ? 'Retrying…' : 'Reload content')),
-            h('button', { className: 'ac-secondary', disabled: busy, onClick: openPicker }, localeIsZh() ? '从电脑导入' : 'Import from computer'),
+            h('button', { className: 'ac-secondary', disabled: busy || !listLoaded || libraryUnavailable, onClick: openPicker }, localeIsZh() ? '从电脑导入' : 'Import from computer'),
             h('button', { className: 'ac-text-button', disabled: props.backup.active, 'data-restore-entry': true, onClick: props.backup.openRestore }, localeIsZh() ? '从备份恢复' : 'Restore backup')))
       } else if (loadingLibrary) {
         content = h('div', { className: 'ac-empty', role: 'status' }, localeIsZh() ? '正在载入内容…' : 'Loading content…')
@@ -4182,7 +4203,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           h('span', null, t('tagFilter') + '：' + tagFilter),
           h('button', { type: 'button', onClick: () => setTagFilter(null), 'aria-label': t('close') }, '×')) : null,
         error ? h('div', { className: 'ac-banner' }, h('span', null, error), h('button', { onClick: () => setError(null), 'aria-label': t('close') }, CloseIcon())) : null,
-        !initialLibraryError && (listError || insightStatusError) ? h('div', { className: 'ac-banner', role: 'alert' }, h('span', null, listError || insightStatusError), h('button', { disabled: libraryRetrying, onClick: retryLibrary }, localeIsZh() ? '重新载入' : 'Reload content')) : null,
+        !initialLibraryError && (listError || insightStatusError) ? h('div', { className: 'ac-banner', role: 'alert' }, h('span', null, listError?.message || insightStatusError), h('button', { disabled: libraryRetrying, onClick: retryLibrary }, localeIsZh() ? '重新载入' : 'Reload content')) : null,
         content,
         searchOpen ? h(SearchPalette, {
           t,
@@ -4270,7 +4291,8 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           onCancelDevice: cancelDevice,
           memoryProfile,
           memorySettings,
-          localLoadError,
+          libraryUnavailable,
+          localLoadError: libraryUnavailable ? listError.message : localLoadError,
           onReloadLocal: loadLocalSettings,
           onSaveProfile: saveProfile,
           onSaveMemorySettings: saveMemorySettings,
