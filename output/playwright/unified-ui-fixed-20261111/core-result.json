@@ -1,0 +1,26 @@
+{
+  "passed": [
+    "Profile waits for data; draft and errors stay local; save/cancel spacing, saved content and nested focus verified",
+    "Server activity replaces a stale local task and can be cancelled from the UI",
+    "One phone flow survives reload, returns cleanly, and has honest status and separated actions",
+    "Group, entity and image dialogs use shared focus and surface rules; background shortcuts stay blocked",
+    "An initial insight-read failure ends loading, keeps local actions available, and retries into the welcome page",
+    "Download progress is independent from the last request and persists honestly across reloads"
+  ],
+  "measurements": {
+    "actions": {
+      "gap": 12,
+      "primaryHeight": 30,
+      "secondaryHeight": 30,
+      "labelColor": "rgb(129, 133, 140)"
+    },
+    "authorization": {
+      "gap": 12
+    },
+    "groupSurface": {
+      "radius": "24px",
+      "shadow": "rgba(0, 0, 0, 0.04) 0px 3px 8px 0px, rgba(0, 0, 0, 0.05) 0px 0px 20px 0px"
+    }
+  },
+  "runtimeErrors": []
+}

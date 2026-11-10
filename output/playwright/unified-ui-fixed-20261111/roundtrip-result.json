@@ -1,0 +1,10 @@
+{
+  "passed": [
+    "Disconnected local sections, modal focus hierarchy, draft and expansion retention, menu keys",
+    "Real authorization cancellation, heading focus, direct welcome restore",
+    "Actual full-package export from the new settings",
+    "Welcome upload reuses settings confirmation; restore survives remount and discards old drafts",
+    "Report-only library opens the saved year report without generating it"
+  ],
+  "runtimeErrors": []
+}

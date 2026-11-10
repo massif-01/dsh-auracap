@@ -1,0 +1,52 @@
+{
+  "date": "2026-11-11",
+  "before": {
+    "client.js": "e7e74f6464912d19c3c71d39888fe7c99a745102b90742538d276106b245ea48",
+    "index.js": "a7b5027ab8b7192dce8ea320878b175a4a1a2d2f1a52ffe55ea039c80c1bdb65",
+    "backup/tasks.js": "64d3d7f185a6960c0d3d2d0b73ca408edcde75ccacb824bbeb0d519a3fba8aff",
+    "backup/format.js": "54df20f8e6cd3362972218155f2c80a3dcc981720dd43bc8249f68a8ac5b1cde",
+    "backup/restore.js": "b686841f8711a6d049904e6ab978d62bd461eb999d18a773a70b2766bbeb839e",
+    "backup/runtime.js": "1207b791a18828c61ef610cdf085ca3a40d16c9194befc3e68f83e963c01ea2e",
+    "backup/io.js": "c25f419bc3a43b0db2110dfef400953ca2806b797109a3f06b5db8adc1ab7be0",
+    "package.json": "ddc81297fc6a6ae54480e58411c71c48d312ac1b537edcd329d953bc426669e1",
+    "package-lock.json": "5f66e73edbdc9718b2abaef4e733263d42cc771efff634f21ccfcfa782d8791e"
+  },
+  "after": {
+    "client.js": "b176cdffbb1fec5ce9330c2f1285b3829ad95e25f9028ce75157cfb997912a41",
+    "index.js": "cf662ef6e09e7d0650f1e68afd023c01a270769046ebe40cb3016ad1cba07100",
+    "backup/tasks.js": "8cd3c4a23b9cb56deb858e5f41161f1697df95cdd6560d4fd794adcbb9c965a2",
+    "backup/format.js": "54df20f8e6cd3362972218155f2c80a3dcc981720dd43bc8249f68a8ac5b1cde",
+    "backup/restore.js": "b686841f8711a6d049904e6ab978d62bd461eb999d18a773a70b2766bbeb839e",
+    "backup/runtime.js": "1207b791a18828c61ef610cdf085ca3a40d16c9194befc3e68f83e963c01ea2e",
+    "backup/io.js": "c25f419bc3a43b0db2110dfef400953ca2806b797109a3f06b5db8adc1ab7be0",
+    "package.json": "ddc81297fc6a6ae54480e58411c71c48d312ac1b537edcd329d953bc426669e1",
+    "package-lock.json": "5f66e73edbdc9718b2abaef4e733263d42cc771efff634f21ccfcfa782d8791e"
+  },
+  "changedProductionFiles": [
+    "client.js",
+    "index.js",
+    "backup/tasks.js"
+  ],
+  "candidateMatchesProduction": true,
+  "packageMatchesProduction": true,
+  "installedConsumerMatchesProduction": true,
+  "verifiedPackageFiles": [
+    "client.js",
+    "index.js",
+    "backup/tasks.js",
+    "backup/format.js",
+    "backup/restore.js",
+    "backup/runtime.js",
+    "backup/io.js",
+    "package.json"
+  ],
+  "packageSha256": "7229cfda7117805d48b9ccb7ed3ae6f0ea2eaf94abc8382dee44176a134ab399",
+  "nativeNode": "24.21.0",
+  "packageSmoke": {
+    "installedPackage": true,
+    "backupApi": 200,
+    "noDevelopmentSource": true
+  },
+  "published": false,
+  "activelyInstalledInUserProfile": false
+}

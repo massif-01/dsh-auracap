@@ -1,0 +1,8 @@
+{
+  "passed": [
+    "Progress and failures stay with their target group after navigation",
+    "Grouping names and total match the real API; pending controls cannot falsely cancel or change the submitted selection",
+    "A real invalid archive produces an actionable English task error in the restore dialog"
+  ],
+  "runtimeErrors": []
+}

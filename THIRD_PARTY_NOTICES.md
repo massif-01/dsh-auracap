@@ -66,6 +66,16 @@ OFL 允许使用、修改和再分发字体，但字体本身不能单独出售�
 
 ---
 
+## Backup file libraries
+
+- `yazl` 3.3.1 and `yauzl` 3.4.0: streaming ZIP writing and reading, MIT, Copyright (c) 2014 Josh Wolfe. Sources: <https://github.com/thejoshwolfe/yazl>, <https://github.com/thejoshwolfe/yauzl>.
+- `buffer-crc32`: ZIP checksums, MIT. Source: <https://github.com/brianloveswords/buffer-crc32>.
+- `pend`: bounded ZIP file operations, MIT. Source: <https://github.com/andrewrk/node-pend>.
+- `stream-json` 3.9.0 and `stream-chain`: streaming insight metadata and content fingerprints, BSD-3-Clause. Sources: <https://github.com/uhop/stream-json>, <https://github.com/uhop/stream-chain>.
+- License texts: [third-party/backup-libraries.txt](third-party/backup-libraries.txt).
+
+---
+
 ## 名称与商标
 
 Apache 2.0 与本仓库包含的 MIT 内容都只授予版权/专利许可，不授予任何商标、品牌名或标识的使用权。

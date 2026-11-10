@@ -146,7 +146,9 @@ Everything lives in:
 - Original media, summaries, insights, and the clue index stay on this Mac.
 - Image reading and summaries send the relevant content to DeepSeek, under the same data boundary as your everyday conversations.
 - GitHub is only a private relay from phone to Mac; the queued original is deleted after it is fetched.
-- Local data is not additionally encrypted and is not backed up automatically. Back up the folder yourself if it matters.
+- Settings → Backup and export offers a full backup, images only, or Markdown text only. Save backups manually; there is no automatic backup.
+- Restoring a full backup replaces current content without merging. Images and existing summaries and insights are restored without model calls. Current device connections and permissions stay; usage records reset.
+- Backups preserve available images, including versions processed by Harness. API keys, GitHub credentials, usage records, and original PDFs are excluded. Both the ZIP and its expanded content are limited to 2 GiB.
 - Deleting a moment or a group deletes its local original and memory entry, and removes the daily/weekly insights that referenced it (they are regenerated from what remains). The host's attachment store keeps a copy that the plugin cannot delete.
 - The phone shortcut stores a GitHub authorization (the same key the Mac uses). Clear its config before sharing the shortcut.
 - The plugin's HTTP endpoints only accept requests addressed to `127.0.0.1` / `localhost`. Do not reverse-proxy DSH without adding authentication.
@@ -154,7 +156,7 @@ Everything lives in:
 ## Boundaries
 
 - Multi-screen grouping is heuristic and can be wrong. It never merges automatically; you can split a group apart.
-- Not yet built: audio, Markdown export, Tailscale direct transfer, Windows / Linux.
+- Not yet built: audio, Tailscale direct transfer, Windows / Linux.
 - Agent memory is off by default, read-only, and never writes itself.
 - Only Chinese and English are fully supported; other languages fall back to English.
 

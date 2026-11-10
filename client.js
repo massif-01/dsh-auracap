@@ -39,19 +39,21 @@ window.__ModuleLoader__.load({
       groupMembers: '这组包含',
       groupSources: '来源',
       groupMerged: '已合并',
-      mergeGroup: '合并为一篇',
+      mergeGroup: '合并整理',
       merging: '正在合并…',
-      splitGroup: '拆分',
+      splitGroup: '撤销合并整理',
+      splitting: '正在撤销合并…',
       dismissGroup: '拆开这组',
       deleteGroup: '删除整组',
       confirmDeleteGroup: '确认删除整组',
-      remakeGroup: '重新合并',
+      remakeGroup: '重新合并整理',
       mergedSummary: '合并后的整理',
       mergeFailed: '合并失败，原条目已保留',
-      mergeWith: '与其他片刻合并',
-      mergePickerTitle: '选择要合并的片刻',
-      mergePickerHint: '选中的片刻会和当前这条组成一组，原条目都会保留。',
-      mergeConfirm: '合并',
+      mergeWith: '与其他片刻归组',
+      mergePickerTitle: '选择要归组的片刻',
+      mergePickerHint: '选中的片刻会和当前这条组成一组，原条目保留。归组后可再生成合并整理。',
+      mergeConfirm: '归为一组',
+      grouping: '正在归组…',
       mergeNoCandidates: '暂时没有可合并的片刻',
       cancel: '取消',
       entities: '线索',
@@ -314,19 +316,21 @@ window.__ModuleLoader__.load({
       groupMembers: 'This group',
       groupSources: 'Sources',
       groupMerged: 'Merged',
-      mergeGroup: 'Merge into one',
+      mergeGroup: 'Summarize group',
       merging: 'Merging…',
-      splitGroup: 'Split',
+      splitGroup: 'Remove merged summary',
+      splitting: 'Removing merged summary…',
       dismissGroup: 'Break up group',
       deleteGroup: 'Delete group',
       confirmDeleteGroup: 'Confirm delete group',
-      remakeGroup: 'Merge again',
+      remakeGroup: 'Regenerate merged summary',
       mergedSummary: 'Merged summary',
       mergeFailed: 'Merge failed; originals are still here',
-      mergeWith: 'Merge with another moment',
-      mergePickerTitle: 'Choose moments to merge',
-      mergePickerHint: 'Selected moments join this one as a group; originals are kept.',
-      mergeConfirm: 'Merge',
+      mergeWith: 'Group with other moments',
+      mergePickerTitle: 'Choose moments to group',
+      mergePickerHint: 'Selected moments join this one as a group. Originals stay; you can generate a merged summary afterward.',
+      mergeConfirm: 'Create group',
+      grouping: 'Creating group…',
       mergeNoCandidates: 'No other moments available',
       cancel: 'Cancel',
       entities: 'Clues',
@@ -562,27 +566,27 @@ window.__ModuleLoader__.load({
 
     const CSS = `
 @font-face { font-family: 'Geist'; src: url(${GEIST_FONT}) format('woff2'); font-weight: 100 900; font-style: normal; font-display: swap; }
-.ac-root { height: 100%; display: flex; flex-direction: column; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font-family: var(--dsw-font-family, 'Geist', 'PingFang SC', 'Noto Sans SC', sans-serif); font-size: 13px; line-height: 1.55; overflow: hidden; position: relative; }
+.ac-root { --ac-muted:var(--dsw-alias-label-tertiary,#81858c);--ac-surface:color-mix(in srgb,var(--dsw-alias-label-primary,#0f1115) 4%,var(--dsw-alias-bg-base,#fff));--ac-line:var(--dsw-alias-border-l2,#00000029);--ac-ink:var(--dsw-alias-label-primary,#0f1115);--ac-paper:var(--dsw-alias-bg-base,#fff);--ac-panel-shadow:0 3px 8px #0000000a,0 0 20px #0000000d;height: 100%; display: flex; flex-direction: column; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font-family: var(--dsw-font-family, 'Geist', 'PingFang SC', 'Noto Sans SC', sans-serif); font-size: 13px; line-height: 1.55; overflow: hidden; position: relative; }
 .ac-root * { box-sizing: border-box; }
 .ac-header { flex: none; display: flex; align-items: center; gap: 10px; height: 58px; padding: 0 18px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
-.ac-mark { width: 28px; height: 28px; border-radius: 9px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); display: grid; place-items: center; color: var(--dsw-alias-brand-primary); flex: none; }
-.ac-titles { display: flex; flex-direction: column; line-height: 1.15; }
+.ac-mark { width: 28px; height: 28px; border-radius: 9px; border: 1px solid var(--dsw-alias-border-l1); background: transparent; display: grid; place-items: center; color: var(--dsw-alias-brand-primary); flex: none; border-color: transparent; }
+.ac-titles { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
 .ac-title-line { display: flex; align-items: center; gap: 8px; }
 .ac-github { display: inline-flex; align-items: center; justify-content: center; color: var(--dsw-alias-label-secondary); opacity: .42; text-decoration: none; transition: opacity .15s ease, color .15s ease; }
 .ac-github:hover, .ac-github:focus-visible { opacity: 1; color: var(--dsw-alias-label-primary); }
-.ac-name { font-size: 13.5px; font-weight: 600; letter-spacing: .01em; }
+.ac-name { font-size: 13.5px; font-weight: 650; letter-spacing: 0; }
 .ac-sub { font-size: 11px; color: var(--dsw-alias-label-secondary); margin-top: 2px; }
 .ac-count { font-size: 11px; color: var(--dsw-alias-label-secondary); border: 1px solid var(--dsw-alias-border-l1); border-radius: 999px; padding: 1px 7px; font-variant-numeric: tabular-nums; }
 .ac-grow { flex: 1; }
 .ac-header-actions { display: flex; align-items: center; gap: 2px; }
-.ac-seg { display: flex; gap: 2px; padding: 2px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-2); border-radius: 9px; }
+.ac-seg { display: flex; gap: 2px; padding: 2px; border: 1px solid var(--dsw-alias-border-l1); background: var(--ac-surface); border-radius: 10px; border-color: transparent; }
 .ac-seg button { width: 30px; height: 24px; border: 0; background: transparent; color: var(--dsw-alias-label-secondary); border-radius: 7px; display: grid; place-items: center; cursor: pointer; padding: 0; }
 .ac-seg button:hover { color: var(--dsw-alias-label-primary); }
-.ac-seg button[aria-pressed="true"] { background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); box-shadow: 0 1px 2px color-mix(in srgb, var(--dsw-alias-label-primary) 10%, transparent); }
-.ac-primary { height: 30px; padding: 0 13px; border-radius: 8px; border: 1px solid var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font-size: 12.5px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-family: inherit; }
-.ac-primary:hover { background: var(--dsw-alias-bg-layer-1); border-color: var(--dsw-alias-label-primary); }
+.ac-seg button[aria-pressed="true"] { background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); box-shadow: 0 0 0 .5px var(--ac-line),0 1px 2px #00000005; }
+.ac-primary { height: 30px; padding: 0 13px; border-radius: 12px; border: 1px solid var(--dsw-alias-border-l2); background: var(--ac-ink); color: var(--ac-paper); font-size: 12.5px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-family: inherit; transition: background-color .13s ease,border-color .13s ease,color .13s ease; border-color: var(--ac-ink); }
+.ac-primary:hover { background: color-mix(in srgb,var(--ac-ink) 88%,var(--ac-paper)); border-color: var(--ac-ink); }
 .ac-primary:disabled { opacity: .38; cursor: default; }
-.ac-secondary { height: 30px; padding: 0 13px; border-radius: 8px; border: 1px solid var(--dsw-alias-border-l1); background: transparent; color: var(--dsw-alias-label-secondary); font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-family: inherit; }
+.ac-secondary { height: 30px; padding: 0 13px; border-radius: 12px; border: .5px solid var(--ac-line); background: var(--ac-paper); color: var(--dsw-alias-label-primary); font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-family: inherit; transition: background-color .13s ease,border-color .13s ease,color .13s ease; }
 .ac-secondary:hover { color: var(--dsw-alias-label-primary); border-color: var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-1); }
 .ac-secondary:disabled { opacity: .38; cursor: default; }
 .ac-tabs { flex: none; display: flex; align-items: center; gap: 18px; height: 40px; padding: 0 20px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
@@ -597,7 +601,7 @@ window.__ModuleLoader__.load({
 .ac-search-trigger:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-1); }
 .ac-search-trigger kbd { font-size: 9px; color: var(--dsw-alias-label-secondary); border: 1px solid var(--dsw-alias-border-l1); border-radius: 4px; padding: 0 3px; opacity: .6; font-family: inherit; }
 .ac-search-overlay { position: fixed; inset: 0; z-index: 300; background: color-mix(in srgb, var(--dsw-alias-label-primary) 12%, transparent); display: flex; justify-content: center; align-items: flex-start; padding-top: 12vh; }
-.ac-search-panel { width: min(620px, calc(100vw - 80px)); background: var(--dsw-alias-bg-base); border: 1px solid var(--dsw-alias-border-l1); border-radius: 14px; box-shadow: 0 24px 70px color-mix(in srgb, var(--dsw-alias-label-primary) 18%, transparent); overflow: hidden; }
+.ac-search-panel { width: min(620px, calc(100vw - 80px)); background: var(--dsw-alias-bg-base); border: .5px solid var(--ac-line); border-radius: 14px; box-shadow: var(--ac-panel-shadow); overflow: hidden; }
 .ac-search-input-row { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--dsw-alias-border-l1); color: var(--dsw-alias-label-secondary); }
 .ac-search-input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 14px; }
 .ac-search-input::placeholder { color: var(--dsw-alias-label-secondary); opacity: .68; }
@@ -666,12 +670,12 @@ window.__ModuleLoader__.load({
 .ac-hint { font-size: 11px; color: var(--dsw-alias-label-secondary); opacity: .8; }
 .ac-body { flex: 1; display: flex; min-height: 0; }
 .ac-list { width: 236px; flex: none; border-right: 1px solid var(--dsw-alias-border-l1); overflow: auto; padding: 8px; }
-.ac-row { display: flex; gap: 10px; padding: 6px 8px; border-radius: 8px; align-items: center; border: 1px solid transparent; cursor: pointer; transition: background .12s ease, border-color .12s ease; }
-.ac-row:hover { background: var(--dsw-alias-bg-layer-1); }
-.ac-row[data-active="true"] { background: var(--dsw-alias-bg-layer-1); border-color: var(--dsw-alias-border-l1); }
+.ac-row { display: flex; gap: 10px; padding: 6px 8px; border-radius: 10px; align-items: center; border: 1px solid transparent; cursor: pointer; transition: background .12s ease, border-color .12s ease; border-color: transparent; }
+.ac-row:hover { background: var(--ac-surface); }
+.ac-row[data-active="true"] { background: color-mix(in srgb,var(--ac-ink) 7%,var(--ac-paper)); border-color: transparent; }
 .ac-thumb { width: 40px; height: 52px; flex: none; border-radius: 5px; object-fit: cover; object-position: top center; background: var(--dsw-alias-bg-layer-2); border: 1px solid var(--dsw-alias-border-l1); }
 .ac-row-main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
-.ac-row-title { font-size: 12.5px; font-weight: 500; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ac-row-title { font-size: 12.5px; font-weight: 550; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .ac-row-desc { font-size: 11.5px; color: var(--dsw-alias-label-secondary); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .ac-thumb-doc { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-layer-2); }
 .ac-doc-ext { font-size: 8px; letter-spacing: .08em; font-family: var(--dsw-font-family, 'Geist', sans-serif); opacity: .8; }
@@ -698,7 +702,7 @@ window.__ModuleLoader__.load({
 .ac-group-merged { margin: 8px 0 24px; }
 .ac-group-merged .ac-section { margin-top: 18px; }
 .ac-group-error { margin: 8px 0 16px; color: #b45445; font-size: 11px; }
-.ac-merge-picker { width: min(520px, 100%); max-height: 84vh; overflow: auto; background: var(--dsw-alias-bg-base); border: 1px solid var(--dsw-alias-border-l1); border-radius: 16px; padding: 24px 24px 20px; box-shadow: 0 30px 80px color-mix(in srgb, var(--dsw-alias-label-primary) 18%, transparent); }
+.ac-merge-picker { width: min(520px, 100%); max-height: 84vh; overflow: auto; background: var(--dsw-alias-bg-base); border: .5px solid var(--ac-line); border-radius: 24px; padding: 24px 24px 20px; box-shadow: var(--ac-panel-shadow); }
 .ac-merge-head { display: flex; align-items: flex-start; gap: 12px; }
 .ac-merge-kicker { font-size: 9.5px; letter-spacing: .13em; color: var(--dsw-alias-label-secondary); margin-bottom: 6px; text-transform: uppercase; }
 .ac-merge-source-title { font-size: 17px; font-weight: 600; line-height: 1.35; }
@@ -720,19 +724,19 @@ window.__ModuleLoader__.load({
 .ac-settings-collapse-head:hover { color: var(--dsw-alias-label-primary); }
 .ac-settings-collapse-chevron { display: inline-flex; transition: transform .15s ease; }
 .ac-settings-collapse-chevron[data-open="true"] { transform: rotate(180deg); }
-.ac-phone-body { margin-top: 18px; }
-.ac-phone-sync { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--dsw-alias-border-l1); }
+.ac-phone-body { margin-top: 24px; }
+.ac-phone-sync { margin-top: 24px; padding: 16px 18px; border-radius: 12px; background: var(--ac-surface); }
 .ac-project-context { margin-top: 4px; }
-.ac-project-note { min-height: 112px; margin-top: 8px; }
+.ac-project-note { min-height: 96px; margin-top: 8px; }
 .ac-project-saved { display: flex; align-items: center; margin-top: 9px; color: var(--dsw-alias-label-secondary); font-size: 10.5px; }
 
 .ac-project-context-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .ac-project-context-head .ac-settings-subsection { margin-bottom: 0; }
 .ac-project-hint { margin: 6px 0 0; font-size: 11px; }
 .ac-project-edit-button { flex: none; height: 25px; padding: 0 9px; font-size: 10.5px; }
-.ac-project-cancel { border: 0; background: transparent; color: var(--dsw-alias-label-secondary); font-family: inherit; font-size: 10.5px; cursor: pointer; padding: 0 3px; }
-.ac-project-cancel:hover { color: var(--dsw-alias-label-primary); }
-.ac-memory-index { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--dsw-alias-border-l1); }
+.ac-text-button { min-height: 30px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 12px; cursor: pointer; }
+.ac-text-button:hover { color: var(--ac-ink); background: var(--ac-surface); }
+.ac-memory-index { margin-top: 20px; }
 .ac-memory-index-head { width: 100%; display: flex; align-items: baseline; gap: 10px; border: 0; background: transparent; padding: 0; cursor: pointer; color: var(--dsw-alias-label-secondary); font-family: inherit; text-align: left; }
 .ac-memory-index-head:hover { color: var(--dsw-alias-label-primary); }
 .ac-memory-index-head .ac-settings-subsection { margin-bottom: 0; flex: none; }
@@ -740,15 +744,20 @@ window.__ModuleLoader__.load({
 .ac-memory-index-chevron { display: inline-flex; flex: none; transition: transform .15s ease; }
 .ac-memory-index-chevron[data-open="true"] { transform: rotate(180deg); }
 .ac-memory-index-body { margin-top: 12px; }
-.ac-input { height: 32px; width: 100%; border: 1px solid var(--dsw-alias-border-l1); border-radius: 7px; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 11.5px; padding: 0 9px; outline: none; box-sizing: border-box; }
-.ac-input:focus { border-color: var(--dsw-alias-border-l2); }
-.ac-input::placeholder { color: var(--dsw-alias-label-secondary); opacity: .55; }
-.ac-textarea { height: 72px; padding: 8px 9px; resize: vertical; line-height: 1.6; }
+.ac-input { height: 32px; width: 100%; border: .5px solid var(--ac-line); border-radius: 12px; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 11.5px; padding: 0 9px; outline: none; box-sizing: border-box; }
+.ac-input:focus { border-color: var(--ac-muted); }
+.ac-input::placeholder { color: var(--ac-muted); opacity: 1; }
+.ac-textarea { height: 72px; padding: 8px 9px; resize: vertical; line-height: 1.6; border-radius: 16px; }
+.ac-action-row,.ac-project-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .ac-project-actions { margin-top: 12px; }
-.ac-agent-toggle { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--dsw-alias-border-l1); }
+.ac-project-read-note { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.8; color: var(--dsw-alias-label-secondary); margin: 12px 0 0; }
+.ac-project-read-note[data-expanded="false"] { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
+.ac-project-read-note + .ac-text-button { margin-top: 4px; }
+.ac-load-actions { justify-content: center; margin-top: 22px; }
+.ac-agent-toggle { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 24px; }
 .ac-agent-toggle .ac-settings-hint { margin-top: 3px; }
-.ac-toggle { width: 42px; height: 23px; flex: none; border-radius: 999px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-secondary); font-family: inherit; font-size: 9px; cursor: pointer; padding: 0; }
-.ac-toggle[data-on="true"] { background: var(--dsw-alias-brand-primary); border-color: var(--dsw-alias-brand-primary); color: var(--dsw-alias-bg-base); }
+.ac-toggle { width: 42px; height: 23px; flex: none; border-radius: 999px; border: 0; background: var(--dsw-alias-border-l2,#dddde1); color: var(--dsw-alias-label-secondary); font-family: inherit; font-size: 9px; cursor: pointer; padding: 0; position: relative; }
+.ac-toggle[data-on="true"] { background: var(--ac-ink); border-color: var(--ac-ink); color: var(--dsw-alias-bg-base); }
 .ac-status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--dsw-alias-label-secondary); }
 .ac-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dsw-alias-state-idle-primary); display: inline-block; flex: none; }
 .ac-dot[data-state="summarizing"] { background: var(--dsw-alias-brand-primary); animation: ac-pulse 1.4s ease-in-out infinite; }
@@ -757,10 +766,10 @@ window.__ModuleLoader__.load({
 @keyframes ac-pulse { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
 .ac-detail { flex: 1; min-width: 0; overflow: auto; padding: 32px 42px 64px; }
 .ac-detail-inner { max-width: 860px; margin: 0 auto; }
-.ac-h1 { font-size: 21px; line-height: 1.35; font-weight: 600; letter-spacing: -.01em; margin: 0 0 10px; }
+.ac-h1 { font-size: 21px; line-height: 1.35; font-weight: 600; letter-spacing: -.025em; margin: 0 0 10px; }
 .ac-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 11.5px; color: var(--dsw-alias-label-secondary); margin-bottom: 18px; }
 .ac-section { margin-top: 22px; }
-.ac-sec-label { font-size: 10.5px; letter-spacing: .09em; color: var(--dsw-alias-label-secondary); margin-bottom: 8px; font-weight: 500; }
+.ac-sec-label { font-size: 10.5px; letter-spacing: 0; color: var(--ac-muted); margin-bottom: 8px; font-weight: 500; }
 .ac-body-text { font-size: 13.5px; line-height: 1.85; white-space: pre-wrap; }
 .ac-points { display: flex; flex-direction: column; gap: 9px; margin: 0; padding: 0; list-style: none; }
 .ac-point { display: flex; gap: 10px; font-size: 13px; line-height: 1.65; }
@@ -787,23 +796,23 @@ window.__ModuleLoader__.load({
 [data-tip]:hover::after, [data-tip]:focus-visible::after { opacity: 1; transform: translateX(-50%) translateY(0); }
 .ac-icon-button { width: 30px; height: 30px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--dsw-alias-label-secondary); display: grid; place-items: center; cursor: pointer; }
 .ac-icon-button:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-1); border-color: var(--dsw-alias-border-l1); }
-.ac-settings { width: min(820px, 100%); max-height: 88vh; overflow: auto; background: var(--dsw-alias-bg-base); border: 1px solid var(--dsw-alias-border-l1); border-radius: 16px; box-shadow: 0 30px 80px color-mix(in srgb, var(--dsw-alias-label-primary) 18%, transparent); padding: 26px 28px 32px; position: relative; }
+.ac-settings { width: min(820px, 100%); max-height: 88vh; overflow: auto; background: var(--dsw-alias-bg-base); border: .5px solid var(--ac-line); border-radius: 28px; box-shadow: var(--ac-panel-shadow); padding: 26px 28px 28px; position: relative; outline: none; }
 .ac-settings-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 20px; }
-.ac-settings-title { font-size: 17px; font-weight: 600; line-height: 1.3; }
+.ac-settings-title { font-size: 17px; font-weight: 500; line-height: 1.3; letter-spacing: 0; }
 .ac-settings-sub { margin-top: 3px; font-size: 11px; color: var(--dsw-alias-label-secondary); }
 .ac-settings-status { display: flex; align-items: center; gap: 7px; margin-top: 4px; margin-bottom: 2px; font-size: 12px; color: var(--dsw-alias-label-secondary); }
 .ac-settings-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dsw-alias-state-success-primary); flex: none; }
 .ac-settings-status-dot[data-state="error"] { background: var(--dsw-alias-state-error-primary); }
 .ac-settings-status-repo { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
-.ac-settings-section-title { font-size: 13px; font-weight: 600; letter-spacing: -.01em; line-height: 1.35; color: var(--dsw-alias-label-primary); margin-bottom: 12px; }
-.ac-settings-subsection { font-size: 10.5px; font-weight: 500; letter-spacing: .06em; color: var(--dsw-alias-label-secondary); margin-bottom: 8px; }
+.ac-settings-section-title { font-size: 13px; font-weight: 500; letter-spacing: 0; line-height: 1.35; color: var(--ac-muted); margin-bottom: 12px; }
+.ac-settings-subsection { font-size: 10.5px; font-weight: 500; letter-spacing: 0; color: var(--ac-muted); margin-bottom: 8px; }
 .ac-settings-collapse-head .ac-settings-section-title { margin-bottom: 0; }
 .ac-usage-section .ac-settings-section-title { margin-bottom: 6px; }
 .ac-phone-section .ac-settings-section-title { margin-bottom: 0; }
 .ac-agent-toggle .ac-settings-subsection { margin-bottom: 5px; }
 .ac-section-eyebrow { font-size: 10px; letter-spacing: .12em; color: var(--dsw-alias-label-secondary); opacity: .7; margin-bottom: 10px; }
 .ac-memory-status { font-size: 12px; color: var(--dsw-alias-label-secondary); margin-top: 4px; }
-.ac-settings-section { padding-top: 20px; border-top: 1px solid var(--dsw-alias-border-l1); margin-top: 22px; }
+.ac-settings-section { margin-top: 16px; padding: 20px; border: .5px solid var(--ac-line); border-radius: 20px; }
 .ac-usage-section { margin-top: 22px; }
 .ac-usage-stats { display: flex; flex-wrap: wrap; gap: 30px; padding: 4px 0 12px; }
 .ac-usage-stats b { display: block; font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
@@ -819,31 +828,31 @@ window.__ModuleLoader__.load({
 .ac-set-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .ac-device { margin-top: 14px; padding: 16px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; background: var(--dsw-alias-bg-layer-1); }
 .ac-device-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 26px; letter-spacing: .12em; font-weight: 600; margin: 8px 0 12px; }
-.ac-device-link { color: var(--dsw-alias-brand-primary); font-size: 12.5px; text-decoration: none; }
-.ac-device-link:hover { text-decoration: underline; }
-.ac-config { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; padding: 10px 12px; background: var(--dsw-alias-bg-layer-2); border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; word-break: break-all; line-height: 1.6; }
+.ac-device-link { text-decoration: none; }
+.ac-device-link:hover { text-decoration: none; }
+.ac-config { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; padding: 0; background: transparent; border: 0; border-radius: 0; word-break: normal; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--dsw-alias-label-secondary); }
 .ac-settings-hint { font-size: 12px; color: var(--dsw-alias-label-secondary); line-height: 1.7; margin: 10px 0 0; }
-.ac-steps { display: flex; flex-direction: column; gap: 16px; margin-top: 16px; }
+.ac-steps { display: flex; flex-direction: column; gap: 24px; margin-top: 14px; }
 .ac-step { display: flex; gap: 13px; align-items: flex-start; }
-.ac-step-no { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--dsw-alias-border-l1); color: var(--dsw-alias-label-secondary); font-size: 11px; display: grid; place-items: center; flex: none; margin-top: 1px; }
+.ac-step-no { width: 22px; height: 22px; border-radius: 50%; border: 0; color: var(--ac-muted); font-size: 11px; display: grid; place-items: center; flex: none; margin-top: 1px; background: var(--ac-surface); font-variant-numeric: tabular-nums; }
 .ac-step-body { flex: 1; min-width: 0; }
-.ac-step-title { font-size: 13px; font-weight: 500; line-height: 1.4; }
-.ac-step-hint { font-size: 12px; color: var(--dsw-alias-label-secondary); line-height: 1.6; margin-top: 2px; }
-.ac-step-actions { display: flex; gap: 8px; margin-top: 8px; }
-.ac-advanced { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--dsw-alias-border-l1); }
-.ac-advanced-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 0; background: transparent; color: var(--dsw-alias-label-secondary); font-family: inherit; font-size: 12px; padding: 0; cursor: pointer; }
-.ac-advanced-toggle:hover { color: var(--dsw-alias-label-primary); }
+.ac-step-title { font-size: 13px; font-weight: 500; line-height: 1.4; color: var(--dsw-alias-label-secondary); }
+.ac-step-hint { font-size: 12px; color: var(--ac-muted); line-height: 1.6; margin-top: 5px; max-width: 58ch; }
+.ac-step-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.ac-advanced { margin-top: 18px; padding: 0 4px; }
+.ac-advanced-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 0; background: transparent; color: var(--ac-muted); font-family: inherit; font-size: 13px; padding: 0; cursor: pointer; border-radius: 8px; }
+.ac-advanced-toggle:hover { color: var(--dsw-alias-label-secondary); }
 .ac-advanced-chevron { display: inline-flex; transition: transform .15s ease; }
 .ac-advanced-chevron[data-open="true"] { transform: rotate(180deg); }
-.ac-advanced-body { margin-top: 16px; }
-.ac-danger-zone { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--dsw-alias-border-l1); }
+.ac-advanced-body { margin-top: 24px; }
+.ac-danger-zone { margin-top: 28px; }
 .ac-danger-zone .ac-ghost { color: var(--dsw-alias-state-error-primary); border-color: color-mix(in srgb, var(--dsw-alias-state-error-primary) 30%, var(--dsw-alias-border-l1)); }
-.ac-debug { margin-top: 10px; }
+.ac-debug { margin-top: 16px; padding: 16px 18px; border-radius: 12px; background: var(--ac-surface); }
 .ac-success { font-size: 12px; color: var(--dsw-alias-state-success-primary); line-height: 1.6; }
 
 .ac-tag-button { cursor: pointer; font-family: inherit; }
 .ac-tag-button:hover { border-color: var(--dsw-alias-border-l2); color: var(--dsw-alias-label-primary); }
-.ac-entity-chip { cursor: pointer; font-family: inherit; color: var(--dsw-alias-brand-primary); border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 30%, var(--dsw-alias-border-l1)); background: color-mix(in srgb, var(--dsw-alias-brand-primary) 6%, var(--dsw-alias-bg-base)); }
+.ac-entity-chip { cursor: pointer; font-family: inherit; color: var(--dsw-alias-brand-primary); border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 30%, var(--dsw-alias-border-l1)); background: color-mix(in srgb, var(--dsw-alias-brand-primary) 6%, var(--dsw-alias-bg-base)); border-radius: 7px; }
 .ac-entity-chip:hover { border-color: var(--dsw-alias-brand-primary); }
 .ac-filter-bar { flex: none; display: flex; align-items: center; gap: 8px; padding: 7px 20px; border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 11px; color: var(--dsw-alias-label-secondary); }
 .ac-filter-bar button { border: 0; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; font-family: inherit; font-size: 11px; padding: 0 2px; }
@@ -864,7 +873,7 @@ window.__ModuleLoader__.load({
 .ac-source-row { display: flex; align-items: baseline; gap: 10px; width: 100%; border: 0; background: transparent; padding: 6px 0; color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 11.5px; text-align: left; cursor: pointer; }
 .ac-source-row:hover { color: var(--dsw-alias-brand-primary); }
 .ac-source-row span:first-child { min-width: 48px; color: var(--dsw-alias-label-secondary); font-size: 10px; }
-.ac-entity-panel { width: min(620px, 100%); max-height: 86vh; overflow: auto; background: var(--dsw-alias-bg-base); border: 1px solid var(--dsw-alias-border-l1); border-radius: 16px; padding: 26px 28px 30px; box-shadow: 0 30px 80px color-mix(in srgb, var(--dsw-alias-label-primary) 18%, transparent); }
+.ac-entity-panel { width: min(620px, 100%); max-height: 86vh; overflow: auto; background: var(--dsw-alias-bg-base); border: .5px solid var(--ac-line); border-radius: 24px; padding: 26px 28px 30px; box-shadow: var(--ac-panel-shadow); }
 .ac-entity-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 20px; }
 .ac-entity-type { font-size: 9.5px; letter-spacing: .15em; color: var(--dsw-alias-label-secondary); opacity: .7; margin-bottom: 5px; }
 .ac-entity-name { font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
@@ -882,9 +891,9 @@ window.__ModuleLoader__.load({
 .ac-entity-insight-excerpt { font-size: 10.5px; line-height: 1.5; color: var(--dsw-alias-label-secondary); }
 .ac-entity-empty { padding: 30px 0; text-align: center; color: var(--dsw-alias-label-secondary); font-size: 12px; }
 .ac-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.ac-tag { font-size: 10.5px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-secondary); }
-.ac-actions { display: flex; gap: 8px; margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--dsw-alias-border-l1); flex-wrap: wrap; }
-.ac-ghost { height: 28px; padding: 0 11px; border-radius: 7px; border: 1px solid var(--dsw-alias-border-l1); background: transparent; color: var(--dsw-alias-label-secondary); font-size: 12px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-family: inherit; }
+.ac-tag { font-size: 10.5px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--dsw-alias-border-l1); background: var(--ac-surface); color: var(--dsw-alias-label-secondary); border-color: transparent; }
+.ac-actions { display: flex; gap: 8px; margin-top: 26px; padding-top: 18px; flex-wrap: wrap; }
+.ac-ghost { height: 28px; padding: 0 11px; border-radius: 12px; border: .5px solid var(--ac-line); background: transparent; color: var(--dsw-alias-label-primary); font-size: 12px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-family: inherit; transition: background-color .13s ease,border-color .13s ease,color .13s ease; }
 .ac-ghost:hover { color: var(--dsw-alias-label-primary); border-color: var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-1); }
 .ac-ghost:disabled { opacity: .4; cursor: default; }
 .ac-ghost[data-danger="true"]:hover { color: var(--dsw-alias-state-error-primary); border-color: var(--dsw-alias-state-error-primary); }
@@ -898,81 +907,90 @@ window.__ModuleLoader__.load({
 .ac-empty-art { width: 128px; height: 128px; display: grid; place-items: center; color: var(--dsw-alias-label-secondary); margin-bottom: 26px; opacity: .9; }
 .ac-empty h2 { font-size: 21px; font-weight: 600; letter-spacing: -.01em; margin: 0 0 8px; }
 .ac-empty p { margin: 0; max-width: 420px; color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 1.75; }
-.ac-empty .ac-primary { margin-top: 22px; height: 34px; padding: 0 17px; font-size: 13px; }
-.ac-onboarding { flex: 1; min-height: 0; overflow: auto; display: flex; align-items: center; justify-content: center; padding: 34px 32px 56px; }
-.ac-onboarding-inner { width: min(500px, 100%); display: flex; flex-direction: column; align-items: center; text-align: center; }
-.ac-onboarding-mark { width: 58px; height: 58px; display: grid; place-items: center; color: var(--dsw-alias-label-secondary); opacity: .62; margin-bottom: 20px; }
-.ac-onboarding-title { font-size: 22px; font-weight: 600; letter-spacing: -.015em; margin: 0 0 9px; }
-.ac-onboarding-body { margin: 0; max-width: 330px; color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 1.8; }
-.ac-onboarding-actions { display: flex; flex-direction: column; align-items: center; gap: 9px; margin-top: 24px; }
-.ac-onboarding-primary { min-width: 154px; height: 36px; padding: 0 22px; font-size: 13px; }
-.ac-onboarding-link { border: 0; background: transparent; padding: 0; color: var(--dsw-alias-label-secondary); font-family: inherit; font-size: 11.5px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, var(--dsw-alias-label-secondary) 40%, transparent); }
-.ac-onboarding-link:hover { color: var(--dsw-alias-label-primary); }
-.ac-onboarding-hint { margin-top: 10px; font-size: 10.5px; color: var(--dsw-alias-label-secondary); }
-.ac-onboarding-code { margin: 18px 0 16px; font-size: 23px; font-weight: 600; letter-spacing: .16em; font-variant-numeric: tabular-nums; }
-.ac-onboarding-error { margin-top: 12px; max-width: 360px; color: #b45445; font-size: 11px; line-height: 1.6; }
-.ac-onboarding-success { margin-top: 2px; color: var(--dsw-alias-label-secondary); font-size: 11px; }
-.ac-onboarding-why { width: 100%; margin-top: 30px; padding-top: 15px; border-top: 1px solid var(--dsw-alias-border-l1); }
-.ac-onboarding-why-toggle { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; padding: 0; color: var(--dsw-alias-label-secondary); font-family: inherit; font-size: 10.5px; cursor: pointer; }
-.ac-onboarding-why-toggle:hover { color: var(--dsw-alias-label-primary); }
-.ac-onboarding-chevron { display: inline-flex; transition: transform .15s ease; }
-.ac-onboarding-chevron[data-open="true"] { transform: rotate(180deg); }
-.ac-onboarding-why-body { max-width: 430px; margin: 12px auto 0; text-align: left; color: var(--dsw-alias-label-secondary); font-size: 11.5px; line-height: 1.85; }
-.ac-onboarding-why-body p { margin: 0 0 9px; }
-.ac-onboarding-why-body p:last-child { margin-bottom: 0; }
-.ac-onboarding-steps { width: min(330px, 100%); margin: 22px 0 16px; display: flex; flex-direction: column; gap: 10px; text-align: left; }
-.ac-onboarding-step { display: flex; align-items: baseline; gap: 10px; font-size: 12px; line-height: 1.6; color: var(--dsw-alias-label-secondary); }
-.ac-onboarding-step-no { width: 18px; height: 18px; flex: none; display: grid; place-items: center; border: 1px solid var(--dsw-alias-border-l1); border-radius: 50%; font-size: 9px; color: var(--dsw-alias-label-secondary); }
-.ac-onboarding { align-items: flex-start; padding: clamp(104px, 19vh, 180px) 56px 56px; }
-.ac-onboarding-frame { width: min(920px, 100%); display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 62px; align-items: start; }
-.ac-onboarding-copy { min-width: 0; text-align: left; }
-.ac-onboarding-brand { display: flex; align-items: baseline; gap: 9px; margin-bottom: 18px; }
-.ac-onboarding-brand-name { font-size: 20px; font-weight: 600; letter-spacing: -.025em; line-height: 1; }
-html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh"] .ac-insight-kicker, html[lang^="zh"] .ac-period-range, html[lang^="zh"] .ac-period-row-sub, html[lang^="zh"] .ac-period-date-value, html[lang^="zh"] .ac-calendar-title, html[lang^="zh"] .ac-onboarding-brand-zh, html[lang^="zh"] .ac-onboarding-tagline, html[lang^="zh"] .ac-import-guide-title { font-family: 'Songti SC', 'Noto Serif SC', serif; }
-.ac-onboarding-brand-zh { font-family: var(--dsw-font-family, 'Geist', 'PingFang SC', 'Noto Sans SC', sans-serif); font-size: 11px; letter-spacing: .16em; color: var(--dsw-alias-label-secondary); opacity: .7; }
-.ac-onboarding-kicker { font-size: 9.5px; letter-spacing: .18em; color: var(--dsw-alias-label-secondary); opacity: .62; margin-bottom: 15px; text-transform: uppercase; }
-.ac-onboarding-title { font-size: 31px; line-height: 1.2; letter-spacing: -.025em; margin: 0 0 12px; }
-.ac-onboarding-tagline { font-family: var(--dsw-font-family, 'Geist', 'PingFang SC', 'Noto Sans SC', sans-serif); font-size: 28px; line-height: 1.55; letter-spacing: .01em; font-weight: 600; }
-.ac-onboarding-tagline span { display: block; }
-.ac-onboarding-tagline + .ac-onboarding-body { margin-top: 12px; }
-.ac-onboarding-body { max-width: 350px; font-size: 13px; line-height: 1.9; }
-.ac-onboarding-actions { display: flex; flex-direction: row; align-items: center; gap: 18px; margin-top: 26px; }
-.ac-onboarding-primary { min-width: 0; height: 38px; padding: 0 20px; border-radius: 10px; border-color: var(--dsw-alias-brand-primary); background: var(--dsw-alias-brand-primary); color: var(--dsw-alias-bg-base); font-size: 12.5px; }
-.ac-onboarding-primary:hover { background: var(--dsw-alias-brand-primary); border-color: var(--dsw-alias-brand-primary); opacity: .88; }
-.ac-onboarding-link { font-size: 11.5px; text-decoration: none; }
-.ac-onboarding-link:hover { text-decoration: underline; }
-.ac-onboarding-why { width: auto; max-width: 360px; margin-top: 28px; padding-top: 0; border-top: 0; text-align: left; }
-.ac-onboarding-aside { width: 100%; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l1); border-radius: 18px; padding: 28px 26px; overflow: hidden; }
-.ac-onboarding-aside-label { font-size: 9.5px; letter-spacing: .14em; color: var(--dsw-alias-label-secondary); opacity: .66; margin-bottom: 24px; }
-.ac-onboard-flow { display: flex; flex-direction: column; gap: 19px; }
-.ac-onboard-node { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: start; gap: 13px; }
-.ac-onboard-node-icon { width: 18px; height: 18px; display: grid; place-items: center; color: var(--dsw-alias-label-secondary); opacity: .64; margin-top: 1px; }
-.ac-onboard-node-icon-brand { color: var(--dsw-alias-brand-primary); opacity: .52; }
-.ac-onboard-node div > strong { display: block; font-size: 13px; font-weight: 500; line-height: 1.35; color: var(--dsw-alias-label-primary); }
-.ac-onboard-usage { display: flex; flex-direction: column; gap: 19px; }
-.ac-onboard-usage-row { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: start; gap: 13px; }
-.ac-onboard-usage-row div > strong { display: block; font-size: 12.5px; font-weight: 500; line-height: 1.35; color: var(--dsw-alias-label-primary); }
-.ac-onboard-usage-row div > span { display: block; margin-top: 4px; font-size: 10.5px; line-height: 1.5; color: var(--dsw-alias-label-secondary); }
-.ac-onboard-node div > span { display: block; margin-top: 4px; font-size: 10.5px; line-height: 1.5; color: var(--dsw-alias-label-secondary); }
-.ac-onboarding-aside-note { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--dsw-alias-border-l1); font-size: 9.5px; color: var(--dsw-alias-label-secondary); line-height: 1.6; }
-.ac-onboarding-code-card { display: flex; flex-direction: column; align-items: flex-start; }
-.ac-onboarding-code-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 18px; }
-.ac-onboarding-code { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: .18em; font-variant-numeric: tabular-nums; }
-.ac-onboarding-copy-code { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 8px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 7px; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-secondary); font-family: inherit; font-size: 10.5px; cursor: pointer; }
-.ac-onboarding-copy-code:hover { color: var(--dsw-alias-label-primary); border-color: var(--dsw-alias-border-l2); }
-.ac-onboarding-code-card .ac-onboarding-aside-note { width: 100%; margin-top: 18px; }
-.ac-onboarding-error { max-width: 360px; margin-top: 14px; color: #b45445; font-size: 11px; line-height: 1.6; }
-.ac-onboarding-success { max-width: 360px; margin-top: 10px; color: var(--dsw-alias-label-secondary); font-size: 11px; line-height: 1.6; }
-.ac-onboarding-steps { width: min(330px, 100%); margin: 24px 0 16px; display: flex; flex-direction: column; gap: 11px; text-align: left; }
-.ac-onboarding-step { display: flex; align-items: baseline; gap: 10px; font-size: 12px; line-height: 1.6; color: var(--dsw-alias-label-secondary); }
-.ac-onboarding-step-no { width: 18px; height: 18px; flex: none; display: grid; place-items: center; border: 1px solid var(--dsw-alias-border-l1); border-radius: 50%; font-size: 9px; color: var(--dsw-alias-label-secondary); }
-@media (max-width: 780px) {
-  .ac-onboarding { padding: 28px 28px 40px; }
-  .ac-onboarding-frame { grid-template-columns: 1fr; gap: 32px; }
-  .ac-onboarding-aside { max-width: 420px; }
+.ac-empty > .ac-primary { margin-top: 22px; height: 34px; padding: 0 17px; font-size: 13px; }
+html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh"] .ac-insight-kicker, html[lang^="zh"] .ac-period-range, html[lang^="zh"] .ac-period-row-sub, html[lang^="zh"] .ac-period-date-value, html[lang^="zh"] .ac-calendar-title, html[lang^="zh"] .ac-import-guide-title { font-family: 'Songti SC', 'Noto Serif SC', serif; }
+.ac-onboarding { flex: 1; min-height: 0; overflow: auto; container-type: inline-size; }
+.ac-guide-page{flex:1;min-height:0;overflow:visible;padding:clamp(64px,10vh,112px) 48px 48px}
+.ac-guide-frame{width:min(920px,100%);margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,390px);gap:56px;align-items:start}
+.ac-guide-copy{min-width:0}
+.ac-guide-brand{font-size:18px;line-height:24px;font-weight:600;letter-spacing:-.02em;margin-bottom:28px}
+.ac-guide-brand>span{font-size:12px;font-weight:400;letter-spacing:0;color:var(--ac-muted);margin-left:9px}
+.ac-guide-caption{color:var(--ac-muted);font-size:12px;font-weight:400;line-height:18px;margin:0 0 12px}
+.ac-guide-copy h1{color:var(--ac-ink);font-size:28px;font-weight:500;letter-spacing:-.02em;line-height:1.35;margin:0 0 20px;text-wrap:balance}
+.ac-guide-lead{font-size:14px;line-height:1.85;color:var(--dsw-alias-label-secondary);margin:0;max-width:36em}
+.ac-guide-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:28px}
+.ac-guide-primary,.ac-guide-secondary{height:36px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:0 16px;font-size:13px;font-weight:400;line-height:20px;transition:background-color 130ms ease,border-color 130ms ease}
+.ac-guide-primary{background:var(--ac-ink);color:var(--ac-paper);border:1px solid var(--ac-ink)}
+.ac-guide-primary:hover{background:color-mix(in srgb,var(--ac-ink) 88%,var(--ac-paper))}
+.ac-guide-secondary{background:var(--ac-paper);color:var(--ac-ink);border:.5px solid var(--ac-line)}
+.ac-guide-secondary:hover{background:var(--ac-surface)}
+.ac-guide-primary:active,.ac-guide-secondary:active{filter:brightness(.95)}
+.ac-guide-text{background:transparent;border:0;padding:4px 0;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:20px}
+.ac-guide-text:hover{color:var(--ac-ink);text-decoration:underline;text-underline-offset:3px}
+.ac-guide-action-note{font-size:11.5px;color:var(--ac-muted);line-height:1.7;margin:12px 0 0}
+.ac-guide-secondary-actions{display:flex;align-items:center;gap:20px;margin-top:20px}
+.ac-guide-card{background:var(--ac-paper);border:.5px solid var(--ac-line);border-radius:20px;padding:24px;box-shadow:none;min-width:0}
+.ac-guide-card>.ac-guide-caption:first-child{margin-bottom:24px}
+.ac-guide-route{display:flex;flex-direction:column;gap:24px}
+.ac-guide-route-row{display:grid;grid-template-columns:20px minmax(0,1fr);gap:12px}
+.ac-guide-route-icon{color:var(--ac-muted);padding-top:1px;display:flex}
+.ac-guide-route-icon svg{width:18px;height:18px}
+.ac-guide-step-title{font-size:13px;line-height:20px;color:var(--dsw-alias-label-secondary);font-weight:500}
+.ac-guide-route p,.ac-guide-step p{font-size:12px;line-height:1.75;color:var(--dsw-alias-label-secondary);margin:5px 0 0}
+.ac-guide-note{background:var(--ac-surface);border-radius:12px;color:var(--dsw-alias-label-secondary);font-size:11.5px;line-height:1.75;padding:14px 16px;margin-top:24px}
+.ac-guide-help{margin-top:28px}
+.ac-guide-help summary{display:flex;justify-content:space-between;align-items:center;gap:12px;list-style:none;cursor:pointer;color:var(--ac-muted);font-size:12px;line-height:20px;border-radius:8px;padding:4px 0}
+.ac-guide-help summary::-webkit-details-marker{display:none}
+.ac-guide-help summary:hover{color:var(--dsw-alias-label-secondary)}
+.ac-guide-help summary svg{width:13px;height:13px;flex:none}
+.ac-guide-help[open]>summary svg{transform:rotate(180deg)}
+.ac-guide-help-body{padding-top:18px}
+.ac-guide-help-body .ac-guide-caption{margin-bottom:6px}
+.ac-guide-help-body p{font-size:12px;line-height:1.8;color:var(--dsw-alias-label-secondary);margin:0 0 18px}
+.ac-guide-help-body p:last-child{margin-bottom:0}
+.ac-guide-card .ac-guide-help{margin-top:22px}
+.ac-guide-code-line{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.ac-guide-code-line code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:24px;font-weight:500;letter-spacing:.07em;color:var(--ac-ink);white-space:nowrap}
+.ac-guide-copy svg{width:14px;height:14px}
+.ac-guide-copy.ac-guide-secondary{padding:0 10px;flex:none}
+.ac-guide-small{font-size:11px;line-height:18px;color:var(--ac-muted);margin:12px 0 0}
+.ac-guide-next{margin-top:28px}
+.ac-guide-next p{font-size:12px;line-height:1.75;color:var(--dsw-alias-label-secondary);margin:0}
+.ac-guide-status{display:flex;align-items:center;gap:7px;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:20px;margin:-6px 0 18px}
+.ac-guide-status-dot{display:inline-block;width:6px;height:6px;flex:none;border-radius:50%;background:#22c55e;margin-right:6px}
+.ac-guide-status .ac-guide-status-dot{margin:0}
+.ac-guide-status-dot.neutral{background:#81858c}
+.ac-guide-steps{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:24px}
+.ac-guide-step{display:grid;grid-template-columns:22px minmax(0,1fr);gap:12px}
+.ac-guide-step-number{width:22px;height:22px;border-radius:50%;background:var(--ac-surface);color:var(--ac-muted);display:grid;place-items:center;font-size:11px;font-variant-numeric:tabular-nums}
+.ac-guide-wait-state{margin-top:24px;border-radius:12px;background:var(--ac-surface);padding:16px 18px}
+.ac-guide-wait-state .ac-guide-caption{margin-bottom:7px}
+.ac-guide-wait-state p{font-size:13px;color:var(--dsw-alias-label-secondary);margin:0 0 7px}
+.ac-guide-wait-state>span{font-size:11.5px;color:var(--ac-muted);line-height:1.75;display:block}
+@container (max-width:900px){.ac-guide-page{padding:56px 32px 40px}
+.ac-guide-frame{gap:32px;grid-template-columns:minmax(0,1fr) minmax(290px,.95fr)}
+.ac-guide-copy h1{font-size:26px}
+.ac-guide-card{padding:22px}
+.ac-guide-code-line{flex-wrap:wrap}
 }
 
-.ac-shot-prompt { width: min(460px, 100%); background: var(--dsw-alias-bg-base); border: 1px solid var(--dsw-alias-border-l1); border-radius: 14px; padding: 24px 24px 20px; box-shadow: 0 30px 80px color-mix(in srgb, var(--dsw-alias-label-primary) 18%, transparent); }
+@container (max-width:680px){.ac-guide-page{padding:32px 24px 40px}
+.ac-guide-frame{grid-template-columns:1fr;gap:28px;max-width:480px}
+.ac-guide-brand{margin-bottom:20px}
+.ac-guide-copy h1{font-size:25px}
+.ac-guide-card{padding:22px}
+.ac-guide-lead{font-size:13px}
+.ac-guide-actions{margin-top:22px}
+}
+
+
+.ac-guide-recovery { margin-top: 18px; color: var(--ac-muted); font-size: 12px; }
+.ac-guide-recovery button { margin-left: 6px; }
+.ac-guide-actions a { text-decoration: none; }
+.ac-guide-error { margin-top: 14px; }
+.ac-guide-help button { margin-top: 12px; }
+
+.ac-shot-prompt { width: min(460px, 100%); background: var(--dsw-alias-bg-base); border: .5px solid var(--ac-line); border-radius: 24px; padding: 24px 24px 20px; box-shadow: var(--ac-panel-shadow); }
 .ac-shot-title { font-size: 17px; font-weight: 600; margin-bottom: 10px; }
 .ac-shot-body { margin: 0; font-size: 13px; line-height: 1.75; color: var(--dsw-alias-label-primary); }
 .ac-shot-note { margin: 14px 0 0; font-size: 11px; line-height: 1.65; color: var(--dsw-alias-label-secondary); opacity: .8; }
@@ -991,11 +1009,11 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
 .ac-card-title { font-size: 12.5px; font-weight: 500; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .ac-card-desc { font-size: 10.5px; color: var(--dsw-alias-label-secondary); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
 .ac-card-meta { font-size: 10px; color: var(--dsw-alias-label-secondary); margin-top: 2px; display: flex; gap: 6px; }
-.ac-modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 40px; background: color-mix(in srgb, var(--dsw-alias-bg-base) 55%, transparent); backdrop-filter: blur(10px); }
-.ac-modal-card { width: min(980px, 100%); max-height: 86vh; overflow: auto; background: var(--dsw-alias-bg-base); border: 1px solid var(--dsw-alias-border-l1); border-radius: 16px; box-shadow: 0 30px 80px color-mix(in srgb, var(--dsw-alias-label-primary) 18%, transparent); position: relative; }
+.ac-modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 40px; background: color-mix(in srgb,var(--ac-ink) 24%,transparent); backdrop-filter: none; }
+.ac-modal-card { width: min(980px, 100%); max-height: 86vh; overflow: auto; background: var(--dsw-alias-bg-base); border: .5px solid var(--ac-line); border-radius: 24px; box-shadow: var(--ac-panel-shadow); position: relative; }
 .ac-modal-card .ac-detail { padding: 26px; }
-.ac-modal-close { position: absolute; top: 12px; right: 12px; z-index: 2; width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-secondary); display: grid; place-items: center; cursor: pointer; }
-.ac-modal-close:hover { color: var(--dsw-alias-label-primary); }
+.ac-modal-close { position: absolute; top: 12px; right: 12px; z-index: 2; width: 30px; height: 30px; border-radius: 8px; border: 1px solid transparent; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-secondary); display: grid; place-items: center; cursor: pointer; }
+.ac-modal-close:hover { color: var(--dsw-alias-label-primary); background: var(--ac-surface); }
 .ac-lightbox { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 32px; background: color-mix(in srgb, var(--dsw-alias-bg-base) 35%, transparent); backdrop-filter: blur(14px); cursor: zoom-out; }
 .ac-lightbox img { max-width: 94vw; max-height: 92vh; object-fit: contain; border-radius: 10px; box-shadow: 0 30px 90px color-mix(in srgb, var(--dsw-alias-label-primary) 30%, transparent); }
 .ac-drop { position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--dsw-alias-bg-base) 72%, transparent); backdrop-filter: blur(2px); pointer-events: none; }
@@ -1010,6 +1028,91 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
 @media (prefers-reduced-motion: reduce) {
   .ac-root *, .ac-root *::before, .ac-root *::after { animation: none !important; transition: none !important; }
 }
+
+.ac-backup-section { position: relative; margin-top: 16px; padding: 20px; border: .5px solid var(--ac-line); border-radius: 20px; background: var(--ac-paper); }
+.ac-backup-section > .ac-settings-section-title { margin-bottom: 9px; }
+.bk-intro { margin: 0; color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 1.8; }
+.bk-actions { position: relative; display: flex; align-items: center; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+.bk-actions > .ac-secondary,.bk-actions .ac-primary { height: 32px; font-size: 12px; gap: 7px; border-radius: 12px; }
+.bk-export { min-width: 100px; justify-content: center; }
+.bk-chevron { margin-left: 12px; display: flex; }
+.bk-chevron svg { width: 11px; height: 11px; }
+.bk-footnote { font-size: 11px; color: var(--ac-muted); line-height: 1.7; margin: 14px 0 0; }
+.bk-last { font-size: 10.5px; color: var(--ac-muted); margin-top: 8px; }
+.bk-menu { position: fixed; bottom: auto; left: auto; width: 420px; max-width: 100%; box-sizing: border-box; background: var(--ac-paper); border: .5px solid var(--ac-line); border-radius: 16px; box-shadow: 0 3px 8px #0000000a,0 10px 32px #00000014; padding: 7px; z-index: 10; max-height: calc(100vh - 32px); overflow-y: auto; }
+.bk-menu-label { font-size: 10.5px; color: var(--ac-muted); padding: 7px 10px 8px; }
+.bk-option { width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; padding: 12px 10px; border: 0; border-radius: 10px; background: transparent; color: var(--ac-ink); font-family: inherit; cursor: pointer; }
+.bk-option:hover,.bk-option:focus-visible { background: var(--ac-surface); }
+.bk-option-icon { color: var(--ac-muted); display: flex; flex: none; }
+.bk-option-content { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+.bk-option-content strong { font-size: 12.5px; font-weight: 500; line-height: 1.4; }
+.bk-option-content > span { font-size: 10.5px; line-height: 1.5; color: var(--ac-muted); }
+.bk-format { font-size: 9px; color: var(--ac-muted); white-space: nowrap; align-self: flex-start; padding-top: 2px; }
+.bk-notice { margin-top: 12px; font-size: 11px; line-height: 1.7; color: var(--dsw-alias-label-secondary); background: var(--ac-surface); padding: 10px 12px; border-radius: 12px; }
+.bk-notice a { color: var(--ac-ink); text-underline-offset: 3px; }
+.bk-restore-layer { position: fixed; inset: 0; background: color-mix(in srgb,var(--ac-ink) 24%,transparent); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 24px; }
+.bk-restore-card { width: 480px; max-width: 100%; max-height: calc(100vh - 80px); box-sizing: border-box; overflow: auto; background: var(--ac-paper); border-radius: 24px; padding: 24px; box-shadow: var(--ac-panel-shadow); outline: none; }
+.bk-dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.bk-dialog-head h2 { font-size: 17px; line-height: 1.4; font-weight: 500; margin: 0; color: var(--ac-ink); }
+.bk-dialog-desc { font-size: 13px; color: var(--dsw-alias-label-secondary); line-height: 1.8; margin: 0 0 20px; }
+.bk-file-picker { width: 100%; min-height: 144px; border: 1px dashed #c8cbd0; border-radius: 16px; background: var(--ac-surface); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--dsw-alias-label-secondary); font-family: inherit; cursor: pointer; }
+.bk-file-picker:hover { background: color-mix(in srgb,var(--ac-ink) 8%,var(--ac-paper)); }
+.bk-file-picker strong { font-weight: 400; font-size: 13px; color: var(--ac-ink); }
+.bk-file-picker span { font-size: 11px; color: var(--ac-muted); }
+.bk-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+.bk-dialog-actions button { height: 34px; font-size: 12px; border-radius: 12px; }
+.bk-file { display: flex; align-items: center; gap: 12px; }
+.bk-file > svg { width: 24px; height: 24px; color: var(--ac-muted); flex: none; }
+.bk-file > div { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.bk-file strong { font-size: 12px; font-weight: 500; color: var(--ac-ink); overflow-wrap: anywhere; }
+.bk-file span { font-size: 11px; color: var(--ac-muted); }
+.bk-summary { display: flex; gap: 32px; margin: 24px 0 18px; }
+.bk-summary > div { display: flex; flex-direction: column; gap: 5px; }
+.bk-summary b { font-size: 22px; font-weight: 500; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.bk-summary span { font-size: 11px; color: var(--ac-muted); }
+.bk-restored-content { font-size: 12px; line-height: 1.8; color: var(--dsw-alias-label-secondary); margin: 0; }
+.bk-replace-note { margin-top: 20px; border-radius: 12px; padding: 14px 16px; background: var(--ac-surface); }
+.bk-replace-note strong { font-size: 12px; font-weight: 500; color: var(--ac-ink); }
+.bk-replace-note p { font-size: 11.5px; color: var(--dsw-alias-label-secondary); line-height: 1.8; margin: 6px 0 0; }
+.ac-backup-section .bk-option:focus-visible { outline-offset: -2px; }
+@media (max-width: 600px) { .bk-format { display: none; } .bk-restore-layer { padding: 16px; } .bk-restore-card { padding: 20px; } .bk-summary { gap: 28px; } }
+.ac-root :is(button,a,[role="button"],input,textarea,summary):focus-visible { outline: 2px solid var(--ac-muted); outline-offset: 3px; }
+.ac-root button:disabled { opacity: .38; cursor: default; }
+.ac-root [role="dialog"][tabindex="-1"]:focus { outline: none; }
+.ac-modal[data-underlay="true"] { background: transparent; }
+.ac-settings .ac-memory-section { margin-top: 24px; }
+.ac-memory-section > .ac-settings-section-title { margin-bottom: 18px; }
+.ac-usage-section > .ac-settings-section-title { margin-bottom: 14px; }
+.ac-phone-section { margin-top: 24px; padding: 0 4px; border: 0; }
+.ac-phone-section[data-open="true"],.ac-advanced[data-open="true"] { padding: 20px; border: .5px solid var(--ac-line); border-radius: 20px; }
+.ac-settings :is(.ac-settings-collapse-head,.ac-memory-index-head,.ac-advanced-toggle) { border-radius: 8px; }
+.ac-settings :is(.ac-settings-collapse-head,.ac-memory-index-head,.ac-advanced-toggle):hover { background: color-mix(in srgb,var(--ac-ink) 3%,transparent); }
+.ac-expansion-label { margin-bottom: 12px; }
+.ac-phone-sync .ac-set-row { justify-content: space-between; }
+.ac-phone-sync .ac-set-value { margin-left: auto; text-align: right; }
+.ac-phone-sync .ac-settings-hint { color: var(--ac-muted); }
+.ac-diagnostics > .ac-set-actions { margin-top: 0; }
+.ac-debug .ac-set-actions { margin-top: 14px; }
+.ac-danger-zone .ac-settings-hint { max-width: 60ch; color: var(--ac-muted); }
+.ac-settings-status { flex-wrap: wrap; }
+.ac-settings-status-repo { overflow-wrap: anywhere; min-width: 0; }
+.ac-toggle span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.ac-toggle::after { content: ''; position: absolute; left: 2px; top: 2px; bottom: 2px; aspect-ratio: 1; border-radius: 50%; background: var(--ac-paper); box-shadow: 0 1px 2px #00000012; transition: transform .13s ease; }
+.ac-toggle[data-on="true"]::after { transform: translateX(19px); }
+.ac-actions .ac-ghost[data-danger="true"] { background: transparent; border-color: transparent; color: var(--dsw-alias-label-secondary); }
+.ac-actions .ac-ghost[data-danger="true"]:hover { color: var(--dsw-alias-state-error-primary); background: color-mix(in srgb,var(--dsw-alias-state-error-primary) 6%,transparent); }
+@media (max-width: 600px) {
+  .ac-modal { padding: 16px; }
+  .ac-header { padding: 0 12px; gap: 8px; }
+  .ac-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ac-tabs { padding: 0 16px; gap: 14px; }
+  .ac-tabs .ac-hint { display: none; }
+  .ac-settings { padding: 22px 20px; max-height: calc(100dvh - 32px); }
+  .ac-settings-status-repo { flex-basis: calc(100% - 64px); }
+  .ac-settings :is(.ac-set-actions,.ac-step-actions,.ac-usage-stats) { flex-wrap: wrap; }
+  .ac-agent-toggle { gap: 12px; }
+}
+
 `
 
     function buildT(ctx) {
@@ -1067,11 +1170,24 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       return match ? match[1].toUpperCase() : 'DOC'
     }
 
+    let libraryGeneration = null
+    const downloadedBackups = new Set()
     async function request(path, options) {
-      const response = await fetch(path, Object.assign({ cache: 'no-store' }, options || {}))
+      const startedIn = libraryGeneration
+      const headers = Object.assign({}, options && options.headers, startedIn ? { 'x-auracap-generation': startedIn } : {})
+      const response = await fetch(path, Object.assign({ cache: 'no-store' }, options || {}, { headers }))
       let payload = null
       try { payload = await response.json() } catch {}
-      if (!response.ok) throw new Error(localizeError((payload && payload.error) || 'HTTP ' + response.status))
+      const generation = response.headers.get('x-auracap-generation')
+      const backupRequest = path.includes('/backup/')
+      if (startedIn && startedIn !== libraryGeneration && !backupRequest) throw Object.assign(new Error('内容库已更新'), { code: 'LIBRARY_CHANGED' })
+      if (generation && !libraryGeneration) libraryGeneration = generation
+      else if (generation && generation !== libraryGeneration && startedIn === libraryGeneration) {
+        libraryGeneration = generation
+        window.dispatchEvent(new Event('auracap:library-changed'))
+        if (!backupRequest) throw Object.assign(new Error('内容库已更新'), { code: 'LIBRARY_CHANGED' })
+      }
+      if (!response.ok) throw Object.assign(new Error(localizeError((payload && payload.error) || 'HTTP ' + response.status, payload && payload.code)), { code: payload && payload.code })
       return payload || {}
     }
 
@@ -1083,6 +1199,17 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         return JSON.stringify(current) === JSON.stringify(resolved) ? current : resolved
       }), [])
       return [value, update]
+    }
+
+    function insightAnchor(type, value) {
+      if (value.start) return value.start
+      if (type === 'day') return value.key
+      if (type === 'month') return value.key + '-01'
+      if (type === 'year') return value.key + '-01-01'
+      const [year, week] = value.key.split('-W').map(Number)
+      const fourth = new Date(Date.UTC(year, 0, 4))
+      const monday = fourth.getTime() - ((fourth.getUTCDay() + 6) % 7) * 86400000
+      return new Date(monday + (week - 1) * 7 * 86400000).toISOString().slice(0, 10)
     }
 
     function pad(value) { return String(value).padStart(2, '0') }
@@ -1129,9 +1256,31 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       'GitHub token 已失效': 'GitHub authorization expired. Reconnect GitHub.',
     }
 
-    function localizeError(message) {
+    const ERROR_CODE_EN = {
+      PHONE_CONNECTION_PENDING: 'Finish or cancel the phone connection in Settings, then try restoring again.',
+      BUSY: 'Another operation is running. Check its status and wait for it to finish, or cancel it.',
+      TASK_EXPIRED: 'This task has expired. Start a new export or select the full backup again.',
+      RECOVERY_REQUIRED: 'Recovery needs to finish loading. Restart AuraCap from Harness plugin settings, then check the result.',
+      INVALID_BACKUP: 'This file is not a valid full AuraCap backup. Select a complete .auracap.zip backup.',
+      UNSUPPORTED_VERSION: 'This backup uses an unsupported version. Update AuraCap before restoring it.',
+      SOURCE_UNREADABLE: 'Saved content could not be read. Check the local data files before trying again.',
+      IMAGE_UNAVAILABLE: 'An image could not be read. Check that its local file is available, then export again.',
+      LIMIT_EXCEEDED: 'The content exceeds the backup size limit: 2 GiB in total, 40 MiB per image and 64 MiB per text file.',
+      NO_SPACE: 'There is not enough disk space to restore this backup. Free some space and select the backup again.',
+      INTERRUPTED: 'Recovery was interrupted. Your previous content was kept. Select the backup again to retry.',
+      INVALID_STATE: 'The task is no longer in the required stage. Check its status before continuing.',
+      EMPTY_EXPORT: 'There is no saved content of this type to export. Choose another export type.',
+      INVALID_REQUEST: 'The request could not be accepted. Close this dialog and start the action again.',
+      RECEIPT_WRITE_FAILED: 'The task result could not be saved. Check disk space and restart AuraCap before trying again.',
+      TRANSFER_FAILED: 'The transfer failed. Check the file and available disk space, then start again.',
+      LIBRARY_CHANGED: 'The content library has changed. Reopen the content before editing it.',
+      CANCELLED: 'The operation was cancelled.',
+    }
+
+    function localizeError(message, code) {
       const text = String(message || '').trim()
       if (!text || localeIsZh()) return text
+      if (ERROR_CODE_EN[code]) return ERROR_CODE_EN[code]
       for (const [zh, en] of Object.entries(ERROR_EN)) {
         if (text.includes(zh)) return en
       }
@@ -1622,7 +1771,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
                   type: 'button',
                   disabled: props.busy,
                   onClick: () => props.onMerge(group.id),
-                }, props.busy ? t('merging') : t('mergeGroup')),
+                }, props.operation === 'merge' ? t('merging') : t('mergeGroup')),
                 h('button', { className: 'ac-ghost', type: 'button', disabled: props.busy, onClick: () => props.onDismiss(group.id) }, t('dismissGroup')),
                 deleteAction),
           props.error ? h('div', { className: 'ac-group-error' }, props.error) : null,
@@ -1631,8 +1780,8 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
             h('div', { className: 'ac-group-members' }, members)),
           merged
             ? h('div', { className: 'ac-group-actions ac-group-actions-bottom' },
-                h('button', { className: 'ac-ghost', type: 'button', disabled: props.busy, onClick: () => props.onSplit(group.id) }, props.busy ? t('merging') : t('splitGroup')),
-                h('button', { className: 'ac-ghost', type: 'button', disabled: props.busy, onClick: () => props.onMerge(group.id) }, props.busy ? t('merging') : t('remakeGroup')),
+                h('button', { className: 'ac-ghost', type: 'button', disabled: props.busy, onClick: () => props.onSplit(group.id) }, props.operation === 'split' ? t('splitting') : t('splitGroup')),
+                h('button', { className: 'ac-ghost', type: 'button', disabled: props.busy, onClick: () => props.onMerge(group.id) }, props.operation === 'merge' ? t('merging') : t('remakeGroup')),
                 deleteAction)
             : null))
     }
@@ -1640,20 +1789,23 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
     function MergePicker(props) {
       const t = props.t
       const source = props.source
+      const panel = useRef(null)
+      useDialogFocus(panel, true, props.onClose, props.busy)
       const candidates = (props.items || []).filter((item) => item && item.id !== source.id && item.status === 'ready' && !props.groupedIds.has(item.id)).slice(0, 40)
-      return h('div', { className: 'ac-modal', onMouseDown: (event) => { if (event.target === event.currentTarget) props.onClose() } },
-        h('div', { className: 'ac-merge-picker' },
+      return h('div', { className: 'ac-modal', onMouseDown: (event) => { if (event.target === event.currentTarget && !props.busy) props.onClose() } },
+        h('div', { className: 'ac-merge-picker', ref: panel, role: 'dialog', 'aria-modal': true, 'aria-label': t('mergePickerTitle'), tabIndex: -1 },
           h('div', { className: 'ac-merge-head' },
             h('div', null,
               h('div', { className: 'ac-merge-kicker' }, t('mergePickerTitle')),
               h('div', { className: 'ac-merge-source-title' }, source.summary && source.summary.title ? source.summary.title : t('untitled'))),
-            h('button', { className: 'ac-icon-button', onClick: props.onClose, 'aria-label': t('close') }, CloseIcon())),
+            h('button', { className: 'ac-icon-button', disabled: props.busy, onClick: props.onClose, 'aria-label': t('close') }, CloseIcon())),
           h('p', { className: 'ac-merge-hint' }, t('mergePickerHint')),
           candidates.length
             ? h('div', { className: 'ac-merge-list' }, candidates.map((item) => h('button', {
                 key: item.id,
                 type: 'button',
                 className: 'ac-merge-option',
+                disabled: props.busy,
                 'data-selected': props.selectedIds.includes(item.id),
                 onClick: () => props.onToggle(item.id),
               },
@@ -1667,8 +1819,8 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
             : h('div', { className: 'ac-merge-empty' }, t('mergeNoCandidates')),
           props.error ? h('div', { className: 'ac-group-error' }, props.error) : null,
           h('div', { className: 'ac-merge-actions' },
-            h('button', { className: 'ac-ghost', type: 'button', onClick: props.onClose }, t('cancel')),
-            h('button', { className: 'ac-primary', type: 'button', disabled: props.busy || !props.selectedIds.length, onClick: props.onConfirm }, props.busy ? t('merging') : t('mergeConfirm') + (props.selectedIds.length ? ' ' + props.selectedIds.length : '')))))
+            h('button', { className: 'ac-ghost', type: 'button', disabled: props.busy, onClick: props.onClose }, t('cancel')),
+            h('button', { className: 'ac-primary', type: 'button', disabled: props.busy || !props.selectedIds.length, onClick: props.onConfirm }, props.operation === 'create' ? t('grouping') : t('mergeConfirm') + (props.selectedIds.length ? ' · ' + (props.selectedIds.length + 1) : '')))))
     }
 
     function Row(props) {
@@ -1972,6 +2124,8 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       const [busy, setBusy] = useState(false)
       const [active, setActive] = useState(0)
       const inputRef = useRef(null)
+      const panel = useRef(null)
+      useDialogFocus(panel, props.open, props.onClose)
       const composingRef = useRef(false)
       const composeEndedAt = useRef(0)
 
@@ -2050,7 +2204,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
                   h('span', { className: 'ac-search-snippet' }, highlightText(result.snippet || (result.kind === 'entity' ? (result.count || 0) + ' ' + t('occurrences') : ''), query))))))
 
       return h('div', { className: 'ac-search-overlay', onMouseDown: (event) => { if (event.target === event.currentTarget) props.onClose() } },
-        h('div', { className: 'ac-search-panel', onMouseDown: (event) => event.stopPropagation() },
+        h('div', { className: 'ac-search-panel', ref: panel, role: 'dialog', 'aria-modal': true, 'aria-label': t('search'), tabIndex: -1, onMouseDown: (event) => event.stopPropagation() },
           h('div', { className: 'ac-search-input-row' },
             SearchIcon(),
             h('input', {
@@ -2225,11 +2379,13 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       const t = props.t
       const detail = props.detail
       const entity = detail && detail.entity
+      const panel = useRef(null)
+      useDialogFocus(panel, true, props.onClose)
       const entityItems = detail && Array.isArray(detail.items) ? detail.items.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))) : []
       const insights = detail && Array.isArray(detail.insights) ? detail.insights : []
       const span = entityItems.length ? rangeText(localDateKey(entityItems[entityItems.length - 1].createdAt), localDateKey(entityItems[0].createdAt)) : ''
       return h('div', { className: 'ac-modal', onMouseDown: (event) => { if (event.target === event.currentTarget) props.onClose() } },
-        h('div', { className: 'ac-entity-panel' },
+        h('div', { className: 'ac-entity-panel', ref: panel, role: 'dialog', 'aria-modal': true, 'aria-label': entity?.name || t('entities'), tabIndex: -1 },
           h('div', { className: 'ac-entity-head' },
             h('div', null,
               h('div', { className: 'ac-entity-type' }, entity ? entityTypeLabel(entity.type, t) : t('entities')),
@@ -2268,42 +2424,308 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
                       h('span', { className: 'ac-entity-insight-excerpt' }, insight.excerpt || '')))) : null)))
     }
 
+    function BackupIcon({ kind = 'package' }) {
+      const paths = { package: ['M12 3 3 7.5v9L12 21l9-4.5v-9L12 3Z', 'm3 7.5 9 4.5 9-4.5', 'M12 12v9'], images: ['M4 4h16v16H4z', 'm4 16 5-5 4 4 3-3 4 4', 'M15 8h.01'], text: ['M6 3h8l4 4v14H6z', 'M14 3v5h4', 'M9 12h6', 'M9 16h6'], download: ['M12 3v12', 'm7 10 5 5 5-5', 'M4 16v5h16v-5'], restore: ['M4 10a8 8 0 1 1 1 8', 'M4 4v6h6'] }
+      return h('svg', { viewBox: '0 0 24 24', width: 18, height: 18, 'aria-hidden': true, fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round', strokeLinejoin: 'round' }, paths[kind].map((d, key) => h('path', { d, key })))
+    }
+
+    const dialogStack = []
+    function useDialogFocus(ref, enabled, onClose, blocked = false) {
+      const latest = useRef({ onClose, blocked })
+      const opener = useRef(null)
+      latest.current = { onClose, blocked }
+      useEffect(() => {
+        if (!enabled) return
+        const panel = ref.current
+        if (!opener.current?.isConnected) opener.current = document.activeElement
+        dialogStack.push(panel)
+        const isTop = () => dialogStack.at(-1) === panel
+        const keepFocus = () => {
+          if (isTop() && (!panel.contains(document.activeElement) || document.activeElement.disabled)) panel.focus()
+        }
+        panel.focus()
+        const key = event => {
+          if (!isTop()) return
+          if (event.target.closest('[role="menu"]')) return
+          if (event.key === 'Escape') {
+            event.preventDefault(); event.stopPropagation()
+            if (!latest.current.blocked) latest.current.onClose()
+          }
+          if (event.key === 'Tab') {
+            const controls = [...panel.querySelectorAll('button:not(:disabled),a[href],input:not(:disabled),textarea:not(:disabled),select:not(:disabled),summary')].filter(node => node.offsetParent !== null && !node.closest('[inert]'))
+            const first = controls[0], last = controls.at(-1)
+            if (!first) { event.preventDefault(); return }
+            const outside = !panel.contains(document.activeElement)
+            if (event.shiftKey && (document.activeElement === first || document.activeElement === panel || outside)) { event.preventDefault(); last.focus() }
+            else if (!event.shiftKey && (document.activeElement === last || document.activeElement === panel || outside)) { event.preventDefault(); first.focus() }
+          }
+        }
+        const changes = new MutationObserver(keepFocus)
+        changes.observe(panel, { subtree: true, childList: true, attributes: true, attributeFilter: ['disabled', 'hidden'] })
+        document.addEventListener('keydown', key, true)
+        document.addEventListener('focusin', keepFocus)
+        return () => {
+          changes.disconnect()
+          document.removeEventListener('keydown', key, true)
+          document.removeEventListener('focusin', keepFocus)
+          dialogStack.splice(dialogStack.indexOf(panel), 1)
+          const top = dialogStack.at(-1)
+          const target = opener.current
+          if (target?.isConnected && !target.closest('[inert]') && (!top || top.contains(target))) target.focus()
+          else top?.focus()
+          if (!panel.isConnected) opener.current = null
+        }
+      }, [enabled])
+    }
+
+    function backupLabels() {
+      const tr = (zh, en) => localeIsZh() ? zh : en
+      const options = [
+        { id: 'package', title: tr('导出整个包', 'Export full backup'), hint: tr('图片、文本、已有洞察与分组，可完整恢复', 'Images, text, existing insights and groups'), format: '.auracap.zip' },
+        { id: 'images', title: tr('仅导出图片', 'Export images only'), hint: tr('保存当前可用的图片，保留文件格式', 'Keep the available images in their current formats'), format: '.zip' },
+        { id: 'text', title: tr('仅导出文本内容', 'Export text only'), hint: tr('片刻与文档、日洞察、周迹、月迹与岁迹', 'Moments, documents and daily to yearly insights'), format: 'Markdown · .zip' },
+      ]
+      const phases = { CREATED: tr('准备上传…', 'Preparing upload…'), RECEIVING: tr('正在上传备份…', 'Uploading backup…'), CHECKING: tr('正在检查备份…', 'Checking backup…'), WAITING: tr('正在等待当前处理完成…', 'Waiting for current processing…'), SNAPSHOTTING: tr('正在整理内容…', 'Preparing content…'), PACKING: tr('正在打包…', 'Creating archive…'), PREPARING: tr('正在恢复内容与图片…', 'Restoring content and images…'), SWITCHING: tr('正在切换内容…', 'Replacing content…'), COMMITTED: tr('内容已恢复，正在完成载入…', 'Content restored. Finishing loading…'), ROLLING_BACK: tr('正在恢复原有内容…', 'Returning to previous content…') }
+      return { options, phases }
+    }
+
+    function useBackup(settingsOpen) {
+      const tr = (zh, en) => localeIsZh() ? zh : en
+      const [task, setTask] = useState(() => {
+        try { const value = JSON.parse(localStorage.getItem('auracap.backupTask') || 'null'); if (value?.downloadRequested) downloadedBackups.add(value.id); return value } catch { return null }
+      })
+      const [menu, setMenu] = useState(false)
+      const [restoreOpen, setRestoreOpen] = useState(false)
+      const [starting, setStarting] = useState(false)
+      const [error, setError] = useState('')
+      const [lastExport, setLastExport] = useState(null)
+      const [pollVersion, setPollVersion] = useState(0)
+      const [menuPosition, setMenuPosition] = useState(null)
+      const taskRef = useRef(task)
+      const opener = useRef(null)
+      const section = useRef(null), exportButton = useRef(null), restoreButton = useRef(null), fileInput = useRef(null), dialog = useRef(null)
+      const active = starting || Boolean(task && !['PREVIEW_READY', 'DOWNLOAD_READY', 'SUCCEEDED', 'FAILED', 'CANCELLED', 'EXPIRED', 'RECOVERY_REQUIRED'].includes(task.state))
+      const cancellable = task && ['CREATED', 'RECEIVING', 'CHECKING', 'PREVIEW_READY', 'WAITING'].includes(task.state)
+      const locked = restoreOpen && active && !cancellable
+      const onTask = useCallback(value => {
+        taskRef.current = value
+        setTask(value)
+        try {
+          if (value) localStorage.setItem('auracap.backupTask', JSON.stringify({ id: value.id, type: value.type, downloadRequested: downloadedBackups.has(value.id) }))
+          else localStorage.removeItem('auracap.backupTask')
+        } catch {}
+      }, [])
+      const close = () => { if (!locked) { setRestoreOpen(false); setError(''); requestAnimationFrame(() => { const target = opener.current?.isConnected ? opener.current : document.querySelector('[data-restore-entry]'); target?.focus() }) } }
+      useEffect(() => {
+        let alive = true
+        const id = taskRef.current?.id
+        request(API + '/backup/status').then(value => {
+          if (!alive || taskRef.current?.id !== id) return
+          setLastExport(value.lastExport)
+          if (value.recoveryError) setError(Object.assign(new Error(value.recoveryError), { code: 'RECOVERY_REQUIRED' }))
+          if (value.active) onTask(value.active)
+        }).catch(e => { if (alive && e.code !== 'LIBRARY_CHANGED') setError(e) })
+        return () => { alive = false }
+      }, [pollVersion, settingsOpen])
+      useEffect(() => { if (!settingsOpen) setMenu(false) }, [settingsOpen])
+      useEffect(() => {
+        if (!task?.id || task.state === 'EXPIRED' || (task.state === 'DOWNLOAD_READY' && !settingsOpen)) return
+        let stopped = false, timer
+        const poll = async () => {
+          try {
+            const next = await request(API + '/backup/tasks/' + task.id)
+            if (stopped || taskRef.current?.id !== task.id) return
+            onTask(next)
+            if (next.state === 'DOWNLOAD_READY') {
+              const status = await request(API + '/backup/status')
+              if (!stopped) setLastExport(status.lastExport)
+            }
+            if (!['PREVIEW_READY', 'SUCCEEDED', 'FAILED', 'CANCELLED', 'EXPIRED', 'RECOVERY_REQUIRED'].includes(next.state)) timer = setTimeout(poll, next.state === 'DOWNLOAD_READY' ? 10_000 : 700)
+          } catch (e) {
+            if (stopped || taskRef.current?.id !== task.id || e.code === 'LIBRARY_CHANGED') return
+            if (e.code === 'TASK_EXPIRED') onTask({ ...task, state: 'EXPIRED', code: e.code, error: e.message })
+            else setError(e)
+          }
+        }
+        poll()
+        return () => { stopped = true; clearTimeout(timer) }
+      }, [task?.id, task?.state, pollVersion, settingsOpen])
+      useEffect(() => {
+        if (task?.state !== 'DOWNLOAD_READY' || downloadedBackups.has(task.id)) return
+        downloadedBackups.add(task.id)
+        onTask({ ...task, downloadRequested: true })
+        const a = document.createElement('a')
+        a.href = API + '/backup/tasks/' + task.id + '/file'
+        a.download = task.filename
+        a.click()
+      }, [task?.state, task?.id])
+      useEffect(() => {
+        if (!menu) return
+        const outside = e => { if (!section.current?.contains(e.target)) setMenu(false) }
+        document.addEventListener('pointerdown', outside)
+        return () => document.removeEventListener('pointerdown', outside)
+      }, [menu])
+      React.useLayoutEffect(() => {
+        if (menu && menuPosition) section.current.querySelector('[role="menuitem"]')?.focus()
+      }, [menu, Boolean(menuPosition)])
+      React.useLayoutEffect(() => {
+        if (!menu) return
+        const position = () => {
+          const row = section.current?.querySelector('.bk-actions')
+          const popover = section.current?.querySelector('[role="menu"]')
+          if (!row || !popover) return
+          const anchor = exportButton.current.getBoundingClientRect(), bounds = row.getBoundingClientRect()
+          const width = Math.min(420, bounds.width, window.innerWidth - 32)
+          const height = Math.min(popover.scrollHeight + 2, window.innerHeight - 32)
+          const above = anchor.top - height - 8
+          const preferredTop = above >= 16 ? above : anchor.bottom + 8
+          const top = Math.max(16, Math.min(preferredTop, window.innerHeight - height - 16))
+          setMenuPosition({ width, left: Math.max(16, Math.min(bounds.left, window.innerWidth - width - 16)), top })
+        }
+        position()
+        window.addEventListener('resize', position)
+        window.addEventListener('scroll', position, true)
+        return () => { window.removeEventListener('resize', position); window.removeEventListener('scroll', position, true) }
+      }, [menu, menuPosition?.width])
+
+      const menuKeys = e => {
+        const items = [...section.current.querySelectorAll('[role="menuitem"]')], index = items.indexOf(document.activeElement)
+        if (e.key === 'Escape' || e.key === 'Tab') { e.preventDefault(); e.stopPropagation(); setMenu(false); (e.key === 'Tab' && !e.shiftKey ? restoreButton : exportButton).current?.focus() }
+        else if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) {
+          e.preventDefault()
+          items[e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1 : (index + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus()
+        }
+      }
+      const create = async (type, kind) => {
+        const next = await request(API + '/backup/tasks', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type, kind, operationId: crypto.randomUUID() }) })
+        onTask(next)
+        return next
+      }
+      const exportKind = async kind => {
+        setMenu(false); setError(''); setStarting(true); exportButton.current?.focus()
+        try { await create('export', kind) } catch (e) { setError(e) } finally { setStarting(false) }
+      }
+      const chooseFile = async file => {
+        if (!file) return
+        setError('')
+        if (file.size > 2 * 1024 ** 3) { setError(tr('备份文件超过 2 GiB', 'Backup exceeds 2 GiB')); return }
+        setStarting(true)
+        try {
+          const next = await create('restore')
+          await request(API + '/backup/tasks/' + next.id + '/archive', { method: 'PUT', headers: { 'content-type': 'application/zip', 'x-auracap-name': encodeURIComponent(file.name) }, body: file })
+        } catch (e) { setError(e) } finally { setStarting(false) }
+      }
+      const cancel = async () => {
+        try { if (cancellable) onTask(await request(API + '/backup/tasks/' + task.id + '/cancel', { method: 'POST' })); close() } catch (e) { setError(e) }
+      }
+      const confirm = async () => {
+        setError('')
+        try { onTask(await request(API + '/backup/tasks/' + task.id + '/restore', { method: 'POST' })) } catch (e) { setError(e) }
+      }
+      const again = async () => {
+        try {
+          if (task?.state === 'PREVIEW_READY') await request(API + '/backup/tasks/' + task.id + '/cancel', { method: 'POST' })
+          onTask(null); setError('')
+        } catch (error) { setError(error) }
+      }
+      const done = () => { onTask(null); close() }
+      const openRestore = event => {
+        if (active) return
+        opener.current = event?.currentTarget || document.activeElement
+        setMenu(false); setError('')
+        if (task && ['SUCCEEDED', 'FAILED', 'CANCELLED', 'EXPIRED', 'DOWNLOAD_READY'].includes(task.state)) onTask(null)
+        setRestoreOpen(true)
+      }
+      const retryStatus = () => { setError(''); setPollVersion(value => value + 1) }
+      return { task, onTask, menu, setMenu, restoreOpen, starting, error, lastExport, retryStatus, section, exportButton, restoreButton, fileInput, dialog, active, cancellable, menuPosition, close, menuKeys, exportKind, chooseFile, cancel, confirm, again, done, openRestore }
+    }
+
+    function BackupError({ backup }) {
+      const tr = (zh, en) => localeIsZh() ? zh : en
+      const defaults = { FAILED: tr('处理失败，请重新操作', 'Processing failed. Try the action again.'), EXPIRED: tr('任务已过期，请重新选择文件', 'Task expired. Select the file again.'), RECOVERY_REQUIRED: tr('恢复状态需要重新载入，请重启插件后查看结果', 'Recovery needs to reload. Restart the plugin to check the result.') }
+      const problem = backup.error || (defaults[backup.task?.state] ? backup.task : null)
+      const message = problem ? localizeError(problem.message || problem.error || (typeof problem === 'string' ? problem : defaults[backup.task?.state]), problem.code) : ''
+      return message ? h('div', null, h('p', { className: 'ac-error', role: 'alert' }, message),
+        backup.error ? h('button', { className: 'ac-secondary', onClick: backup.retryStatus }, tr('重新检查状态', 'Check status again')) : null) : null
+    }
+
+    function BackupPanel({ backup }) {
+      const { options, phases } = backupLabels()
+      const tr = (zh, en) => localeIsZh() ? zh : en
+      const { task, menu, setMenu, restoreOpen, lastExport, section, exportButton, restoreButton, active, cancellable, menuPosition, menuKeys, exportKind, cancel, openRestore } = backup
+      const progress = phases[task?.state]
+
+      return h('section', { className: 'ac-settings-section ac-backup-section', ref: section },
+        h('div', { className: 'ac-settings-section-title' }, tr('备份与导出', 'Backup and export')),
+        h('p', { className: 'bk-intro' }, tr('将内容保存到文件，或从完整备份恢复。', 'Save content to a file, or restore a full backup.')),
+        h('div', { className: 'bk-actions' },
+          h('div', { className: 'bk-menu-anchor' }, h('button', { className: 'ac-primary bk-export', ref: exportButton, type: 'button', disabled: active, 'aria-haspopup': 'menu', 'aria-expanded': menu, onClick: () => setMenu(!menu) }, h(BackupIcon, { kind: 'download' }), tr('导出', 'Export'), h('span', { className: 'bk-chevron' }, ChevronDownIcon())),
+            menu ? h('div', { className: 'bk-menu', role: 'menu', 'aria-label': tr('选择导出内容', 'Choose export content'), onKeyDown: menuKeys, style: menuPosition || { visibility: 'hidden' } }, h('div', { className: 'bk-menu-label' }, tr('选择导出内容', 'Choose export content')), options.map(option => h('button', { className: 'bk-option', role: 'menuitem', key: option.id, type: 'button', onClick: () => exportKind(option.id) }, h('span', { className: 'bk-option-icon' }, h(BackupIcon, { kind: option.id })), h('span', { className: 'bk-option-content' }, h('strong', null, option.title), h('span', null, option.hint)), h('span', { className: 'bk-format' }, option.format)))) : null),
+          h('button', { className: 'ac-secondary', ref: restoreButton, disabled: active, type: 'button', 'data-restore-entry': true, onClick: openRestore }, h(BackupIcon, { kind: 'restore' }), tr('从备份恢复', 'Restore backup'))),
+        h('p', { className: 'bk-footnote' }, tr('完整备份可恢复到 AuraCap；图片和文本也可单独保存。', 'Full backups can be restored to AuraCap. Images and text can also be saved separately.')),
+        h('div', { className: 'bk-last' }, lastExport ? tr('最近导出完整备份：', 'Last full backup: ') + shortDateTime(new Date(lastExport.exportedAt)) : tr('尚未导出完整备份', 'No full backup exported yet')),
+        !restoreOpen && progress ? h('div', { className: 'bk-notice', role: 'status' }, progress, cancellable ? h('button', { className: 'ac-ghost', onClick: cancel }, tr('取消', 'Cancel')) : null) : null,
+        !restoreOpen && task?.state === 'DOWNLOAD_READY' ? h('div', { className: 'bk-notice', role: 'status' }, tr('文件已准备好。', 'File ready. '), h('a', { href: API + '/backup/tasks/' + task.id + '/file', download: task.filename }, tr('下载文件', 'Download file'))) : null,
+        !restoreOpen ? h(BackupError, { backup }) : null)
+    }
+
+    function RestoreDialog({ backup }) {
+      const { phases } = backupLabels()
+      const tr = (zh, en) => localeIsZh() ? zh : en
+      const { task, restoreOpen, starting, fileInput, dialog, active, cancellable, close, chooseFile, cancel, confirm, again, done } = backup
+      const counts = task?.counts
+      const summary = counts ? h('div', { className: 'bk-summary' }, [[counts.items, tr('条片刻', 'moments')], [counts.images, tr('张图片', 'images')], [counts.insights, tr('篇洞察', 'insights')]].map(([n, label]) => h('div', { key: label }, h('b', null, n), h('span', null, label)))) : null
+      const progress = phases[task?.state]
+      useDialogFocus(dialog, restoreOpen, close, active)
+      return h(React.Fragment, null,
+        restoreOpen ? h('div', { className: 'bk-restore-layer', onMouseDown: e => { if (e.target === e.currentTarget && !active) close() } }, h('div', { className: 'bk-restore-card', ref: dialog, role: 'dialog', 'aria-modal': true, 'aria-labelledby': 'bk-restore-title', tabIndex: -1 },
+          h('div', { className: 'bk-dialog-head' }, h('h2', { id: 'bk-restore-title' }, task?.type === 'restore' && task.state === 'SUCCEEDED' ? tr('恢复完成', 'Restore complete') : tr('从备份恢复', 'Restore backup')), h('button', { className: 'ac-icon-button', type: 'button', disabled: active, 'aria-label': tr('关闭恢复窗口', 'Close restore dialog'), onClick: close }, CloseIcon())),
+          task?.type === 'restore' && task.state === 'PREVIEW_READY' ? h(React.Fragment, null,
+            h('div', { className: 'bk-file' }, h(BackupIcon), h('div', null, h('strong', null, task.filename), h('span', null, shortDateTime(new Date(task.exportedAt))))), summary,
+            h('p', { className: 'bk-restored-content' }, tr('包含图片、文本、已有总结与洞察、分组和项目上下文。', 'Includes images, text, existing summaries and insights, groups, and project context.')),
+            h('div', { className: 'bk-replace-note' }, h('strong', null, tr('当前内容将被完整替换', 'Current content will be replaced')), h('p', null, tr('恢复到此备份保存时的状态，不合并当前数据。已有总结与洞察直接恢复，不重新调用模型。', 'Restore this backup without merging current data. Existing summaries and insights are restored without model calls.')), h('p', null, tr('设备连接与权限设置保留，用量记录清零。', 'Device connections and permissions stay. Usage records reset.'))),
+            h('div', { className: 'bk-dialog-actions' }, h('button', { className: 'ac-secondary', onClick: again }, tr('重新选择', 'Choose another')), h('button', { className: 'ac-primary', onClick: confirm }, tr('恢复此备份', 'Restore this backup'))))
+          : task?.type === 'restore' && task.state === 'SUCCEEDED' ? h(React.Fragment, null, summary, h('p', { className: 'bk-dialog-desc' }, tr('内容已恢复，已有总结与洞察保持原样。', 'Content restored. Existing summaries and insights are preserved.')), h('div', { className: 'bk-dialog-actions' }, h('button', { className: 'ac-primary', onClick: done }, tr('完成', 'Done'))))
+          : task?.state === 'RECOVERY_REQUIRED' ? h(React.Fragment, null,
+            h('p', { className: 'bk-dialog-desc' }, tr('请重启插件，再查看本次恢复结果。', 'Restart the plugin, then check this recovery result.')),
+            h('div', { className: 'bk-dialog-actions' }, h('button', { className: 'ac-secondary', onClick: close }, tr('关闭', 'Close')), h('button', { className: 'ac-primary', onClick: backup.retryStatus }, tr('重新检查状态', 'Check status again'))))
+          : active && task?.type === 'restore' ? h(React.Fragment, null, h('p', { className: 'bk-dialog-desc', role: 'status' }, progress || tr('正在准备…', 'Preparing…'), task.state === 'PREPARING' && task.total ? ' ' + (task.done || 0) + ' / ' + task.total : ''), cancellable ? h('div', { className: 'bk-dialog-actions' }, h('button', { className: 'ac-secondary', onClick: cancel }, tr('取消', 'Cancel'))) : null)
+          : h(React.Fragment, null, h('p', { className: 'bk-dialog-desc' }, tr('选择由 AuraCap 导出的完整备份包。', 'Choose a full backup exported by AuraCap.')), h('button', { className: 'bk-file-picker', type: 'button', disabled: starting, onClick: () => fileInput.current.click() }, h(BackupIcon), h('strong', null, tr('选择备份文件', 'Choose backup file')), h('span', null, '.auracap.zip')), h('div', { className: 'bk-dialog-actions' }, h('button', { className: 'ac-secondary', onClick: close }, tr('取消', 'Cancel')))),
+          h(BackupError, { backup }))) : null,
+        h('input', { ref: fileInput, type: 'file', accept: '.zip,application/zip', hidden: true, onChange: e => { const file = e.target.files[0]; e.target.value = ''; chooseFile(file) } }))
+    }
+
     function ProjectContextEditor(props) {
       const t = props.t
       const initial = String(props.profile && props.profile.note || '')
       const [note, setNote] = useState(initial)
-      const [savedNote, setSavedNote] = useState(initial)
+      const savedNote = String(props.profile.note || '')
       const [editing, setEditing] = useState(!initial.trim())
       const [saved, setSaved] = useState(false)
       const [saving, setSaving] = useState(false)
-      const loaded = useRef(false)
+      const [expanded, setExpanded] = useState(false)
+      const [error, setError] = useState('')
       useEffect(() => {
-        if (loaded.current || !props.profile) return
-        loaded.current = true
-        const value = String(props.profile.note || '')
-        setNote(value)
-        setSavedNote(value)
-        setEditing(!value.trim())
-      }, [props.profile])
+        if (!saved) return
+        const timer = setTimeout(() => setSaved(false), 2600)
+        return () => clearTimeout(timer)
+      }, [saved])
       const save = async () => {
         if (saving) return
-        setSaving(true)
-        const value = note.trim()
-        const ok = await props.onSaveProfile({ note: value })
-        setSaving(false)
-        if (!ok) return
-        setSavedNote(value)
-        setNote('')
-        setEditing(!value)
-        setSaved(true)
-        setTimeout(() => setSaved(false), 2600)
+        setSaving(true); setError('')
+        try {
+          await props.onSaveProfile({ note: note.trim() })
+          setEditing(false); setExpanded(false); setSaved(true)
+        } catch (error) { setError(error.message) }
+        finally { setSaving(false) }
       }
-      const edit = () => { setNote(savedNote); setEditing(true); setSaved(false) }
-      const cancel = () => { setNote(''); setEditing(false); setSaved(false) }
+      const edit = () => { setNote(savedNote); setEditing(true); setSaved(false); setError('') }
+      const cancel = () => { setNote(''); setEditing(false); setSaved(false); setError('') }
+      const long = savedNote.length > 180 || savedNote.split('\n').length > 4
       return h('div', { className: 'ac-project-context' },
         h('div', { className: 'ac-project-context-head' },
           h('div', { className: 'ac-settings-subsection' }, t('projectContext')),
-          !editing && savedNote ? h('button', { className: 'ac-ghost ac-project-edit-button', type: 'button', onClick: edit }, t('editContext')) : null),
+          !editing ? h('button', { className: 'ac-ghost ac-project-edit-button', type: 'button', onClick: edit }, t('editContext')) : null),
         h('div', { className: 'ac-settings-hint ac-project-hint' }, t('projectContextHint')),
         editing
           ? h('div', null,
@@ -2315,14 +2737,24 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
                 onChange: (event) => setNote(event.target.value),
               }),
               h('div', { className: 'ac-project-actions' },
-                h('button', { className: 'ac-ghost', type: 'button', onClick: save, disabled: saving }, saving ? t('saving') : t('saveContext')),
-                savedNote ? h('button', { className: 'ac-project-cancel', type: 'button', onClick: cancel }, t('cancel')) : null))
-          : null,
+                h('button', { className: 'ac-primary', type: 'button', onClick: save, disabled: saving }, saving ? t('saving') : t('saveContext')),
+                h('button', { className: 'ac-text-button', type: 'button', disabled: saving, onClick: cancel }, t('cancel'))),
+              error ? h('p', { className: 'ac-error', role: 'alert' }, error) : null)
+          : h('div', null,
+              h('p', { className: 'ac-project-read-note', 'data-expanded': expanded || !long }, savedNote || (localeIsZh() ? '尚未填写项目上下文。' : 'No project context saved yet.')),
+              long ? h('button', { className: 'ac-text-button', type: 'button', 'aria-expanded': expanded, onClick: () => setExpanded(!expanded) }, localeIsZh() ? (expanded ? '收起' : '展开全文') : (expanded ? 'Show less' : 'Read more')) : null),
         saved ? h('div', { className: 'ac-project-saved' }, '✓ ' + t('contextSavedHint')) : null)
     }
 
     function SettingsModal(props) {
       const t = props.t
+      const tr = (zh, en) => localeIsZh() ? zh : en
+      const panel = useRef(null)
+      React.useLayoutEffect(() => {
+        // The DOM property has the same boolean meaning in React 18 and 19.
+        panel.current.parentElement.inert = props.backup.restoreOpen
+      }, [props.backup.restoreOpen])
+      useDialogFocus(panel, !props.backup.restoreOpen, props.onClose)
       const github = props.github
       const device = props.device
       const shortcut = props.shortcut
@@ -2332,6 +2764,9 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       const [confirmDisconnect, setConfirmDisconnect] = useState(false)
       const [phoneOpen, setPhoneOpen] = useState(false)
       const [indexOpen, setIndexOpen] = useState(false)
+      const [permissionError, setPermissionError] = useState('')
+      const [permissionBusy, setPermissionBusy] = useState(false)
+      const [indexError, setIndexError] = useState('')
       const connected = Boolean(github && github.connected)
       const waiting = device && (device.status === 'pending' || device.status === 'provisioning')
       const reconnectMessage = (g) => {
@@ -2344,7 +2779,9 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         ? h('div', { className: 'ac-device' },
             h('div', { className: 'ac-set-label' }, t('deviceCode')),
             h('div', { className: 'ac-device-code' }, device.userCode || ''),
-            h('a', { className: 'ac-device-link', href: device.verificationUri || 'https://github.com/login/device', target: '_blank', rel: 'noreferrer' }, t('openDevice')),
+            h('div', { className: 'ac-action-row' },
+              h('a', { className: 'ac-primary ac-device-link', href: device.verificationUri || 'https://github.com/login/device', target: '_blank', rel: 'noreferrer' }, t('openDevice')),
+              h('button', { className: 'ac-secondary', onClick: props.onCancelDevice, disabled: props.busy }, tr('返回', 'Back'))),
             h('div', { className: 'ac-footnote', style: { marginTop: 10 } },
               device.status === 'provisioning' ? t('provisioningRelease') : t('githubWaiting')))
         : null
@@ -2362,75 +2799,31 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           actions ? h('div', { className: 'ac-step-actions' }, actions) : null,
           extra || null))
 
-      let status
-      if (!github) {
-        status = h('p', { className: 'ac-settings-hint' }, t('githubWaiting'))
-      } else if (!connected) {
-        status = h('div', null,
-          h('div', { className: 'ac-section-eyebrow' }, t('connectGithub')),
-          h('p', { className: 'ac-settings-hint', style: { marginTop: 0 } }, t('githubHint')),
-          waiting
-            ? devicePanel
-            : h('div', { className: 'ac-set-actions' },
-                h('button', { className: 'ac-primary', onClick: props.onConnect, disabled: props.busy }, t('connectGithub'))))
-      } else {
-        const phoneSection = h('section', { className: 'ac-settings-section ac-phone-section' },
-          h('button', {
-            className: 'ac-settings-collapse-head',
-            type: 'button',
-            onClick: () => setPhoneOpen(!phoneOpen),
-            'aria-expanded': phoneOpen,
-          },
-            h('div', { className: 'ac-settings-section-title' }, t('phoneSection')),
-            h('span', { className: 'ac-settings-collapse-chevron', 'data-open': phoneOpen }, ChevronDownIcon())),
-          phoneOpen ? h('div', { className: 'ac-phone-body' },
-            h('div', { className: 'ac-steps' },
-              step(1, t('stepDownload'), t('stepDownloadHint'),
-                h('button', { className: 'ac-primary', onClick: props.onDownloadShortcut, disabled: props.shortcutFileBusy },
-                  props.shortcutFileBusy ? t('preparing') : t('downloadShortcut')),
-                props.shortcutFileMessage
-                  ? h('div', { className: props.shortcutFileMessage.ok ? 'ac-success' : 'ac-error', style: { marginTop: 8 } },
-                      props.shortcutFileMessage.ok ? t('shortcutDownloaded') : props.shortcutFileMessage.text)
-                  : null),
-              step(2, t('stepInstall'), t('stepInstallHint'), null, null),
-              step(3, t('stepTestOptional'), t('stepTestHint'),
-                h('button', { className: 'ac-secondary', onClick: props.onTestUpload, disabled: props.testBusy },
-                  props.testBusy ? t('testing') : t('testUpload')),
-                props.testMessage
-                  ? h('div', { className: props.testMessage.ok ? 'ac-success' : 'ac-error', style: { marginTop: 8 } },
-                      props.testMessage.ok ? t('testSuccess') : props.testMessage.text)
-                  : null)),
-            h('div', { className: 'ac-phone-sync' },
-              h('div', { className: 'ac-set-row' },
-                h('span', { className: 'ac-set-label' }, t('githubQueueCount')),
-                h('span', { className: 'ac-set-value' }, String(github.queueCount || 0) + ' ' + t('itemsUnit'))),
-              h('div', { className: 'ac-set-row' },
-                h('span', { className: 'ac-set-label' }, t('githubLastSync')),
-                h('span', { className: 'ac-set-value' }, github.lastSyncAt ? timeText(github.lastSyncAt) : '—')),
-              github.lastAttemptAt && github.lastAttemptAt !== github.lastSyncAt
-                ? h('div', { className: 'ac-set-row' },
-                    h('span', { className: 'ac-set-label' }, t('githubLastAttempt')),
-                    h('span', { className: 'ac-set-value' }, timeText(github.lastAttemptAt)))
-                : null,
-              h('div', { className: 'ac-settings-hint', style: { marginTop: 8 } }, t('githubPollHint'))))
-          : null)
-
-        const memorySection = h('section', { className: 'ac-settings-section ac-memory-section' },
+      const memorySection = h('section', { className: 'ac-settings-section ac-memory-section' },
           h('div', { className: 'ac-settings-section-title' }, t('memory')),
-          h(ProjectContextEditor, {
+          props.memoryProfile ? h(ProjectContextEditor, {
             t,
             profile: props.memoryProfile,
             onSaveProfile: props.onSaveProfile,
-          }),
+          }) : h('p', { className: 'ac-settings-hint', role: 'status' }, props.localLoadError ? tr('项目上下文未能载入，请重试。', 'Project context could not load. Try again.') : tr('正在载入项目上下文…', 'Loading project context…')),
           h('div', { className: 'ac-agent-toggle' },
             h('div', null, h('div', { className: 'ac-settings-subsection' }, t('agentAccess')), h('div', { className: 'ac-set-label' }, t('agentMemory')), h('div', { className: 'ac-settings-hint' }, t('agentMemoryHint'))),
             h('button', {
               className: 'ac-toggle',
               type: 'button',
               'data-on': Boolean(props.memorySettings && props.memorySettings.agentMemory),
-              onClick: () => props.onSaveMemorySettings({ agentMemory: !Boolean(props.memorySettings && props.memorySettings.agentMemory) }),
+              role: 'switch',
+              disabled: permissionBusy || !props.memorySettings,
+              'aria-checked': Boolean(props.memorySettings && props.memorySettings.agentMemory),
+              onClick: async () => {
+                setPermissionBusy(true); setPermissionError('')
+                try { await props.onSaveMemorySettings({ agentMemory: !props.memorySettings.agentMemory }) }
+                catch (error) { setPermissionError(error.message) }
+                finally { setPermissionBusy(false) }
+              },
               'aria-label': t('agentMemory'),
             }, h('span', null, props.memorySettings && props.memorySettings.agentMemory ? t('on') : t('off')))),
+          permissionError ? h('p', { className: 'ac-error', role: 'alert' }, permissionError) : null,
           h('div', { className: 'ac-memory-index' },
             h('button', {
               className: 'ac-memory-index-head',
@@ -2445,8 +2838,9 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
                   : t('memoryIndexed') + ' —'),
               h('span', { className: 'ac-memory-index-chevron', 'data-open': indexOpen }, ChevronDownIcon())),
             indexOpen ? h('div', { className: 'ac-memory-index-body' },
-              h('button', { className: 'ac-ghost', onClick: props.onBackfill, disabled: props.memoryStatus && props.memoryStatus.backfill && props.memoryStatus.backfill.running },
-                props.memoryStatus && props.memoryStatus.backfill && props.memoryStatus.backfill.running ? t('memoryRunning') : t('memoryBackfill'))) : null))
+              h('button', { className: 'ac-ghost', onClick: async () => { setIndexError(''); try { await props.onBackfill() } catch (error) { setIndexError(error.message) } }, disabled: props.memoryStatus && props.memoryStatus.backfill && props.memoryStatus.backfill.running },
+                props.memoryStatus && props.memoryStatus.backfill && props.memoryStatus.backfill.running ? t('memoryRunning') : t('memoryBackfill')),
+              indexError ? h('p', { className: 'ac-error', role: 'alert' }, indexError) : null) : null))
 
         const usageKinds = props.usage ? Object.entries(props.usage.kinds || {}).sort((a, b) => b[1] - a[1]).slice(0, 4) : []
         const usageSection = h('section', { className: 'ac-settings-section ac-usage-section' },
@@ -2466,7 +2860,69 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
                 usageKindLabel(kind, t) + ' ' + formatTokens(value)))) : null)
             : h('div', { className: 'ac-settings-hint' }, t('usageNoData')))
 
-        status = h('div', null,
+      const phoneSection = h('section', { className: 'ac-settings-section ac-phone-section', 'data-open': phoneOpen },
+          h('button', {
+            className: 'ac-settings-collapse-head',
+            type: 'button',
+            onClick: () => setPhoneOpen(!phoneOpen),
+            'aria-expanded': phoneOpen,
+          },
+            h('div', { className: 'ac-settings-section-title' }, t('phoneSection')),
+            h('span', { className: 'ac-settings-collapse-chevron', 'data-open': phoneOpen }, ChevronDownIcon())),
+          phoneOpen ? h('div', { className: 'ac-phone-body' }, h('div', { className: 'ac-settings-subsection ac-expansion-label' }, tr('连接步骤', 'Connection steps')), connected ? h(React.Fragment, null,
+            h('div', { className: 'ac-steps' },
+              step(1, t('stepDownload'), t('stepDownloadHint'),
+                h('button', { className: 'ac-primary', onClick: props.onDownloadShortcut, disabled: props.shortcutFileBusy },
+                  props.shortcutFileBusy ? t('preparing') : t('downloadShortcut')),
+                props.shortcutFileMessage
+                  ? h('div', { className: props.shortcutFileMessage.ok ? 'ac-success' : 'ac-error', style: { marginTop: 8 } },
+                      props.shortcutFileMessage.ok ? t('shortcutDownloaded') : props.shortcutFileMessage.text)
+                  : null),
+              step(2, t('stepInstall'), t('stepInstallHint'), null, null),
+              step(3, t('stepTestOptional'), t('stepTestHint'),
+                h('button', { className: 'ac-secondary', onClick: props.onTestUpload, disabled: props.testBusy },
+                  props.testBusy ? t('testing') : t('testUpload')),
+                props.testMessage
+                  ? h('div', { className: props.testMessage.ok ? 'ac-success' : 'ac-error', style: { marginTop: 8 } },
+                      props.testMessage.ok ? t('testSuccess') : props.testMessage.text)
+                  : null)),
+            h('div', { className: 'ac-phone-sync' }, h('div', { className: 'ac-settings-subsection ac-expansion-label' }, tr('同步状态', 'Sync status')),
+              h('div', { className: 'ac-set-row' },
+                h('span', { className: 'ac-set-label' }, t('githubQueueCount')),
+                h('span', { className: 'ac-set-value' }, String(github.queueCount || 0) + ' ' + t('itemsUnit'))),
+              h('div', { className: 'ac-set-row' },
+                h('span', { className: 'ac-set-label' }, t('githubLastSync')),
+                h('span', { className: 'ac-set-value' }, github.lastSyncAt ? timeText(github.lastSyncAt) : '—')),
+              github.lastAttemptAt && github.lastAttemptAt !== github.lastSyncAt
+                ? h('div', { className: 'ac-set-row' },
+                    h('span', { className: 'ac-set-label' }, t('githubLastAttempt')),
+                    h('span', { className: 'ac-set-value' }, timeText(github.lastAttemptAt)))
+                : null,
+              h('div', { className: 'ac-settings-hint', style: { marginTop: 8 } }, t('githubPollHint')))) : h('p', { className: 'ac-settings-hint' }, tr('先使用上方的连接操作。连接后可下载专属快捷指令，再传到 iPhone 安装。', 'Connect above, then download your shortcut and install it on iPhone.')))
+          : null)
+
+      const advancedSection = h('div', { className: 'ac-advanced', 'data-open': advanced },
+        h('button', { className: 'ac-advanced-toggle', type: 'button', 'aria-expanded': advanced, onClick: () => setAdvanced(!advanced) },
+          h('span', null, advanced ? t('hideAdvanced') : t('advanced')),
+          h('span', { className: 'ac-advanced-chevron', 'data-open': advanced }, ChevronDownIcon())),
+        advanced ? h('div', { className: 'ac-advanced-body' },
+          h('div', { className: 'ac-diagnostics' },
+            h('div', { className: 'ac-settings-subsection ac-expansion-label' }, t('diagnostics')),
+            h('div', { className: 'ac-set-actions' },
+              h('button', { className: 'ac-ghost', onClick: props.onRepair, disabled: props.busy }, t('connectionCheck')),
+              h('button', { className: 'ac-ghost', 'aria-expanded': debugOpen, onClick: () => setDebugOpen(!debugOpen) }, debugOpen ? t('hideDebug') : t('showDebug'))),
+            debugOpen ? h('div', { className: 'ac-debug' },
+              h('div', { className: 'ac-config' }, showConfig && shortcut ? shortcut.config : maskedConfig(shortcut && shortcut.config)),
+              h('div', { className: 'ac-set-actions' },
+                h('button', { className: 'ac-ghost', onClick: () => setShowConfig(!showConfig) }, showConfig ? t('hideConfig') : t('showConfig')),
+                h('button', { className: 'ac-ghost', onClick: props.onCopyConfig, disabled: !shortcut }, CopyIcon(), t('copyConfig')))) : null),
+          h('div', { className: 'ac-danger-zone' },
+            h('div', { className: 'ac-settings-subsection ac-expansion-label' }, tr('连接管理', 'Connection management')),
+            h('button', { className: 'ac-ghost', 'data-danger': true, onClick: () => { if (confirmDisconnect) props.onDisconnect(); else setConfirmDisconnect(true) } }, confirmDisconnect ? t('disconnectConfirm') : t('githubDisconnect')),
+            h('div', { className: 'ac-settings-hint' }, t('disconnectHint')))) : null)
+
+      const status = !github ? h('p', { className: 'ac-settings-hint' }, t('githubWaiting'))
+        : connected ? h(React.Fragment, null,
           h('div', { className: 'ac-settings-status' },
             h('span', { className: 'ac-settings-status-dot', 'data-state': github.lastError ? 'error' : 'ok' }),
             h('span', null, t('connectedTo')),
@@ -2478,192 +2934,150 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
             ? h('div', { className: 'ac-error', style: { marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
                 h('span', null, github.needsReconnect ? reconnectMessage(github) : github.lastError),
                 github.needsReconnect
-                  ? h('button', { className: 'ac-primary', onClick: props.onConnect, disabled: props.busy }, t('githubReconnect'))
+                  ? h('button', { className: 'ac-primary', onClick: props.onConnect, disabled: props.busy || waiting }, t('githubReconnect'))
                   : null)
             : null,
           github.expiresSoon && !github.lastError
             ? h('div', { className: 'ac-settings-hint', style: { marginTop: 8 } },
                 t('githubExpiresSoon') + ' ' + shortDateTime(new Date(github.tokenExpiresAt)))
             : null,
-          github.connected && !github.tokenExpiresAt
+          github.connected && !github.tokenExpiresAt && !github.needsReconnect && !github.lastError
             ? h('div', { className: 'ac-settings-hint', style: { marginTop: 8 } }, t('githubLongLived'))
             : null,
-          waiting ? h('div', { style: { marginTop: 12 } }, devicePanel) : null,
+          waiting ? h('div', { style: { marginTop: 12 } }, devicePanel) : null) : h('div', null,
+          h('div', { className: 'ac-settings-subsection' }, tr('尚未连接手机', 'Phone not connected')),
+          h('p', { className: 'ac-settings-hint' }, tr('本机导入、记忆和备份可以直接使用，手机连接可稍后完成。', 'Local import, memory and backup are ready to use. You can connect your phone later.')),
+          waiting ? devicePanel : h('div', { className: 'ac-set-actions' }, h('button', { className: 'ac-primary', onClick: props.onConnect, disabled: props.busy }, props.busy ? t('connecting') : t('connectPhone'))))
+      return h('div', { className: 'ac-modal', 'data-underlay': props.backup.restoreOpen || undefined, 'aria-hidden': props.backup.restoreOpen || undefined, onMouseDown: event => { if (event.target === event.currentTarget) props.onClose() } },
+        h('div', { className: 'ac-settings', ref: panel, role: 'dialog', 'aria-modal': !props.backup.restoreOpen, 'aria-labelledby': 'ac-settings-title', tabIndex: -1 },
+          h('div', { className: 'ac-settings-head' }, h('div', { className: 'ac-settings-title', id: 'ac-settings-title' }, t('phoneEntry')), h('div', { className: 'ac-grow' }), h('button', { className: 'ac-icon-button', onClick: props.onClose, 'aria-label': t('close') }, CloseIcon())),
+          props.error ? h('div', { className: 'ac-error', role: 'alert' }, props.error) : null,
+          props.localLoadError ? h('div', { className: 'ac-settings-load-error' }, h('p', { className: 'ac-error', role: 'alert' }, props.localLoadError), h('button', { className: 'ac-ghost', onClick: props.onReloadLocal }, tr('重新载入本地设置', 'Reload local settings'))) : null,
+          status, memorySection, usageSection, h(BackupPanel, { backup: props.backup }), phoneSection,
+          connected ? advancedSection : null))
+    }
 
-          memorySection,
-          usageSection,
-          phoneSection,
+    function GuideCaption({ children }) {
+      return h('div', { className: 'ac-guide-caption' }, children)
+    }
 
-          h('div', { className: 'ac-advanced' },
-            h('button', { className: 'ac-advanced-toggle', type: 'button', onClick: () => setAdvanced(!advanced) },
-              h('span', null, advanced ? t('hideAdvanced') : t('advanced')),
-              h('span', { className: 'ac-advanced-chevron', 'data-open': advanced }, ChevronDownIcon())),
-            advanced
-              ? h('div', { className: 'ac-advanced-body' },
-                  h('div', { className: 'ac-section-eyebrow' }, t('diagnostics')),
-                  h('div', { className: 'ac-set-actions' },
-                    h('button', { className: 'ac-ghost', onClick: props.onRepair, disabled: props.busy }, t('connectionCheck')),
-                    h('button', { className: 'ac-ghost', onClick: () => setDebugOpen(!debugOpen) }, debugOpen ? t('hideDebug') : t('showDebug'))),
-                  debugOpen
-                    ? h('div', { className: 'ac-debug' },
-                        h('div', { className: 'ac-config' }, showConfig && shortcut ? shortcut.config : maskedConfig(shortcut && shortcut.config)),
-                        h('div', { className: 'ac-set-actions' },
-                          h('button', { className: 'ac-ghost', onClick: () => setShowConfig(!showConfig) }, showConfig ? t('hideConfig') : t('showConfig')),
-                          h('button', { className: 'ac-ghost', onClick: props.onCopyConfig, disabled: !shortcut }, CopyIcon(), t('copyConfig'))))
-                    : null,
-                  h('div', { className: 'ac-danger-zone' },
-                    h('button', { className: 'ac-ghost', 'data-danger': true, onClick: () => { if (confirmDisconnect) props.onDisconnect(); else setConfirmDisconnect(true) } },
-                      confirmDisconnect ? t('disconnectConfirm') : t('githubDisconnect')),
-                    h('div', { className: 'ac-settings-hint' }, t('disconnectHint'))))
-              : null))
-      }
+    function GuideHelp({ title, children }) {
+      return h('details', { className: 'ac-guide-help' }, h('summary', null, h('span', null, title), ChevronDownIcon()), h('div', { className: 'ac-guide-help-body' }, children))
+    }
 
-      return h('div', { className: 'ac-modal', onMouseDown: (event) => { if (event.target === event.currentTarget) props.onClose() } },
-        h('div', { className: 'ac-settings' },
-          h('div', { className: 'ac-settings-head' },
-            h('div', null,
-              h('div', { className: 'ac-settings-title' }, t('phoneEntry'))),
-            h('div', { className: 'ac-grow' }),
-            h('button', { className: 'ac-icon-button', onClick: props.onClose, 'aria-label': t('close') }, CloseIcon())),
-          props.error ? h('div', { className: 'ac-error', style: { marginBottom: 16 } }, props.error) : null,
-          status))
+    function GuideInstallSteps({ downloaded }) {
+      const tr = (zh, en) => localeIsZh() ? zh : en
+      const steps = [
+        [downloaded ? tr('确认下载并传到 iPhone', 'Find the download and send it to iPhone') : tr('下载到 Mac', 'Download to Mac'), downloaded ? tr('在 Mac 确认 AuraCap-mobile.shortcut 已保存，再通过 AirDrop 发送。', 'Find AuraCap-mobile.shortcut on your Mac, then send it with AirDrop.') : tr('点击“下载快捷指令”，获取 AuraCap-mobile.shortcut 文件。', 'Choose Download shortcut to get AuraCap-mobile.shortcut.')],
+        [tr('在 iPhone 完成安装', 'Install on iPhone'), tr('用“快捷指令”打开文件，按提示添加。', 'Open the file with Shortcuts and follow the instructions to add it.')],
+        [tr('发送第一张图片', 'Send your first image'), tr('在相册中打开一张图片，点“分享”，选择 AuraCap。', 'Open an image in Photos, choose Share, then AuraCap.')],
+      ]
+      return h('ol', { className: 'ac-guide-steps' }, steps.map(([title, text], index) => h('li', { className: 'ac-guide-step', key: index },
+        h('span', { className: 'ac-guide-step-number', 'aria-hidden': true }, index + 1), h('div', null, h('div', { className: 'ac-guide-step-title' }, title), h('p', null, text)))))
+    }
+
+    function GuideTriggerWays() {
+      const tr = (zh, en) => localeIsZh() ? zh : en
+      return h(GuideHelp, { title: tr('可选：设置更快捷的触发方式', 'Optional: set up a faster way to capture') },
+        h(GuideCaption, null, tr('操作按钮', 'Action Button')),
+        h('p', null, tr('支持操作按钮的 iPhone，可在系统设置中指定运行 AuraCap 快捷指令。', 'On supported iPhones, set the Action Button to run the AuraCap shortcut.')),
+        h(GuideCaption, null, tr('轻点背面', 'Back Tap')),
+        h('p', null, tr('在“设置 → 辅助功能 → 触控 → 轻点背面”中选择 AuraCap。', 'Choose AuraCap under Settings → Accessibility → Touch → Back Tap.')))
     }
 
     function Onboarding(props) {
       const t = props.t
-      const [whyOpen, setWhyOpen] = useState(false)
-      const [codeCopied, setCodeCopied] = useState(false)
-      const connected = Boolean(props.github && props.github.connected)
-      const downloaded = Boolean(props.shortcutFileMessage && props.shortcutFileMessage.ok)
-      const waiting = props.device && (props.device.status === 'pending' || props.device.status === 'provisioning')
-      const mark = h('div', { className: 'ac-onboarding-mark' }, EmptyArt())
-      const brand = h('div', { className: 'ac-onboarding-brand' }, h('span', { className: 'ac-onboarding-brand-name' }, t('brandName')), h('span', { className: 'ac-onboarding-brand-zh' }, t('brandZh')))
-
-      const why = h('div', { className: 'ac-onboarding-why' },
-        h('button', { className: 'ac-onboarding-why-toggle', type: 'button', onClick: () => setWhyOpen(!whyOpen) },
-          h('span', null, t('whyGithub')),
-          h('span', { className: 'ac-onboarding-chevron', 'data-open': whyOpen }, ChevronDownIcon())),
-        whyOpen
-          ? h('div', { className: 'ac-onboarding-why-body' },
-              h('p', null, t('whyGithubBody1')),
-              h('p', null, t('whyGithubBody2')),
-              h('p', null, t('whyGithubBody3')))
-          : null)
-
-      const flow = h('div', { className: 'ac-onboarding-aside' },
-        h('div', { className: 'ac-onboarding-aside-label' }, t('onboardingAfter')),
-        h('div', { className: 'ac-onboard-flow' },
-          h('div', { className: 'ac-onboard-node' },
-            h('span', { className: 'ac-onboard-node-icon' }, PhoneIcon()),
-            h('div', null, h('strong', null, t('flowPhone')), h('span', null, t('flowPhoneHint')))),
-          h('div', { className: 'ac-onboard-node' },
-            h('span', { className: 'ac-onboard-node-icon' }, GitHubIcon()),
-            h('div', null, h('strong', null, t('flowInbox')), h('span', null, t('flowInboxHint')))),
-          h('div', { className: 'ac-onboard-node' },
-            h('span', { className: 'ac-onboard-node-icon' }, MacIcon()),
-            h('div', null, h('strong', null, t('flowMac')), h('span', null, t('flowMacHint')))),
-          h('div', { className: 'ac-onboarding-aside-note' }, t('flowFree'))))
-
-      if (!connected && waiting) {
-        return h('div', { className: 'ac-onboarding' },
-          h('div', { className: 'ac-onboarding-frame' },
-            h('div', { className: 'ac-onboarding-copy' },
-              brand,
-              h('div', { className: 'ac-onboarding-kicker' }, t('onboardingKickerConnect')),
-              h('h1', { className: 'ac-onboarding-title' }, t('deviceTitle')),
-              h('p', { className: 'ac-onboarding-body' }, t('deviceBody')),
-              h('div', { className: 'ac-onboarding-actions' },
-                h('a', {
-                  className: 'ac-primary ac-onboarding-primary',
-                  href: props.device.verificationUri || 'https://github.com/login/device',
-                  target: '_blank',
-                  rel: 'noreferrer',
-                }, t('openGithub'))),
-              props.error ? h('div', { className: 'ac-onboarding-error' }, props.error) : null),
-            h('div', { className: 'ac-onboarding-aside ac-onboarding-code-card' },
-              h('div', { className: 'ac-onboarding-aside-label' }, t('githubCode')),
-              h('div', { className: 'ac-onboarding-code-row' },
-                h('div', { className: 'ac-onboarding-code' }, props.device.userCode || ''),
-                h('button', {
-                  className: 'ac-onboarding-copy-code',
-                  type: 'button',
-                  onClick: async () => {
-                    try {
-                      await navigator.clipboard.writeText(props.device.userCode || '')
-                      setCodeCopied(true)
-                      setTimeout(() => setCodeCopied(false), 1500)
-                    } catch {}
-                  },
-                  disabled: !props.device.userCode,
-                }, CopyIcon(), codeCopied ? t('copied') : t('copyCode'))),
-              h('div', { className: 'ac-onboarding-aside-note' }, props.device.status === 'provisioning' ? t('provisioningGithub') : t('githubWaiting')))))
+      const tr = (zh, en) => localeIsZh() ? zh : en
+      const connected = Boolean(props.github?.connected)
+      const downloaded = Boolean(props.shortcutDownloaded)
+      const device = props.device
+      const stage = device ? 'authorize' : !connected ? 'welcome' : downloaded ? 'waiting' : 'install'
+      const heading = useRef(null), previousStage = useRef(stage)
+      const [copied, setCopied] = useState(false), [copyError, setCopyError] = useState('')
+      useEffect(() => {
+        if (previousStage.current !== stage) heading.current?.focus()
+        previousStage.current = stage
+      }, [stage])
+      useEffect(() => { setCopied(false); setCopyError('') }, [device?.id])
+      useEffect(() => {
+        if (!copied) return
+        const timer = setTimeout(() => setCopied(false), 1500)
+        return () => clearTimeout(timer)
+      }, [copied])
+      const copyCode = async () => {
+        try { await navigator.clipboard.writeText(device.userCode); setCopied(true); setCopyError('') }
+        catch { setCopyError(tr('无法复制，请选中验证码手动复制。', 'Could not copy. Select and copy the code manually.')) }
       }
-
-      if (!connected) {
-        return h('div', { className: 'ac-onboarding' },
-          h('div', { className: 'ac-onboarding-frame' },
-            h('div', { className: 'ac-onboarding-copy' },
-              brand,
-              h('h1', { className: 'ac-onboarding-title ac-onboarding-tagline' },
-                h('span', null, t('onboardingTagline1')),
-                h('span', null, t('onboardingTagline2'))),
-              h('p', { className: 'ac-onboarding-body' }, t('onboardingBody')),
-              h('div', { className: 'ac-onboarding-actions' },
-                h('button', { className: 'ac-primary ac-onboarding-primary', type: 'button', onClick: () => props.onConnect(), disabled: props.githubBusy }, props.githubBusy ? t('connecting') : t('connectPhone')),
-                h('button', { className: 'ac-onboarding-link', type: 'button', onClick: () => props.onLocalImport() }, t('localOnlyAction'))),
-              props.error ? h('div', { className: 'ac-onboarding-error' }, props.error) : null,
-              why),
-            flow))
+      const titles = {
+        welcome: tr('从第一条片刻开始', 'Start with your first moment'),
+        authorize: tr('连接 GitHub 中转', 'Connect your GitHub inbox'),
+        install: tr('将快捷指令安装到 iPhone', 'Install the shortcut on iPhone'),
+        waiting: tr('等待第一张图片', 'Waiting for your first image'),
       }
-
-      const usageAside = h('div', { className: 'ac-onboarding-aside' },
-        h('div', { className: 'ac-onboarding-aside-label' }, t('usageTitle')),
-        h('div', { className: 'ac-onboard-usage' },
-          h('div', { className: 'ac-onboard-usage-row' },
-            h('span', { className: 'ac-onboard-node-icon' }, ShareIcon()),
-            h('div', null, h('strong', null, t('usageShare')), h('span', null, t('usageShareHint')))),
-          h('div', { className: 'ac-onboard-usage-row' },
-            h('span', { className: 'ac-onboard-node-icon' }, ActionButtonIcon()),
-            h('div', null, h('strong', null, t('usageAction')), h('span', null, t('usageActionHint')))),
-          h('div', { className: 'ac-onboard-usage-row' },
-            h('span', { className: 'ac-onboard-node-icon' }, TapIcon()),
-            h('div', null, h('strong', null, t('usageBacktap')), h('span', null, t('usageBacktapHint'))))),
-        h('div', { className: 'ac-onboarding-aside-note' }, t('flowArrive')))
-
-      if (downloaded) {
-        return h('div', { className: 'ac-onboarding' },
-          h('div', { className: 'ac-onboarding-frame' },
-            h('div', { className: 'ac-onboarding-copy' },
-              brand,
-              h('div', { className: 'ac-onboarding-kicker' }, t('onboardingKickerConnected')),
-              h('h1', { className: 'ac-onboarding-title' }, t('waitingTitle')),
-              h('p', { className: 'ac-onboarding-body' }, t('waitingBody')),
-              h('div', { className: 'ac-onboarding-actions' },
-                h('button', { className: 'ac-primary ac-onboarding-primary', type: 'button', onClick: () => props.onSync(), disabled: props.githubBusy }, RetryIcon(), t('syncOnce')),
-                h('button', { className: 'ac-onboarding-link', type: 'button', onClick: () => props.onDownloadShortcut(), disabled: props.shortcutFileBusy }, t('downloadAgain'))),
-              props.error ? h('div', { className: 'ac-onboarding-error' }, props.error) : null,
-              h('button', { className: 'ac-onboarding-link', type: 'button', onClick: () => props.onLocalImport() }, t('localOnlyAction'))),
-            usageAside))
+      const localAction = h('button', { className: 'ac-guide-text', type: 'button', onClick: props.onLocalImport }, tr('先从电脑导入', 'Import from your computer first'))
+      const error = props.error || device?.error || (props.shortcutFileMessage?.ok === false ? props.shortcutFileMessage.text : '')
+      let left, right
+      if (stage === 'welcome') {
+        left = h(React.Fragment, null,
+          h('p', { className: 'ac-guide-lead' }, tr('导入截图或文件，整理成可回看的个人记忆。连接手机后，也可以把图片送到这台 Mac。', 'Import screenshots or files into a personal memory you can revisit. Connect your phone to send images to this Mac.')),
+          h('div', { className: 'ac-guide-actions' },
+            h('button', { className: 'ac-guide-primary', type: 'button', onClick: props.onConnect, disabled: props.githubBusy }, props.githubBusy ? t('connecting') : t('connectPhone')),
+            h('button', { className: 'ac-guide-secondary', type: 'button', onClick: props.onLocalImport }, tr('从电脑导入', 'Import from computer'))),
+          h('p', { className: 'ac-guide-action-note' }, tr('连接手机需要 GitHub 授权；电脑导入可直接使用。', 'Phone connection needs GitHub authorization. Computer import works right away.')),
+          h('div', { className: 'ac-guide-recovery' }, tr('已有备份？', 'Have a backup?'), h('button', { className: 'ac-guide-text', type: 'button', 'data-restore-entry': true, disabled: props.restoreBusy, onClick: props.onRestore }, tr('从备份恢复', 'Restore backup'))),
+          h(GuideHelp, { title: tr('为什么需要 GitHub？', 'Why GitHub?') },
+            h(GuideCaption, null, tr('用来做什么', 'What it does')),
+            h('p', null, tr('GitHub 的私有仓库用于中转手机发来的图片，让手机和 Mac 不必处于同一网络。', 'Your private GitHub repository relays phone images, so your phone and Mac do not need to share a network.')),
+            h(GuideCaption, null, tr('图片与总结在哪里', 'Where images and summaries live')),
+            h('p', null, tr('Mac 取回图片后删除中转队列中的原图。读图与总结调用 DeepSeek，图片与结果保存在这台 Mac。', 'After your Mac receives an image, it removes it from the relay queue. DeepSeek reads and summarizes it; images and results stay on this Mac.')),
+            h(GuideCaption, null, tr('授权如何管理', 'Manage authorization')),
+            h('p', null, tr('授权会保存在 Mac 和手机快捷指令中，可在 GitHub 的应用授权设置中撤销。', 'Authorization is stored on your Mac and in the phone shortcut. You can revoke it in GitHub application settings.'))))
+        right = h('aside', { className: 'ac-guide-card' }, h(GuideCaption, null, tr('手机图片如何到达这里', 'How phone images arrive')),
+          h('div', { className: 'ac-guide-route' }, [
+            [PhoneIcon, 'iPhone', tr('从相册分享给 AuraCap', 'Share from Photos to AuraCap')],
+            [GitHubIcon, tr('你的私有仓库', 'Your private repository'), tr('暂存手机发来的图片', 'Temporarily holds images from your phone')],
+            [MacIcon, tr('这台 Mac', 'This Mac'), tr('取回图片并整理到“今天”', 'Receives images and adds them to Today')],
+          ].map(([Icon, title, text]) => h('div', { className: 'ac-guide-route-row', key: title }, h('span', { className: 'ac-guide-route-icon' }, Icon()), h('div', null, h('div', { className: 'ac-guide-step-title' }, title), h('p', null, text))))),
+          h('div', { className: 'ac-guide-note' }, tr('GitHub 负责中转，读图与总结由 DeepSeek 完成。', 'GitHub relays images. DeepSeek reads and summarizes them.')))
+      } else if (stage === 'authorize') {
+        const pending = device.status === 'pending', provisioning = device.status === 'provisioning'
+        left = h(React.Fragment, null,
+          h('p', { className: 'ac-guide-lead' }, tr('先复制验证码，再打开 GitHub 输入并授权。完成后回到这里，继续安装手机快捷指令。', 'Copy the code, then enter it on GitHub and authorize. Return here to install your phone shortcut.')),
+          h('div', { className: 'ac-guide-actions' }, pending
+            ? h('a', { className: 'ac-guide-primary', href: device.verificationUri, target: '_blank', rel: 'noreferrer' }, t('openGithub'))
+            : provisioning ? h('p', { className: 'ac-guide-status', role: 'status' }, t('provisioningGithub'))
+              : h('button', { className: 'ac-guide-primary', type: 'button', disabled: props.githubBusy, onClick: props.onConnect }, tr('重新获取验证码', 'Get a new code'))),
+          h('div', { className: 'ac-guide-secondary-actions' }, h('button', { className: 'ac-guide-text', type: 'button', onClick: props.onCancel, disabled: props.githubBusy }, tr('返回', 'Back')), localAction))
+        right = h('aside', { className: 'ac-guide-card' },
+          h(GuideCaption, null, tr('1　复制验证码', '1  Copy the code')),
+          h('div', { className: 'ac-guide-code-line' }, h('code', null, device.userCode), h('button', { className: 'ac-guide-secondary ac-guide-copy', type: 'button', disabled: !pending || !device.userCode, onClick: copyCode }, CopyIcon(), copied ? t('copied') : tr('复制', 'Copy'))),
+          copyError ? h('p', { className: 'ac-guide-small', role: 'alert' }, copyError) : null,
+          h('div', { className: 'ac-guide-next' }, h(GuideCaption, null, tr('2　在 GitHub 输入并授权', '2  Enter it on GitHub and authorize')), h('p', null, tr('使用你希望接收图片的 GitHub 账号。', 'Use the GitHub account where you want images to arrive.'))),
+          h('div', { className: 'ac-guide-note', role: 'status' }, h('span', { className: 'ac-guide-status-dot neutral' }), provisioning ? t('provisioningGithub') : pending ? t('githubWaiting') : tr('本次授权未完成，请重新获取验证码。', 'Authorization is incomplete. Get a new code.')))
+      } else {
+        const waiting = stage === 'waiting'
+        left = h(React.Fragment, null,
+          h('div', { className: 'ac-guide-status' }, h('span', { className: 'ac-guide-status-dot' + (waiting ? ' neutral' : '') }), waiting ? tr('已发起快捷指令下载', 'Shortcut download started') : tr('GitHub 已连接', 'GitHub connected')),
+          h('p', { className: 'ac-guide-lead' }, waiting
+            ? tr('请在 Mac 确认文件后，传到 iPhone 完成安装，再从相册分享一张图片给 AuraCap。收到图片后，这里会进入时间线。', 'Find the downloaded file on your Mac, install it on iPhone, then share an image from Photos to AuraCap. Your timeline opens when it arrives.')
+            : tr('下载专属快捷指令，传到 iPhone 并完成安装。之后就可以从相册分享图片到 AuraCap。', 'Download your shortcut, send it to iPhone and install it. Then share images from Photos to AuraCap.')),
+          waiting ? h('div', { className: 'ac-guide-wait-state', role: 'status' }, h(GuideCaption, null, tr('当前状态', 'Current status')), h('p', null, tr('尚未收到手机发来的图片', 'No image received from your phone yet')), h('span', null, tr('发起下载不代表手机已经安装。安装步骤仍可随时查看。', 'Starting a download does not confirm phone installation. The steps remain available here.'))) : null,
+          h('div', { className: 'ac-guide-actions' }, waiting
+            ? h(React.Fragment, null, h('button', { className: 'ac-guide-secondary', type: 'button', onClick: props.onSync, disabled: props.githubBusy }, props.githubBusy ? tr('正在检查…', 'Checking…') : tr('检查是否收到', 'Check for an image')), h('button', { className: 'ac-guide-text', type: 'button', onClick: props.onDownloadShortcut, disabled: props.shortcutFileBusy }, props.shortcutFileBusy ? t('preparing') : tr('重新下载', 'Download again')))
+            : h('button', { className: 'ac-guide-primary', type: 'button', onClick: props.onDownloadShortcut, disabled: props.shortcutFileBusy }, props.shortcutFileBusy ? t('preparing') : t('downloadShortcut'))),
+          !waiting ? h('p', { className: 'ac-guide-action-note' }, tr('下载后，请在 Mac 确认文件已保存，再通过 AirDrop 发送。', 'After downloading, find the saved file on your Mac and send it with AirDrop.')) : null,
+          h('div', { className: 'ac-guide-secondary-actions' }, localAction))
+        right = h('aside', { className: 'ac-guide-card' }, h(GuideCaption, null, waiting ? tr('安装与首次发送', 'Install and send your first image') : tr('完成手机安装', 'Finish phone setup')),
+          h(GuideInstallSteps, { downloaded: waiting }),
+          !waiting ? h('div', { className: 'ac-guide-note' }, tr('GitHub 授权已完成；手机安装和首次发送仍待完成。', 'GitHub is connected. Phone installation and the first image are still needed.')) : null,
+          h(GuideTriggerWays))
       }
-
-      return h('div', { className: 'ac-onboarding' },
-        h('div', { className: 'ac-onboarding-frame' },
-          h('div', { className: 'ac-onboarding-copy' },
-            brand,
-            h('div', { className: 'ac-onboarding-kicker' }, t('onboardingKickerConnected')),
-            h('h1', { className: 'ac-onboarding-title' }, t('connectedTitle')),
-            h('p', { className: 'ac-onboarding-body' }, t('connectedBody')),
-            h('div', { className: 'ac-onboarding-actions' },
-              h('button', { className: 'ac-primary ac-onboarding-primary', type: 'button', onClick: () => props.onDownloadShortcut(), disabled: props.shortcutFileBusy }, props.shortcutFileBusy ? t('preparing') : t('downloadShortcut'))),
-            props.shortcutFileMessage
-              ? h('div', { className: props.shortcutFileMessage.ok ? 'ac-onboarding-success' : 'ac-onboarding-error' }, props.shortcutFileMessage.ok ? t('downloadedShortcut') : props.shortcutFileMessage.text)
-              : null,
-            h('div', { className: 'ac-onboarding-steps' },
-              [t('installStep1'), t('installStep2'), t('installStep3')].map((text, index) => h('div', { className: 'ac-onboarding-step', key: index },
-                h('span', { className: 'ac-onboarding-step-no' }, String(index + 1)),
-                h('span', null, text)))),
-            h('button', { className: 'ac-onboarding-link', type: 'button', onClick: () => props.onLocalImport() }, t('localOnlyAction'))),
-          usageAside))
+      return h('div', { className: 'ac-onboarding' }, h('section', { className: 'ac-guide-page' },
+        h('div', { className: 'ac-guide-frame' }, h('div', { className: 'ac-guide-copy' },
+          h('div', { className: 'ac-guide-brand' }, t('brandName'), h('span', null, t('brandZh'))),
+          h(GuideCaption, null, stage === 'welcome' ? tr('开始使用', 'Get started') : tr('手机连接', 'Phone setup') + ' · ' + ({ authorize: 1, install: 2, waiting: 3 })[stage] + ' / 3'),
+          h('h1', { ref: heading, tabIndex: -1, 'data-stage-title': true }, titles[stage]), left,
+          error ? h('div', { className: 'ac-error ac-guide-error', role: 'alert' }, error) : null), right)))
     }
 
     function Empty(props) {
@@ -2685,8 +3099,25 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
     }
 
     function App(props) {
+      const [epoch, setEpoch] = useState(0)
+      const [settingsOpen, setSettingsOpen] = useState(false)
+      const backup = useBackup(settingsOpen)
+      useEffect(() => {
+        const changed = () => {
+          try { localStorage.removeItem('auracap.periodSeen'); localStorage.removeItem('auracap.digestSeen') } catch {}
+          setEpoch(value => value + 1)
+        }
+        window.addEventListener('auracap:library-changed', changed)
+        return () => window.removeEventListener('auracap:library-changed', changed)
+      }, [])
+      return h(ContentApp, { ...props, key: epoch, settingsOpen, setSettingsOpen, backup })
+    }
+
+    function ContentApp(props) {
       const t = props.t
       const [items, replaceItems] = useState([])
+      const [listLoaded, setListLoaded] = useState(false)
+      const [listError, setListError] = useState(null)
       const [groups, replaceGroups] = useState([])
       const listVersion = useRef(null)
       const loadSequence = useRef(0)
@@ -2706,8 +3137,8 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       const today = todayKey()
       const [selectedGroupId, setSelectedGroupId] = useState(null)
       const [groupModalId, setGroupModalId] = useState(null)
-      const [groupBusy, setGroupBusy] = useState(false)
-      const [groupError, setGroupError] = useState(null)
+      const [groupOperation, setGroupOperation] = useState(null)
+      const groupBusy = Boolean(groupOperation && !groupOperation.error)
       const [mergePickerFor, setMergePickerFor] = useState(null)
       const [mergePickIds, setMergePickIds] = useState([])
       const hasPending = useMemo(() => items.some((item) => item.status === 'summarizing'), [items])
@@ -2742,7 +3173,10 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       const [memoryProfile, setMemoryProfile] = usePolledState(null)
       const [memorySettings, setMemorySettings] = usePolledState(null)
       const [uiLang, setUiLang] = useState(() => uiLocale())
-      const [insightStatus, setInsightStatus] = usePolledState({})
+      const [insightStatus, setInsightStatus] = usePolledState(null)
+      const [insightStatusError, setInsightStatusError] = useState(null)
+      const [libraryRetrying, setLibraryRetrying] = useState(false)
+      const [localLoadError, setLocalLoadError] = useState(null)
       const [seenPeriods, setSeenPeriods] = useState(() => {
         try { return JSON.parse(localStorage.getItem('auracap.periodSeen') || '{}') || {} } catch { return {} }
       })
@@ -2757,18 +3191,28 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       const digestBusyRef = useRef(false)
       const viewRef = useRef({ period, anchor: appliedAnchor })
       viewRef.current = { period, anchor: appliedAnchor }
-      const [settingsOpen, setSettingsOpen] = useState(false)
+      const { settingsOpen, setSettingsOpen } = props
       const [searchOpen, setSearchOpen] = useState(false)
       const [github, setGithub] = usePolledState(null)
       const [githubBusy, setGithubBusy] = useState(false)
       const [githubError, setGithubError] = useState(null)
       const [device, setDevice] = useState(null)
+      const deviceRequest = useRef(0)
       const [shortcut, setShortcut] = useState(null)
       const [configCopied, setConfigCopied] = useState(false)
       const [testBusy, setTestBusy] = useState(false)
       const [testMessage, setTestMessage] = useState(null)
       const [shortcutFileBusy, setShortcutFileBusy] = useState(false)
       const [shortcutFileMessage, setShortcutFileMessage] = useState(null)
+      const [shortcutDownloadedRepo, setShortcutDownloadedRepo] = useState(() => {
+        try { return localStorage.getItem('auracap.shortcutDownloadedRepo') } catch { return null }
+      })
+      useEffect(() => {
+        try {
+          if (shortcutDownloadedRepo) localStorage.setItem('auracap.shortcutDownloadedRepo', shortcutDownloadedRepo)
+          else localStorage.removeItem('auracap.shortcutDownloadedRepo')
+        } catch {}
+      }, [shortcutDownloadedRepo])
       const fileRef = useRef(null)
       const dragDepth = useRef(0)
 
@@ -2786,6 +3230,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
 
       useEffect(() => {
         const onKeyDown = (event) => {
+          if (document.querySelector('[aria-modal="true"]')) return
           if (event.isComposing || event.metaKey || event.ctrlKey || event.altKey) return
           if (event.key !== '/') return
           const target = event.target
@@ -2803,12 +3248,15 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         try {
           const version = listVersion.current
           const payload = await request(API + '/items?view=list' + (version ? '&version=' + encodeURIComponent(version) : ''))
-          if (sequence !== loadSequence.current || payload.unchanged) return
+          if (sequence !== loadSequence.current) return
+          setListError(null)
+          if (payload.unchanged) return
           replaceItems(Array.isArray(payload.items) ? payload.items : [])
           replaceGroups(Array.isArray(payload.groups) ? payload.groups : [])
           listVersion.current = payload.version || null
+          setListLoaded(true)
         } catch (loadError) {
-          if (sequence === loadSequence.current) setError(loadError.message || t('loadFailed'))
+          if (sequence === loadSequence.current) setListError(loadError.message || t('loadFailed'))
         }
       }, [t])
 
@@ -2850,28 +3298,25 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         return () => { alive = false }
       }, [selectedId])
 
-      useEffect(() => {
-        let alive = true
-        const loadStatus = async () => {
-          try {
-            const [statusPayload, usagePayload] = await Promise.all([
-              request(API + '/memory/status'),
-              request(API + '/usage'),
-            ])
-            if (alive) { setMemoryStatus(statusPayload); setUsage(usagePayload) }
-          } catch {}
-          try {
-            const [profilePayload, settingsPayload] = await Promise.all([
-              request(API + '/memory/profile'),
-              request(API + '/memory/settings'),
-            ])
-            if (alive) { setMemoryProfile(profilePayload); setMemorySettings(settingsPayload) }
-          } catch {}
-        }
-        loadStatus()
-        const timer = setInterval(loadStatus, 10_000)
-        return () => { alive = false; clearInterval(timer) }
+      const localSettingsVersion = useRef(0)
+      const localSettingsRead = useRef(null)
+      const loadLocalSettings = useCallback(() => {
+        if (localSettingsRead.current) return localSettingsRead.current
+        const version = ++localSettingsVersion.current
+        const sources = [['/memory/status', setMemoryStatus], ['/usage', setUsage], ['/memory/profile', setMemoryProfile], ['/memory/settings', setMemorySettings]]
+        localSettingsRead.current = Promise.allSettled(sources.map(async ([path, update]) => {
+          const value = await request(API + path)
+          if (version === localSettingsVersion.current) update(value)
+        })).then(results => {
+          if (version === localSettingsVersion.current) setLocalLoadError(results.find(result => result.status === 'rejected')?.reason.message || null)
+        }).finally(() => { localSettingsRead.current = null })
+        return localSettingsRead.current
       }, [])
+      useEffect(() => {
+        loadLocalSettings()
+        const timer = setInterval(loadLocalSettings, 10_000)
+        return () => { localSettingsVersion.current++; clearInterval(timer) }
+      }, [loadLocalSettings])
 
       const rangeFilter = useMemo(() => rangeStart && rangeEnd ? { start: rangeStart, end: rangeEnd } : null, [rangeStart, rangeEnd])
       const itemsById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items])
@@ -2928,11 +3373,19 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         return ids.map((id) => itemsById.get(id)).filter(Boolean)
       }, [digest, itemsById])
       const periodUnread = ['day', 'week', 'month', 'year'].reduce((acc, type) => {
-        const at = insightStatus[type] && insightStatus[type].createdAt
+        const at = insightStatus?.[type]?.createdAt
         if (at && at !== seenPeriods[type]) acc[type] = true
         return acc
       }, {})
       const anyPeriodUnread = Object.keys(periodUnread).length > 0
+      const openedReportOnly = useRef(false)
+      useEffect(() => {
+        if (!listLoaded || items.length || !insightStatus || openedReportOnly.current) return
+        const saved = Object.entries(insightStatus).filter(([, value]) => value?.createdAt).sort((a, b) => b[1].createdAt.localeCompare(a[1].createdAt))[0]
+        if (!saved) return
+        openedReportOnly.current = true
+        setScope('digest'); setPeriod(saved[0]); setAppliedAnchor(insightAnchor(saved[0], saved[1]))
+      }, [listLoaded, items.length, insightStatus])
 
       useEffect(() => {
         if (!visible.length) { if (selectedId !== null) setSelectedId(null); return }
@@ -2941,6 +3394,11 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
 
       const selected = itemsById.get(selectedId) || null
       const modalItem = itemsById.get(modalId) || null
+      const itemDialog = useRef(null), groupDialog = useRef(null), captureDialog = useRef(null), imageDialog = useRef(null)
+      useDialogFocus(itemDialog, Boolean(modalItem), () => setModalId(null))
+      useDialogFocus(groupDialog, Boolean(modalGroup), () => closeGroup())
+      useDialogFocus(captureDialog, screenshotPromptOpen, () => setScreenshotPromptOpen(false))
+      useDialogFocus(imageDialog, Boolean(lightbox), () => setLightbox(null))
 
       const chooseView = (next) => {
         setView(next)
@@ -2948,27 +3406,19 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       }
 
       const backfillMemory = async () => {
-        try {
-          const payload = await request(API + '/memory/backfill', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
-          setMemoryStatus(payload)
-        } catch (backfillError) { setError(backfillError.message) }
+        const payload = await request(API + '/memory/backfill', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+        setMemoryStatus(payload)
       }
 
       const saveProfile = async (profile) => {
-        try {
-          const payload = await request(API + '/memory/profile', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(profile) })
-          setMemoryProfile(payload)
-          return true
-        } catch (profileError) {
-          setError(profileError.message)
-          return false
-        }
+        const payload = await request(API + '/memory/profile', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(profile) })
+        localSettingsVersion.current++
+        setMemoryProfile(payload)
       }
       const saveMemorySettings = async (settings) => {
-        try {
-          const payload = await request(API + '/memory/settings', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(settings) })
-          setMemorySettings(payload)
-        } catch (settingsError) { setError(settingsError.message) }
+        const payload = await request(API + '/memory/settings', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(settings) })
+        localSettingsVersion.current++
+        setMemorySettings(payload)
       }
 
       const loadInsight = useCallback(async (type, anchor) => {
@@ -3007,22 +3457,30 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         return () => clearInterval(timer)
       }, [loadInsight, period, appliedAnchor])
 
-      useEffect(() => {
-        let alive = true
-        const loadStatus = async () => {
-          try {
-            const payload = await request(API + '/insights/status')
-            if (alive) setInsightStatus(payload || {})
-          } catch {}
+      const insightStatusVersion = useRef(0)
+      const loadInsightStatus = useCallback(async () => {
+        const version = ++insightStatusVersion.current
+        try {
+          const payload = await request(API + '/insights/status')
+          if (version === insightStatusVersion.current) { setInsightStatus(payload); setInsightStatusError(null) }
+        } catch (error) {
+          if (version === insightStatusVersion.current) setInsightStatusError(error.message)
         }
-        loadStatus()
-        const timer = setInterval(loadStatus, 60_000)
-        return () => { alive = false; clearInterval(timer) }
       }, [])
+      useEffect(() => {
+        loadInsightStatus()
+        const timer = setInterval(loadInsightStatus, 60_000)
+        return () => { insightStatusVersion.current++; clearInterval(timer) }
+      }, [loadInsightStatus])
+      const retryLibrary = async () => {
+        setLibraryRetrying(true)
+        try { await Promise.all([load(), loadInsightStatus()]) }
+        finally { setLibraryRetrying(false) }
+      }
 
       useEffect(() => {
         if (scope !== 'digest') return
-        const at = insightStatus[period] && insightStatus[period].createdAt
+        const at = insightStatus?.[period]?.createdAt
         if (!at) return
         setSeenPeriods((previous) => {
           if (previous[period] === at) return previous
@@ -3039,22 +3497,31 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       }, [scope, digest])
 
       const loadGithub = useCallback(async () => {
+        const version = deviceRequest.current
         try {
           const payload = await request(API + '/github/status')
+          if (version !== deviceRequest.current) return null
           setGithub(payload)
+          if (payload.device) setDevice(payload.device)
           if (payload.connected) {
             try { setShortcut(await request(API + '/github/shortcut')) } catch { setShortcut(null) }
           } else {
             setShortcut(null)
           }
+          return payload
         } catch (githubLoadError) {
           setGithubError(githubLoadError.message)
+          return null
         }
       }, [t])
 
       const loadGithubStatus = useCallback(async () => {
+        const version = deviceRequest.current
         try {
-          setGithub(await request(API + '/github/status'))
+          const payload = await request(API + '/github/status')
+          if (version !== deviceRequest.current) return
+          setGithub(payload)
+          if (payload.device) setDevice(current => current?.status === payload.device.status && current?.id === payload.device.id ? current : payload.device)
         } catch {}
       }, [])
 
@@ -3119,36 +3586,58 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
 
       useEffect(() => {
         if (!device || !device.id) return undefined
+        if (githubBusy) return undefined
         if (device.status !== 'pending' && device.status !== 'provisioning') return undefined
+        let stopped = false
+        const version = deviceRequest.current
         const timer = setInterval(async () => {
           try {
             const payload = await request(API + '/github/device/' + encodeURIComponent(device.id))
-            setDevice((current) => (current && current.id === device.id ? Object.assign({}, current, payload) : current))
-            if (payload.status === 'ready') {
+            if (stopped || deviceRequest.current !== version) return
+            if (payload.status === 'cancelled') {
               setDevice(null)
+            } else if (payload.status === 'ready') {
               setGithubError(null)
-              await loadGithub()
-            } else if (payload.status === 'failed' || payload.status === 'expired') {
-              setGithubError(payload.error || t('githubError'))
+              setShortcutDownloadedRepo(null)
+              const status = await loadGithub()
+              if (status && deviceRequest.current === version) setDevice(null)
+            } else {
+              setDevice((current) => (current && current.id === device.id ? Object.assign({}, current, payload) : current))
+              if (payload.status === 'failed' || payload.status === 'expired') setGithubError(payload.error || t('githubError'))
             }
           } catch (pollError) {
-            setGithubError(pollError.message)
+            if (!stopped && deviceRequest.current === version) setGithubError(pollError.message)
           }
         }, 2000)
-        return () => clearInterval(timer)
-      }, [device && device.id, device && device.status, loadGithub, t])
+        return () => { stopped = true; clearInterval(timer) }
+      }, [device && device.id, device && device.status, githubBusy, loadGithub, t])
 
       const connectGithub = async () => {
+        if (githubBusy || (device && ['pending', 'provisioning'].includes(device.status))) return
+        const version = ++deviceRequest.current
         setGithubBusy(true)
         setGithubError(null)
         try {
           const payload = await request(API + '/github/device', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
-          setDevice(Object.assign({ status: 'pending' }, payload))
+          if (deviceRequest.current === version) setDevice(Object.assign({ status: 'pending' }, payload))
         } catch (connectError) {
           setGithubError(connectError.message)
         } finally {
           setGithubBusy(false)
         }
+      }
+
+      const cancelDevice = async () => {
+        if (!device?.id || githubBusy) return
+        ++deviceRequest.current
+        setGithubBusy(true); setGithubError(null)
+        try {
+          const result = await request(API + '/github/device/' + encodeURIComponent(device.id) + '/cancel', { method: 'POST' })
+          if (result.status === 'ready' && !(await loadGithub())) return
+          if (result.status === 'ready') setShortcutDownloadedRepo(null)
+          setDevice(null)
+        } catch (error) { setGithubError(error.message) }
+        finally { setGithubBusy(false) }
       }
 
       const syncGithub = async () => {
@@ -3182,6 +3671,8 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         setGithubError(null)
         try {
           setGithub(await request(API + '/github/disconnect', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }))
+          setDevice(null)
+          setShortcutDownloadedRepo(null)
           setShortcut(null)
         } catch (disconnectError) {
           setGithubError(disconnectError.message)
@@ -3213,6 +3704,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           link.remove()
           setTimeout(() => URL.revokeObjectURL(url), 30000)
           setShortcutFileMessage({ ok: true })
+          if (github?.repo) setShortcutDownloadedRepo(github.repo.owner + '/' + github.repo.name)
         } catch (error) {
           setShortcutFileMessage({ ok: false, text: error && error.message ? error.message : String(error) })
         } finally {
@@ -3410,10 +3902,10 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         setSelectedId(null)
         setModalId(null)
         setSelectedGroupId(id)
-        setGroupError(null)
+        setGroupOperation(current => current?.error ? null : current)
         if (view === 'grid') setGroupModalId(id)
       }, [view])
-      const closeGroup = () => { setSelectedGroupId(null); setGroupModalId(null); setGroupError(null) }
+      const closeGroup = () => { setSelectedGroupId(null); setGroupModalId(null); setGroupOperation(current => current?.error ? null : current) }
       const refreshGroups = async () => {
         try {
           const payload = await request(API + '/groups')
@@ -3421,55 +3913,51 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         } catch {}
       }
       const mergeGroupAction = async (groupId) => {
-        setGroupBusy(true)
-        setGroupError(null)
+        setGroupOperation({ type: 'merge', groupId })
         try {
           const payload = await request(API + '/groups/' + encodeURIComponent(groupId) + '/merge', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
           setGroups((previous) => previous.map((group) => group.id === payload.group.id ? payload.group : group))
         } catch (error) {
-          setGroupError(error && error.message ? error.message : t('mergeFailed'))
+          setGroupOperation({ type: 'merge', groupId, error: error.message || t('mergeFailed') })
         } finally {
-          setGroupBusy(false)
+          setGroupOperation(current => current?.error ? current : null)
         }
       }
       const splitGroupAction = async (groupId) => {
-        setGroupBusy(true)
-        setGroupError(null)
+        setGroupOperation({ type: 'split', groupId })
         try {
           const payload = await request(API + '/groups/' + encodeURIComponent(groupId) + '/split', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
           setGroups((previous) => previous.map((group) => group.id === payload.group.id ? payload.group : group))
         } catch (error) {
-          setGroupError(error && error.message ? error.message : t('mergeFailed'))
+          setGroupOperation({ type: 'split', groupId, error: error.message || t('mergeFailed') })
         } finally {
-          setGroupBusy(false)
+          setGroupOperation(current => current?.error ? current : null)
         }
       }
 
       const openMergePicker = (item) => {
         setMergePickerFor(item)
         setMergePickIds([])
-        setGroupError(null)
+        setGroupOperation(current => current?.error ? null : current)
       }
-      const closeMergePicker = () => { setMergePickerFor(null); setMergePickIds([]); setGroupError(null) }
+      const closeMergePicker = () => { setMergePickerFor(null); setMergePickIds([]); setGroupOperation(current => current?.error ? null : current) }
       const toggleMergePick = (itemId) => {
         setMergePickIds((previous) => previous.includes(itemId) ? previous.filter((id) => id !== itemId) : previous.concat(itemId))
       }
       const dismissGroupAction = async (groupId) => {
-        setGroupBusy(true)
-        setGroupError(null)
+        setGroupOperation({ type: 'dismiss', groupId })
         try {
           await request(API + '/groups/' + encodeURIComponent(groupId) + '/dismiss', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
           setGroups((previous) => previous.filter((group) => group.id !== groupId))
           closeGroup()
         } catch (error) {
-          setGroupError(error && error.message ? error.message : t('mergeFailed'))
+          setGroupOperation({ type: 'dismiss', groupId, error: error.message || t('mergeFailed') })
         } finally {
-          setGroupBusy(false)
+          setGroupOperation(current => current?.error ? current : null)
         }
       }
       const deleteGroupAction = async (groupId) => {
-        setGroupBusy(true)
-        setGroupError(null)
+        setGroupOperation({ type: 'delete', groupId })
         try {
           const group = groups.find((entry) => entry.id === groupId)
           const memberIds = new Set(group ? group.itemIds || [] : [])
@@ -3480,15 +3968,14 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           if (modalId && memberIds.has(modalId)) setModalId(null)
           closeGroup()
         } catch (error) {
-          setGroupError(error && error.message ? error.message : t('mergeFailed'))
+          setGroupOperation({ type: 'delete', groupId, error: error.message || t('mergeFailed') })
         } finally {
-          setGroupBusy(false)
+          setGroupOperation(current => current?.error ? current : null)
         }
       }
       const createManualGroup = async () => {
         if (!mergePickerFor || !mergePickIds.length) return
-        setGroupBusy(true)
-        setGroupError(null)
+        setGroupOperation({ type: 'create', sourceId: mergePickerFor.id })
         try {
           const payload = await request(API + '/groups', {
             method: 'POST',
@@ -3500,9 +3987,9 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           closeMergePicker()
           openGroup(groupId)
         } catch (error) {
-          setGroupError(error && error.message ? error.message : t('mergeFailed'))
+          setGroupOperation({ type: 'create', sourceId: mergePickerFor.id, error: error.message || t('mergeFailed') })
         } finally {
-          setGroupBusy(false)
+          setGroupOperation(current => current?.error ? current : null)
         }
       }
       const openEntity = async (id) => {
@@ -3599,7 +4086,10 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           },
         }))
 
-      const onboarding = items.length === 0
+      const initialLibraryError = (!listLoaded && listError) || (listLoaded && !items.length && !insightStatus && insightStatusError)
+      const loadingLibrary = !initialLibraryError && (!listLoaded || (!items.length && !insightStatus))
+      const hasInsights = Object.values(insightStatus || {}).some(value => value?.createdAt)
+      const onboarding = !loadingLibrary && !initialLibraryError && items.length === 0 && !hasInsights
       const tabs = h('div', { className: 'ac-tabs' },
         h('button', { className: 'ac-tab', 'aria-selected': scope === 'today', onClick: () => setScope('today') }, t('today'), h('span', { className: 'ac-tab-count' }, String(todayCount))),
         h('button', { className: 'ac-tab', 'aria-selected': scope === 'all', onClick: () => setScope('all') }, t('all'), h('span', { className: 'ac-tab-count' }, String(items.length))),
@@ -3618,7 +4108,17 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       }) : null, [scope, t, uiLang, items, rangeStart, rangeEnd, changeRange, resetRange, today, timeZone])
 
       let content
-      if (onboarding) {
+      if (initialLibraryError) {
+        content = h('div', { className: 'ac-empty' },
+          h('h2', null, localeIsZh() ? '暂时无法载入内容' : 'Content could not load'),
+          h('p', { role: 'alert' }, initialLibraryError),
+          h('div', { className: 'ac-action-row ac-load-actions' },
+            h('button', { className: 'ac-primary', disabled: libraryRetrying, onClick: retryLibrary }, localeIsZh() ? (libraryRetrying ? '正在重试…' : '重新载入') : (libraryRetrying ? 'Retrying…' : 'Reload content')),
+            h('button', { className: 'ac-secondary', disabled: busy, onClick: openPicker }, localeIsZh() ? '从电脑导入' : 'Import from computer'),
+            h('button', { className: 'ac-text-button', disabled: props.backup.active, 'data-restore-entry': true, onClick: props.backup.openRestore }, localeIsZh() ? '从备份恢复' : 'Restore backup')))
+      } else if (loadingLibrary) {
+        content = h('div', { className: 'ac-empty', role: 'status' }, localeIsZh() ? '正在载入内容…' : 'Loading content…')
+      } else if (onboarding) {
         content = h(Onboarding, {
           t,
           github,
@@ -3626,10 +4126,14 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           githubBusy,
           error: githubError,
           onConnect: connectGithub,
+          onCancel: cancelDevice,
+          onRestore: props.backup.openRestore,
+          restoreBusy: props.backup.active,
           onSync: syncGithub,
           onLocalImport: openPicker,
           shortcutFileBusy,
           shortcutFileMessage,
+          shortcutDownloaded: Boolean(github?.repo && shortcutDownloadedRepo === github.repo.owner + '/' + github.repo.name),
           onDownloadShortcut: downloadShortcut,
         })
       } else if (scope === 'digest') {
@@ -3660,7 +4164,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           h('div', { className: 'ac-list', role: 'list' },
             entryNodes),
           selectedGroup
-            ? h(GroupDetail, { group: selectedGroup, items: selectedGroupItems, t, onOpenItem: openItemById, onMerge: mergeGroupAction, onSplit: splitGroupAction, onDismiss: dismissGroupAction, busy: groupBusy, error: groupError })
+            ? h(GroupDetail, { group: selectedGroup, items: selectedGroupItems, t, onOpenItem: openItemById, onMerge: mergeGroupAction, onSplit: splitGroupAction, onDismiss: dismissGroupAction, busy: groupBusy, operation: groupBusy && groupOperation.groupId === selectedGroup.id ? groupOperation.type : null, error: groupOperation?.groupId === selectedGroup.id ? groupOperation.error : null })
             : selected
               ? h(Detail, { item: selected, t, onRetry: retry, onDelete: remove, onOpenImage: openImage, onTagClick: applyTagFilter, onEntityClick: openEntity, related, onOpenRelated: openItemById, onMergeSelect: itemToGroup.has(selected.id) ? null : openMergePicker })
               : h('div', { className: 'ac-empty' }, h('p', null, t('untitled'))))
@@ -3678,6 +4182,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           h('span', null, t('tagFilter') + '：' + tagFilter),
           h('button', { type: 'button', onClick: () => setTagFilter(null), 'aria-label': t('close') }, '×')) : null,
         error ? h('div', { className: 'ac-banner' }, h('span', null, error), h('button', { onClick: () => setError(null), 'aria-label': t('close') }, CloseIcon())) : null,
+        !initialLibraryError && (listError || insightStatusError) ? h('div', { className: 'ac-banner', role: 'alert' }, h('span', null, listError || insightStatusError), h('button', { disabled: libraryRetrying, onClick: retryLibrary }, localeIsZh() ? '重新载入' : 'Reload content')) : null,
         content,
         searchOpen ? h(SearchPalette, {
           t,
@@ -3692,7 +4197,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           className: 'ac-modal',
           onMouseDown: (event) => { if (event.target === event.currentTarget) setScreenshotPromptOpen(false) },
         },
-          h('div', { className: 'ac-shot-prompt', role: 'dialog', 'aria-modal': 'true' },
+          h('div', { className: 'ac-shot-prompt', ref: captureDialog, role: 'dialog', 'aria-modal': true, 'aria-label': t('screenshotPromptTitle'), tabIndex: -1 },
             h('div', { className: 'ac-shot-title' }, t('screenshotPromptTitle')),
             h('p', { className: 'ac-shot-body' }, t('screenshotPromptBody')),
             h('p', { className: 'ac-shot-note' }, t('screenshotPromptNote')),
@@ -3716,16 +4221,16 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           className: 'ac-modal',
           onMouseDown: (event) => { if (event.target === event.currentTarget) setModalId(null) },
         },
-          h('div', { className: 'ac-modal-card' },
+          h('div', { className: 'ac-modal-card', ref: itemDialog, role: 'dialog', 'aria-modal': true, 'aria-label': modalItem.summary?.title || t('moment'), tabIndex: -1 },
             h('button', { className: 'ac-modal-close', onClick: () => setModalId(null), 'aria-label': t('close') }, CloseIcon()),
             h(Detail, { item: modalItem, t, onRetry: retry, onDelete: remove, onOpenImage: openImage, onTagClick: applyTagFilter, onEntityClick: openEntity, related, onOpenRelated: openItemById, onMergeSelect: itemToGroup.has(modalItem.id) ? null : openMergePicker }))) : null,
         modalGroup ? h('div', {
           className: 'ac-modal',
           onMouseDown: (event) => { if (event.target === event.currentTarget) closeGroup() },
         },
-          h('div', { className: 'ac-modal-card' },
+          h('div', { className: 'ac-modal-card', ref: groupDialog, role: 'dialog', 'aria-modal': true, 'aria-label': groupTitle(modalGroup, modalGroupItems, t), tabIndex: -1 },
             h('button', { className: 'ac-modal-close', onClick: closeGroup, 'aria-label': t('close') }, CloseIcon()),
-            h(GroupDetail, { group: modalGroup, items: modalGroupItems, t, onOpenItem: openItemById, onMerge: mergeGroupAction, onSplit: splitGroupAction, onDismiss: dismissGroupAction, onDelete: deleteGroupAction, busy: groupBusy, error: groupError }))) : null,
+            h(GroupDetail, { group: modalGroup, items: modalGroupItems, t, onOpenItem: openItemById, onMerge: mergeGroupAction, onSplit: splitGroupAction, onDismiss: dismissGroupAction, onDelete: deleteGroupAction, busy: groupBusy, operation: groupBusy && groupOperation.groupId === modalGroup.id ? groupOperation.type : null, error: groupOperation?.groupId === modalGroup.id ? groupOperation.error : null }))) : null,
         mergePickerFor ? h(MergePicker, {
           t,
           source: mergePickerFor,
@@ -3736,7 +4241,8 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           onConfirm: createManualGroup,
           onClose: closeMergePicker,
           busy: groupBusy,
-          error: groupError,
+          operation: groupBusy && groupOperation.sourceId === mergePickerFor.id ? groupOperation.type : null,
+          error: groupOperation?.sourceId === mergePickerFor.id ? groupOperation.error : null,
         }) : null,
         settingsOpen ? h(SettingsModal, {
           t,
@@ -3760,13 +4266,19 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           onDownloadShortcut: downloadShortcut,
           memoryStatus,
           usage,
+          backup: props.backup,
+          onCancelDevice: cancelDevice,
           memoryProfile,
           memorySettings,
+          localLoadError,
+          onReloadLocal: loadLocalSettings,
           onSaveProfile: saveProfile,
           onSaveMemorySettings: saveMemorySettings,
           onBackfill: backfillMemory,
         }) : null,
-        lightbox ? h('div', { className: 'ac-lightbox', onClick: () => setLightbox(null) },
+        h(RestoreDialog, { backup: props.backup }),
+        lightbox ? h('div', { className: 'ac-lightbox', ref: imageDialog, role: 'dialog', 'aria-modal': true, 'aria-label': t('viewOriginal'), tabIndex: -1, onClick: () => setLightbox(null) },
+          h('button', { className: 'ac-modal-close', 'aria-label': t('close'), onClick: () => setLightbox(null) }, CloseIcon()),
           h('img', {
             src: API + '/media/' + encodeURIComponent(lightbox.id),
             alt: lightbox.summary && lightbox.summary.title ? lightbox.summary.title : '',

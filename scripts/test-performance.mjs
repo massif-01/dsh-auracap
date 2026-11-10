@@ -38,7 +38,7 @@ async function sandbox(seed = []) {
     fetch() { throw Error('Tests must not access the network') },
   })
   const link = async (specifier) => {
-    const loaded = await import(specifier)
+    const loaded = await import(specifier.startsWith('.') ? new URL(specifier, sourceUrl).href : specifier)
     return new vm.SyntheticModule(Object.keys(loaded), function () {
       for (const [key, value] of Object.entries(loaded)) this.setExport(key, value)
     }, { context })
@@ -72,7 +72,7 @@ async function sandbox(seed = []) {
   const request = async (path) => {
     let status, body
     const req = Object.assign(new EventEmitter(), { url: path, method: 'GET', headers: { host: '127.0.0.1:50121' } })
-    await route(req, { writeHead(code) { status = code }, end(data) { body = JSON.parse(String(data)) } })
+    await route(req, { setHeader() {}, writeHead(code) { status = code }, end(data) { body = JSON.parse(String(data)) } })
     return { status, body }
   }
   return { api: mod.namespace, pdf, apply() { mod.namespace.apply(ctx) }, request }

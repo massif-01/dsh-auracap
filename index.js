@@ -5,6 +5,11 @@ import { homedir } from 'node:os'
 import { createHash, randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
+import { ContentGate, backupError, hasNewMaterial } from './backup/runtime.js'
+import { BackupTasks } from './backup/tasks.js'
+import { recoverRestore } from './backup/restore.js'
+import { readJson } from './backup/io.js'
+import { imageType, insightFile } from './backup/format.js'
 
 export const name = 'auracap'
 export const inject = ['webServer', 'llm', 'attachments']
@@ -14,6 +19,11 @@ const promptCache = new Map()
 // Both item and group writes invalidate the client's lightweight list snapshot.
 const libraryInstance = randomUUID()
 let libraryRevision = 0
+let operationGate = null
+let restoredBaseline = null
+const trackedTask = (fn, kind = 'content') => operationGate ? operationGate.run(fn, kind) : fn()
+const assertCurrentTask = () => operationGate?.assertCurrent()
+
 
 function readPrompt(name) {
   const file = join(ROOT, 'prompts', name)
@@ -77,6 +87,7 @@ function imageTypeFromName(name) {
 }
 
 function storeOriginal(item, data) {
+  assertCurrentTask()
   mkdirSync(mediaDir(), { recursive: true })
   const relative = join('media', `${item.id}.${extensionOf(item.image.mediaType)}`)
   writeFileSync(join(dataDir(), relative), data)
@@ -84,6 +95,10 @@ function storeOriginal(item, data) {
 }
 
 async function addImageItem(ctx, items, data, mediaType, name, source) {
+  return trackedTask(() => addImageItemWork(ctx, items, data, mediaType, name, source), 'content')
+}
+
+async function addImageItemWork(ctx, items, data, mediaType, name, source) {
   const image = await ctx.attachments.saveImage({ data, mediaType, name })
   const item = {
     id: randomUUID(),
@@ -100,15 +115,15 @@ async function addImageItem(ctx, items, data, mediaType, name, source) {
   try { storeOriginal(item, data) } catch {}
   items.unshift(item)
   saveItems(items)
-  summarize(ctx.llm, items, item).catch((error) => {
-    item.status = 'failed'
-    item.error = error && error.message ? error.message : String(error)
-    saveItems(items)
-  })
+  summarize(ctx.llm, items, item).catch(error => recordJobFailure('summary', error))
   return item
 }
 
-function addDocumentItem(ctx, items, { data, mediaType, name, text, source }) {
+function addDocumentItem(ctx, items, input) {
+  return trackedTask(() => addDocumentItemWork(ctx, items, input), 'content')
+}
+
+function addDocumentItemWork(ctx, items, { data, mediaType, name, text, source }) {
   const content = String(text || '').replace(/\r\n/g, '\n').trim()
   if (content.length < 8) {
     const error = new Error('没有从文件中提取到可用文字')
@@ -138,11 +153,7 @@ function addDocumentItem(ctx, items, { data, mediaType, name, text, source }) {
   }
   items.unshift(item)
   saveItems(items)
-  summarize(ctx.llm, items, item).catch((error) => {
-    item.status = 'failed'
-    item.error = error && error.message ? error.message : String(error)
-    saveItems(items)
-  })
+  summarize(ctx.llm, items, item).catch(error => recordJobFailure('summary', error))
   return item
 }
 
@@ -191,7 +202,9 @@ async function startSystemCapture(ctx, items) {
     await execFileAsync('/usr/bin/osascript', ['-e', 'tell application "System Events" to set visible of process "DeepSeek Harness" to false'], { timeout: 5000 })
   } catch {}
   const candidates = new Map()
-  const timer = setInterval(async () => {
+  const timer = setInterval(() => {
+    if (operationGate?.mode) return
+    trackedTask(async () => {
     if (!systemCaptureWatch) return
     if (Date.now() - startedAt > 180_000) {
       clearInterval(timer)
@@ -225,6 +238,7 @@ async function startSystemCapture(ctx, items) {
       systemCaptureWatch = null
       return
     }
+    }).catch(error => recordJobFailure('capture', error))
   }, 900)
   if (typeof timer.unref === 'function') timer.unref()
   systemCaptureWatch = { timer }
@@ -232,21 +246,27 @@ async function startSystemCapture(ctx, items) {
 }
 
 async function migrateMedia(ctx, items) {
-  let changed = false
   for (const item of items) {
+    if (operationGate?.mode) break
     if (!item.image || item.imageFile) continue
-    try {
-      const stored = await ctx.attachments.readImage(item.image)
-      mkdirSync(mediaDir(), { recursive: true })
-      const relative = join('media', `${item.id}.${extensionOf(item.image.mediaType)}`)
-      writeFileSync(join(dataDir(), relative), Buffer.from(stored.data))
-      item.imageFile = relative
-      changed = true
-    } catch {
-      // Keep the attachment reference; serving falls back to the attachment store.
-    }
+    await trackedTask(async () => {
+      try {
+        const stored = await ctx.attachments.readImage(item.image)
+        assertCurrentTask()
+        const data = Buffer.from(stored.data)
+        const type = imageType(data)
+        const relative = join('media', `${item.id}.${extensionOf(type)}`)
+        mkdirSync(mediaDir(), { recursive: true })
+        writeFileSync(join(dataDir(), relative), data)
+        item.imageFile = relative
+        item.imageFileMediaType = type
+        saveItems(items)
+      } catch (error) {
+        if (error.code === 'LIBRARY_CHANGED') throw error
+        // Existing media serving can still use the host attachment.
+      }
+    })
   }
-  if (changed) saveItems(items)
 }
 
 function loadItems() {
@@ -259,6 +279,7 @@ function loadItems() {
 }
 
 function saveItems(items) {
+  assertCurrentTask()
   libraryRevision += 1
   mkdirSync(dataDir(), { recursive: true })
   const file = itemsFile()
@@ -286,6 +307,7 @@ function loadDigest(date) {
 }
 
 function saveDigest(digest) {
+  assertCurrentTask()
   mkdirSync(digestsDir(), { recursive: true })
   const file = digestPath(digest.date)
   const tmp = `${file}.${process.pid}.tmp`
@@ -315,6 +337,7 @@ function fileReferencesItem(file, itemId) {
 }
 
 function removeDerivedForItem(itemId) {
+  assertCurrentTask()
   try {
     for (const name of readdirSync(digestsDir())) {
       if (!name.endsWith('.json')) continue
@@ -427,6 +450,7 @@ function loadPeriodInsight(type, key) {
 }
 
 function savePeriodInsight(insight) {
+  assertCurrentTask()
   const file = insightPath(insight.type, insight.key)
   mkdirSync(join(file, '..'), { recursive: true })
   const tmp = `${file}.${process.pid}.tmp`
@@ -943,11 +967,30 @@ async function generateDigest(llm, items, date) {
   }
 }
 
+async function automaticMaterialChanged(items, sourceIds, insightKeys = []) {
+  if (!restoredBaseline) return true
+  const ids = new Set(sourceIds)
+  const selected = items.filter(item => ids.has(item.id))
+  const groups = Object.values(groupStore.groups).filter(group => group.itemIds.some(id => ids.has(id)))
+  if (hasNewMaterial(restoredBaseline, selected, groups)) return true
+  for (const id of insightKeys) {
+    const [type, key] = id.split(':')
+    const { fingerprint } = await insightFile(insightPath(type, key))
+    if (restoredBaseline.nodes['insight:' + id] !== fingerprint) return true
+  }
+  return false
+}
+
 async function refreshDigestIfDue(ctx, github) {
+  return trackedTask(() => refreshDigestIfDueWork(ctx, github), 'content')
+}
+
+async function refreshDigestIfDueWork(ctx, github) {
   if (github.digestBusy) return
   const date = todayKey()
   const ready = groupedInsightEntries(github.items).filter((item) => item.status === 'ready' && localDateKey(item.createdAt) === date)
   if (!ready.length) return
+  if (!await automaticMaterialChanged(github.items, ready.flatMap(item => item.sourceItemIds || [item.id]))) return
   const existing = loadDigest(date)
   const now = Date.now()
   if (existing && existing.createdAt) {
@@ -998,6 +1041,7 @@ function loadState() {
 }
 
 function saveState(state) {
+  assertCurrentTask()
   mkdirSync(dataDir(), { recursive: true })
   const file = stateFile()
   const tmp = `${file}.${process.pid}.tmp`
@@ -1005,8 +1049,14 @@ function saveState(state) {
   renameSync(tmp, file)
 }
 
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+function delay(ms, signal) {
+  return new Promise((resolve, reject) => {
+    const finish = () => { signal?.removeEventListener('abort', abort); resolve() }
+    const timer = setTimeout(finish, ms)
+    const abort = () => { clearTimeout(timer); signal.removeEventListener('abort', abort); reject(signal.reason) }
+    signal?.addEventListener('abort', abort, { once: true })
+    if (signal?.aborted) abort()
+  })
 }
 
 async function readGithubAuth(ctx, state) {
@@ -1045,15 +1095,13 @@ async function writeGithubToken(ctx, state, token, login, options = {}) {
   if (refreshTokenExpiresAt) patch.refreshTokenExpiresAt = refreshTokenExpiresAt
   const credentials = ctx.get('credentials')
   if (credentials) {
-    try {
-      const payload = { token, login: login || '', provider: 'github' }
-      if (expiresAt) payload.expiresAt = expiresAt
-      if (refreshToken) payload.refreshToken = refreshToken
-      if (refreshTokenExpiresAt) payload.refreshTokenExpiresAt = refreshTokenExpiresAt
-      await credentials.modifyRecord(GITHUB_KEY, async () => ({ kind: 'grant', payload }))
-      state.github = Object.assign({}, state.github, patch)
-      return
-    } catch {}
+    const payload = { token, login: login || '', provider: 'github' }
+    if (expiresAt) payload.expiresAt = expiresAt
+    if (refreshToken) payload.refreshToken = refreshToken
+    if (refreshTokenExpiresAt) payload.refreshTokenExpiresAt = refreshTokenExpiresAt
+    await credentials.modifyRecord(GITHUB_KEY, async () => ({ kind: 'grant', payload }))
+    state.github = Object.assign({}, state.github, patch)
+    return
   }
   state.github = Object.assign({}, state.github, patch, { token })
   if (refreshToken) state.github.refreshToken = refreshToken
@@ -1151,7 +1199,7 @@ async function githubRequest(token, path, options = {}) {
       }, options.headers || {}),
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
       redirect: 'follow',
-      signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
+      signal: options.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS)]) : AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
     })
   } catch (error) {
     throw networkError(error, 'GitHub')
@@ -1228,16 +1276,18 @@ function githubFailure(response, fallback) {
   return new Error(message + '（HTTP ' + response.status + '）')
 }
 
-async function provisionGithub(ctx, github, isCurrent) {
-  const token = await readGithubToken(ctx, github.state)
-  if (!token) throw new Error('GitHub 未连接')
-  const user = await githubRequest(token, '/user')
+async function resolveGithubRepository(token, signal) {
+  const request = (path, options = {}) => {
+    signal?.throwIfAborted()
+    return githubRequest(token, path, { ...options, signal })
+  }
+  const user = await request('/user')
   if (user.status !== 200) throw githubFailure(user, '读取 GitHub 账号失败')
   const login = user.data.login
 
-  let repo = await githubRequest(token, `/repos/${login}/${GITHUB_REPO}`)
+  let repo = await request(`/repos/${login}/${GITHUB_REPO}`)
   if (repo.status === 404) {
-    repo = await githubRequest(token, '/user/repos', {
+    repo = await request('/user/repos', {
       method: 'POST',
       body: {
         name: GITHUB_REPO,
@@ -1253,10 +1303,10 @@ async function provisionGithub(ctx, github, isCurrent) {
   if (repo.status !== 200 && repo.status !== 201) throw githubFailure(repo, '创建 GitHub 仓库失败')
   if (repo.data.private !== true) throw new Error('仓库 ' + login + '/' + GITHUB_REPO + ' 不是私有仓库，已停止使用')
 
-  let release = await githubRequest(token, `/repos/${login}/${GITHUB_REPO}/releases/tags/${GITHUB_TAG}`)
+  let release = await request(`/repos/${login}/${GITHUB_REPO}/releases/tags/${GITHUB_TAG}`)
   if (release.status === 404) {
-    await delay(1200)
-    release = await githubRequest(token, `/repos/${login}/${GITHUB_REPO}/releases`, {
+    await delay(1200, signal)
+    release = await request(`/repos/${login}/${GITHUB_REPO}/releases`, {
       method: 'POST',
       body: {
         tag_name: GITHUB_TAG,
@@ -1267,6 +1317,14 @@ async function provisionGithub(ctx, github, isCurrent) {
     })
   }
   if (release.status !== 200 && release.status !== 201) throw githubFailure(release, '创建收件箱 Release 失败')
+  signal?.throwIfAborted()
+  return { login, owner: login, name: GITHUB_REPO, releaseId: release.data.id, tag: GITHUB_TAG }
+}
+
+async function provisionGithub(ctx, github, isCurrent) {
+  const token = await readGithubToken(ctx, github.state)
+  if (!token) throw new Error('GitHub 未连接')
+  const repo = await resolveGithubRepository(token)
   if (typeof isCurrent === 'function' && !isCurrent()) {
     const error = new Error('已断开连接')
     error.status = 409
@@ -1275,11 +1333,7 @@ async function provisionGithub(ctx, github, isCurrent) {
 
   const previous = github.state.github || {}
   github.state.github = {
-    login,
-    owner: login,
-    name: GITHUB_REPO,
-    releaseId: release.data.id,
-    tag: GITHUB_TAG,
+    ...repo,
     connectedAt: previous.connectedAt || new Date().toISOString(),
     expiresAt: Number(previous.expiresAt) || null,
     canRefresh: Boolean(previous.canRefresh),
@@ -1296,6 +1350,20 @@ async function provisionGithub(ctx, github, isCurrent) {
 }
 
 async function startGithubDevice(ctx, github) {
+  const current = [...github.flows.values()].find(flow => ['pending', 'provisioning'].includes(flow.status))
+  if (current) return publicGithubDevice(current)
+  if (!github.startingDevice) {
+    github.startingDevice = trackedTask(() => startGithubDeviceWork(ctx, github), 'authorization')
+      .finally(() => { github.startingDevice = null })
+  }
+  return github.startingDevice
+}
+
+function publicGithubDevice(flow) {
+  return { id: flow.id, status: flow.status, error: flow.error, userCode: flow.userCode, verificationUri: flow.verificationUri, expiresIn: Math.max(1, Math.round((flow.expiresAt - Date.now()) / 1000)) }
+}
+
+async function startGithubDeviceWork(ctx, github) {
   const generation = github.flowGeneration
   const body = new URLSearchParams({ client_id: GITHUB_CLIENT_ID, scope: 'repo read:user' })
   const response = await fetch('https://github.com/login/device/code', {
@@ -1321,20 +1389,26 @@ async function startGithubDevice(ctx, github) {
     expiresAt: Date.now() + (Number(data.expires_in) || 900) * 1000,
     status: 'pending',
     error: null,
+    controller: new AbortController(),
   }
   github.flows.set(flow.id, flow)
-  runGithubDevice(ctx, github, flow).catch((error) => {
+  flow.work = runGithubDevice(ctx, github, flow).catch((error) => {
     if (flow.status === 'pending' || flow.status === 'provisioning') {
       flow.status = 'failed'
       flow.error = error && error.message ? error.message : String(error)
     }
   })
-  return { id: flow.id, userCode: flow.userCode, verificationUri: flow.verificationUri, expiresIn: Math.max(1, Math.round((flow.expiresAt - Date.now()) / 1000)) }
+  return publicGithubDevice(flow)
 }
 
 async function runGithubDevice(ctx, github, flow) {
+  return trackedTask(() => runGithubDeviceWork(ctx, github, flow), 'authorization')
+}
+
+async function runGithubDeviceWork(ctx, github, flow) {
+  const signal = flow.controller.signal
   while (flow.status === 'pending' && Date.now() < flow.expiresAt) {
-    await delay(flow.interval * 1000)
+    await delay(flow.interval * 1000, signal)
     if (flow.status !== 'pending') return
     const body = new URLSearchParams({
       client_id: GITHUB_CLIENT_ID,
@@ -1348,33 +1422,46 @@ async function runGithubDevice(ctx, github, flow) {
         method: 'POST',
         headers: { accept: 'application/json', 'content-type': 'application/x-www-form-urlencoded' },
         body,
-        signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
+        signal: AbortSignal.any([signal, AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS)]),
       })
       data = await response.json().catch(() => null)
     } catch (error) {
+      if (signal.aborted) return
       flow.status = 'failed'
       flow.error = '授权请求失败，请重试'
       return
     }
+    if (signal.aborted || flow.status !== 'pending') return
     if (data && data.access_token) {
       if (flow.generation !== github.flowGeneration) { flow.status = 'cancelled'; flow.error = '已断开连接'; return }
       flow.status = 'provisioning'
       try {
+        const repo = await resolveGithubRepository(data.access_token, signal)
+        signal.throwIfAborted()
+        if (flow.generation !== github.flowGeneration) return
+        // Cancellation can stop preparation. Once the local grant commit starts,
+        // callers wait for its result instead of undoing an established connection.
+        flow.committing = true
+        const staged = { github: { ...repo, connectedAt: github.state.github?.connectedAt || new Date().toISOString() } }
         const expiresIn = Number(data.expires_in) || 0
         const refreshTokenExpiresIn = Number(data.refresh_token_expires_in) || 0
-        await writeGithubToken(ctx, github.state, data.access_token, '', {
+        await writeGithubToken(ctx, staged, data.access_token, repo.login, {
           expiresAt: expiresIn ? Date.now() + expiresIn * 1000 : null,
           refreshToken: typeof data.refresh_token === 'string' ? data.refresh_token : null,
           refreshTokenExpiresAt: refreshTokenExpiresIn ? Date.now() + refreshTokenExpiresIn * 1000 : null,
         })
+        // A local commit finishes both stores, including when unload or disconnect
+        // is waiting for it. Preparation remains cancellable above this boundary.
+        github.state.github = staged.github
         github.state.lastError = null
         github.state.lastErrorAt = null
         github.state.needsReconnect = false
         github.state.reconnectReason = null
-        await provisionGithub(ctx, github, () => flow.generation === github.flowGeneration)
+        saveState(github.state)
         flow.status = 'ready'
-        syncGithub(ctx, github).catch(() => {})
+        if (flow.generation === github.flowGeneration) syncGithub(ctx, github).catch(() => {})
       } catch (error) {
+        if (signal.aborted) return
         flow.status = 'failed'
         flow.error = error && error.message ? error.message : String(error)
       }
@@ -1395,9 +1482,21 @@ async function runGithubDevice(ctx, github, flow) {
   }
 }
 
+async function cancelGithubDevice(flow) {
+  if (flow.status === 'ready') return
+  if (!flow.committing) {
+    flow.status = 'cancelled'
+    flow.error = null
+    flow.controller.abort(new Error('已取消本次连接'))
+  }
+  await flow.work
+}
+
 function githubStatus(github) {
   const repo = githubConnected(github.state) ? github.state.github : null
+  const device = [...github.flows.values()].find(flow => ['pending', 'provisioning'].includes(flow.status))
   return {
+    device: device ? publicGithubDevice(device) : null,
     connected: Boolean(repo),
     login: repo ? repo.login : null,
     repo: repo ? { owner: repo.owner, name: repo.name, url: 'https://github.com/' + repo.owner + '/' + repo.name } : null,
@@ -1480,6 +1579,10 @@ async function generateShortcutFile(ctx, github) {
 }
 
 async function syncGithub(ctx, github) {
+  return trackedTask(() => syncGithubWork(ctx, github), 'content')
+}
+
+async function syncGithubWork(ctx, github) {
   if (!githubConnected(github.state)) return
   if (github.syncing) return
   github.syncing = true
@@ -1521,6 +1624,7 @@ async function syncGithub(ctx, github) {
     github.state.reconnectReason = null
     let failure = null
     for (const asset of pending) {
+      if (operationGate?.mode) break
       try {
         await ingestGithubAsset(ctx, github, token, asset)
         github.state.processed = (github.state.processed || []).concat(asset.id).slice(-1000)
@@ -1557,15 +1661,22 @@ function requestGithubSync(ctx, github) {
 }
 
 async function refreshLongInsights(ctx, github) {
+  return trackedTask(() => refreshLongInsightsWork(ctx, github), 'content')
+}
+
+async function refreshLongInsightsWork(ctx, github) {
   if (github.longBusy) return
   github.longBusy = true
   try {
     const anchors = previousPeriodAnchors()
     const plans = [['week', anchors.week, 2], ['month', anchors.month, 4], ['year', anchors.year, 12]]
     for (const [type, anchor, minimum] of plans) {
+      if (operationGate?.mode) break
       const info = periodInfo(type, anchor)
       if (loadPeriodInsight(type, info.key)) continue
       if (itemsInRange(github.items, info.start, info.end).length < minimum) continue
+      const material = periodMaterial(type, groupedInsightEntries(github.items), info, resolveContentLanguage())
+      if (!await automaticMaterialChanged(github.items, material.itemIds, material.sourceInsightKeys)) continue
       await generatePeriodInsight(ctx, github.items, type, anchor, false)
     }
   } catch (error) {
@@ -1625,14 +1736,38 @@ function sendJson(res, status, body) {
   res.end(data)
 }
 
-function sendError(res, status, message) {
-  sendJson(res, status, { error: message })
+function sendError(res, status, message, code) {
+  sendJson(res, status, { error: message, ...(code ? { code } : {}) })
 }
 
 function trusted(req) {
   const origin = req.headers.origin
   if (!origin) return true
   return origin.replace(/^https?:\/\//, '') === req.headers.host
+}
+
+async function backupRoute(req, res, url, tasks) {
+  if (!trusted(req)) return sendError(res, 403, 'forbidden')
+  const path = url.pathname.slice((BASE + '/api/backup/').length)
+  if (path === 'status' && req.method === 'GET') return sendJson(res, 200, tasks.status())
+  if (path === 'tasks' && req.method === 'POST') {
+    const body = await readJsonBody(req, 64 * 1024)
+    return sendJson(res, 202, tasks.view(tasks.create(body)))
+  }
+  const match = path.match(/^tasks\/([\da-f-]+)(?:\/(archive|restore|cancel|file))?$/)
+  if (!match) return sendError(res, 404, '任务不存在')
+  const task = tasks.get(match[1])
+  if (!match[2] && req.method === 'GET') return sendJson(res, 200, tasks.view(task))
+  if (match[2] === 'archive' && req.method === 'PUT') {
+    await tasks.upload(task, req)
+    return sendJson(res, 202, tasks.view(task))
+  }
+  if (match[2] === 'restore' && req.method === 'POST') {
+    return sendJson(res, 202, tasks.view(tasks.confirm(task, req.headers['x-auracap-generation'])))
+  }
+  if (match[2] === 'cancel' && req.method === 'POST') { tasks.cancel(task); return sendJson(res, 200, tasks.view(task)) }
+  if (match[2] === 'file' && ['GET', 'HEAD'].includes(req.method)) return tasks.download(task, req, res)
+  return sendError(res, 405, 'method not allowed')
 }
 
 function isLoopbackHost(host) {
@@ -1872,6 +2007,7 @@ let memoryIndex = { version: 1, entities: {}, aliases: {} }
 let memoryBackfill = null
 
 function saveMemoryIndex(index) {
+  assertCurrentTask()
   mkdirSync(memoryDir(), { recursive: true })
   const file = memoryIndexFile()
   const tmp = `${file}.${process.pid}.tmp`
@@ -1879,7 +2015,8 @@ function saveMemoryIndex(index) {
   renameSync(tmp, file)
 }
 
-export function buildMemoryIndex(items) {
+export function buildMemoryIndex(items, { persist = true, rewrite = true } = {}) {
+  if (!rewrite) items = items.map(item => ({ ...item, ...(item.summary ? { summary: { ...item.summary } } : {}) }))
   const index = { version: 1, entities: {}, aliases: {} }
   const itemsById = new Map(items.map((item) => [item.id, item]))
   const itemEntities = new Map()
@@ -2020,9 +2157,11 @@ export function buildMemoryIndex(items) {
       if (key && !index.aliases[key]) index.aliases[key] = entry.id
     }
   }
-  memoryIndex = index
-  if (changed) { try { saveItems(items) } catch {} }
-  try { saveMemoryIndex(index) } catch {}
+  if (persist) {
+    memoryIndex = index
+    if (changed && rewrite) { try { saveItems(items) } catch {} }
+    try { saveMemoryIndex(index) } catch {}
+  }
   return index
 }
 
@@ -2148,6 +2287,7 @@ export function loadMemoryProfile() {
 }
 
 export function saveMemoryProfile(profile) {
+  assertCurrentTask()
   const value = normalizeProfile(profile)
   mkdirSync(memoryDir(), { recursive: true })
   const file = memoryProfileFile()
@@ -2182,6 +2322,7 @@ export function loadMemorySettings() {
   }
 }
 export function saveMemorySettings(settings) {
+  assertCurrentTask()
   const current = loadMemorySettings()
   const value = {
     version: 1,
@@ -2220,6 +2361,7 @@ function memoryToolDefinition(name, description, parameters, execute) {
     },
     timeoutMs: 15_000,
     async execute(args) {
+      if (operationGate?.readBlocked) throw backupError('BUSY', '内容正在恢复', 503)
       if (!loadMemorySettings().agentMemory) return 'AuraCap Agent memory is disabled by the user.'
       const result = await execute(args || {})
       return (resolveContentLanguage() === 'en'
@@ -2328,24 +2470,24 @@ function toolInsights(args) {
   return `${insight.title || info.key}\n${content}\n${basis}`
 }
 
-export function registerMemoryTools(ctx, items) {
+export function registerMemoryTools(ctx, getItems) {
   const tools = ctx.get('tools')
   if (!tools) return
   const definitions = [
     memoryToolDefinition("auracap_search", "Search the user's local AuraCap moments, insight groups and insights. Read-only. Results are bounded, include the moment or group ID with a short excerpt, and never include images or file paths. Use auracap_moment afterwards to read one moment's full content when the user asks about it.", {
       query: { type: 'string', description: 'Text to search for in local AuraCap memory.', required: true },
       limit: { type: 'integer', minimum: 1, maximum: 8, description: 'Maximum results per category. Default 5.' },
-    }, (args) => toolSearch(args, items)),
+    }, (args) => toolSearch(args, getItems())),
     memoryToolDefinition('auracap_about', 'Look up a local AuraCap clue (person, project, product or topic) and its recent moments and insights. Read-only.', {
       entity: { type: 'string', description: 'Clue name, for example AuraCap or Geist.', required: true },
       days: { type: 'integer', minimum: 1, maximum: 3650, description: 'Look back window in days. Default 90.' },
-    }, (args) => toolAbout(args, items)),
+    }, (args) => toolAbout(args, getItems())),
     memoryToolDefinition('auracap_moment', 'Read the generated core content of one local AuraCap moment by ID. Read-only. Use it only when the user asks what a specific moment says; list or search first to get the ID.', {
       itemId: { type: 'string', description: 'Local AuraCap moment ID, as returned by auracap_search or auracap_about.', required: true },
-    }, (args) => toolMoment(args, items)),
+    }, (args) => toolMoment(args, getItems())),
     memoryToolDefinition('auracap_related', 'Find moments related to one local AuraCap moment, with explicit reasons. Read-only.', {
       itemId: { type: 'string', description: 'Local AuraCap moment ID.', required: true },
-    }, (args) => toolRelated(args, items)),
+    }, (args) => toolRelated(args, getItems())),
     memoryToolDefinition('auracap_recent_insights', 'Read the latest local AuraCap insight for a period. Read-only.', {
       period: { type: 'string', enum: ['day', 'week', 'month', 'year'], description: 'Insight period. Default week.' },
       date: { type: 'string', description: 'Anchor date YYYY-MM-DD. Default today.' },
@@ -2416,6 +2558,7 @@ function loadUsage() {
 }
 
 function saveUsage(data) {
+  assertCurrentTask()
   mkdirSync(memoryDir(), { recursive: true })
   const file = usageFile()
   const tmp = `${file}.${process.pid}.tmp`
@@ -2458,6 +2601,7 @@ function emptyParts() {
 
 
 function recordJobFailure(scope, error) {
+  if (operationGate && (operationGate.mode || !operationGate.isCurrent())) return
   const message = error && error.message ? error.message : String(error)
   try {
     mkdirSync(dataDir(), { recursive: true })
@@ -2515,6 +2659,10 @@ function usageSummary() {
 }
 
 async function summarize(llm, items, item) {
+  return trackedTask(() => summarizeWork(llm, items, item), 'content')
+}
+
+async function summarizeWork(llm, items, item) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 180_000)
   try {
@@ -2630,10 +2778,15 @@ function memoryStatus(items) {
 }
 
 async function runMemoryBackfill(ctx, items) {
+  return trackedTask(() => runMemoryBackfillWork(ctx, items), 'content')
+}
+
+async function runMemoryBackfillWork(ctx, items) {
   if (memoryBackfill && memoryBackfill.running) return memoryBackfill
   const pending = items.filter((item) => item.summary && (!item.memoryVersion || !Array.isArray(item.summary.entities)))
   memoryBackfill = { running: true, total: pending.length, done: 0, pending: pending.length, error: null }
   for (const item of pending) {
+    if (operationGate?.mode) break
     try {
       const entities = await extractEntitiesForItem(ctx, item)
       item.summary.entities = entities
@@ -2667,6 +2820,7 @@ function loadGroups() {
 }
 
 function saveGroups() {
+  assertCurrentTask()
   libraryRevision += 1
   mkdirSync(dataDir(), { recursive: true })
   const file = groupsFile()
@@ -3038,7 +3192,16 @@ export function dismissGroup(group) {
 }
 
 export function apply(ctx) {
-  const items = loadItems()
+  const gate = new ContentGate()
+  operationGate = gate
+  return gate.context.run({ gate, get generation() { return gate.generation } }, () => applyRuntime(ctx, gate))
+}
+
+function applyRuntime(ctx, gate) {
+  let recoveryError = null
+  try { recoverRestore(dataDir()) } catch (error) { recoveryError = error; operationGate.readBlocked = true; operationGate.mode = 'restore' }
+  let items = recoveryError ? [] : loadItems()
+  restoredBaseline = recoveryError ? null : readJson(join(memoryDir(), 'restore-baseline.json'), null)
   let interrupted = false
   for (const item of items) {
     if (item && item.status === 'summarizing') {
@@ -3049,16 +3212,54 @@ export function apply(ctx) {
     }
   }
   if (interrupted) saveItems(items)
-  loadGroups()
-  loadMemoryIndex()
-  try { buildMemoryIndex(items) } catch {}
-  try { rebuildGroups(items) } catch {}
+  groupStore = { version: 1, groups: {} }
+  memoryIndex = { version: 1, entities: {}, aliases: {} }
+  if (!recoveryError) {
+    loadGroups()
+    loadMemoryIndex()
+    try { buildMemoryIndex(items, { rewrite: !restoredBaseline }) } catch {}
+    if (!restoredBaseline) { try { rebuildGroups(items) } catch {} }
+  }
   const github = { items, state: loadState(), flows: new Map(), flowGeneration: 0, syncing: false, syncingSince: null, digestBusy: false, longBusy: false }
-  registerMemoryTools(ctx, items)
+  registerMemoryTools(ctx, () => items)
   registerMemorySystemContext(ctx)
-  startGithubLoop(ctx, github)
-  startDigestLoop(ctx, github)
-  startLongInsightLoop(ctx, github)
+  if (!recoveryError) {
+    startGithubLoop(ctx, github)
+    startDigestLoop(ctx, github)
+    startLongInsightLoop(ctx, github)
+  }
+  const publish = (value) => {
+    items = value.items
+    groupStore = value.groups
+    memoryIndex = value.index
+    restoredBaseline = value.baseline
+    github.items = items
+    github.state = loadState()
+    memoryBackfill = null
+    if (systemCaptureWatch) { clearInterval(systemCaptureWatch.timer); systemCaptureWatch = null }
+    libraryRevision += 1
+    gate.rotate()
+  }
+  const rollback = () => {
+    const old = readJson(itemsFile(), [])
+    publish({ items: old, groups: readJson(groupsFile(), { version: 1, groups: {} }), index: buildMemoryIndex(old, { persist: false, rewrite: false }), baseline: readJson(join(memoryDir(), 'restore-baseline.json'), null) })
+  }
+  const backups = new BackupTasks({ dir: dataDir(), gate: operationGate, attachments: ctx.attachments,
+    current: () => ({ items, groups: groupStore }), buildIndex: value => buildMemoryIndex(value, { persist: false, rewrite: false }), publish, rollback,
+    hasAuthorization: () => [...operationGate.jobs].some(job => job.kind === 'authorization') || [...github.flows.values()].some(flow => ['pending', 'provisioning'].includes(flow.status)), recoveryError })
+  const cleanupTimer = setInterval(() => { backups.cleanup().catch(error => recordJobFailure('backup-cleanup', error)) }, 60_000)
+  cleanupTimer.unref?.()
+  ctx.effect(() => async () => {
+    clearInterval(cleanupTimer)
+    github.flowGeneration += 1
+    await Promise.all([...github.flows.values()].map(cancelGithubDevice))
+    if (systemCaptureWatch) { clearInterval(systemCaptureWatch.timer); systemCaptureWatch = null }
+    for (const task of backups.tasks.values()) if (task.type === 'export' || ['CREATED', 'RECEIVING', 'CHECKING', 'WAITING'].includes(task.state)) task.controller.abort(backupError('CANCELLED', '插件已卸载'))
+    gate.mode = 'restore'
+    await Promise.allSettled([...backups.tasks.values()].map(task => task.work).filter(Boolean))
+    gate.rotate()
+    gate.mode = 'restore'
+  })
 
   const ingest = async (req, res) => {
     if (!trusted(req)) return sendError(res, 403, 'forbidden')
@@ -3093,11 +3294,7 @@ export function apply(ctx) {
     items.unshift(item)
     saveItems(items)
     sendJson(res, 202, { item })
-    summarize(ctx.llm, items, item).catch((error) => {
-      item.status = 'failed'
-      item.error = error && error.message ? error.message : String(error)
-      saveItems(items)
-    })
+    summarize(ctx.llm, items, item).catch(error => recordJobFailure('summary', error))
   }
 
   const serveMedia = async (req, res, id) => {
@@ -3109,7 +3306,7 @@ export function apply(ctx) {
         ? readFileSync(original)
         : Buffer.from((await ctx.attachments.readImage(item.image)).data)
       res.writeHead(200, {
-        'content-type': item.image.mediaType,
+        'content-type': imageType(data),
         'content-length': data.length,
         'cache-control': 'private, max-age=31536000, immutable',
       })
@@ -3130,6 +3327,7 @@ export function apply(ctx) {
   }
 
   const removeItem = (id) => {
+  assertCurrentTask()
     const index = items.findIndex((entry) => entry.id === id)
     if (index < 0) return null
     const [removed] = items.splice(index, 1)
@@ -3169,6 +3367,28 @@ export function apply(ctx) {
     kind: 'prefix',
     path: BASE,
     async handler(req, res) {
+      const url = new URL(req.url || '/', 'http://localhost')
+      if (gate !== operationGate) return sendError(res, 409, '插件已重新载入，请刷新界面', 'LIBRARY_CHANGED')
+      if (!isLoopbackHost(req.headers.host)) return sendError(res, 403, 'forbidden')
+      res.setHeader('x-auracap-generation', operationGate.generation)
+      try {
+        if (url.pathname.startsWith(`${BASE}/api/backup/`)) return await backupRoute(req, res, url, backups)
+        if (operationGate.readBlocked) throw backupError('RECOVERY_REQUIRED', '内容正在恢复或需要重新载入', 503)
+        if (!['GET', 'HEAD'].includes(req.method) || url.pathname === `${BASE}/api/github/shortcut-file`) {
+          const kind = url.pathname === `${BASE}/api/github/device` ? 'authorization' : /\/github\/(disconnect|shortcut-file)$|\/github\/device\/[^/]+\/cancel$|\/memory\/(settings|locale)$/.test(url.pathname) ? 'config' : 'content'
+          const freshInput = url.pathname.startsWith(`${BASE}/api/github/`) || ['ingest', 'import', 'capture-screen', 'memory/locale'].some(path => url.pathname === `${BASE}/api/${path}`)
+          if (!freshInput && !req.headers['x-auracap-generation']) throw backupError('LIBRARY_CHANGED', '请刷新界面后再操作', 409)
+          return await operationGate.run(() => dispatch(req, res), kind, req.headers['x-auracap-generation'])
+        }
+        return await dispatch(req, res)
+      } catch (error) {
+        if (!res.headersSent) return sendError(res, error.status || 500, error.message, error.code)
+        res.destroy(error)
+      }
+    },
+  }))
+
+  async function dispatch(req, res) {
       const url = new URL(req.url || '/', 'http://localhost')
       const path = url.pathname
       if (!isLoopbackHost(req.headers.host)) return sendError(res, 403, 'forbidden')
@@ -3247,11 +3467,13 @@ export function apply(ctx) {
             return sendError(res, (error && error.status) || 502, error && error.message ? error.message : '无法开始 GitHub 授权')
           }
         }
-        const deviceMatch = path.match(/^\/auracap\/api\/github\/device\/([^/]+)$/)
+        const deviceMatch = path.match(/^\/auracap\/api\/github\/device\/([^/]+)(?:\/(cancel))?$/)
         if (deviceMatch) {
-          if (req.method !== 'GET') return sendError(res, 405, 'method not allowed')
+          if (req.method !== (deviceMatch[2] ? 'POST' : 'GET')) return sendError(res, 405, 'method not allowed')
+          if (deviceMatch[2] && !trusted(req)) return sendError(res, 403, 'forbidden')
           const flow = github.flows.get(decodeURIComponent(deviceMatch[1]))
-          if (!flow) return sendError(res, 404, '授权会话不存在或已过期')
+          if (!flow) return deviceMatch[2] ? sendJson(res, 200, { status: 'cancelled' }) : sendError(res, 404, '授权会话不存在或已过期')
+          if (deviceMatch[2]) await cancelGithubDevice(flow)
           return sendJson(res, 200, {
             status: flow.status,
             error: flow.error,
@@ -3286,12 +3508,7 @@ export function apply(ctx) {
           if (req.method !== 'POST') return sendError(res, 405, 'method not allowed')
           if (!trusted(req)) return sendError(res, 403, 'forbidden')
           github.flowGeneration += 1
-          for (const flow of github.flows.values()) {
-            if (flow.status === 'pending' || flow.status === 'provisioning') {
-              flow.status = 'cancelled'
-              flow.error = '已断开连接'
-            }
-          }
+          await Promise.all([...github.flows.values()].map(cancelGithubDevice))
           github.flows.clear()
           await clearGithubToken(ctx, github.state)
           github.state.github = null
@@ -3558,8 +3775,7 @@ export function apply(ctx) {
       } catch (error) {
         return sendError(res, 500, error && error.message ? error.message : 'internal error')
       }
-    },
-  }))
+  }
 
-  void migrateMedia(ctx, items)
+  if (!recoveryError) void migrateMedia(ctx, items).catch(error => recordJobFailure('media', error))
 }

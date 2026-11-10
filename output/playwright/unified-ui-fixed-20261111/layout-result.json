@@ -1,0 +1,183 @@
+{
+  "desktopScenes": [
+    "main",
+    "settings",
+    "settings-edit",
+    "phone",
+    "advanced",
+    "disconnected",
+    "group",
+    "entity",
+    "merge-picker",
+    "welcome",
+    "authorize",
+    "install",
+    "waiting",
+    "export-menu",
+    "restore-confirm",
+    "restore-working",
+    "restore-done"
+  ],
+  "comparisonState": "preserved",
+  "originalSnapshot": "isolated",
+  "widths": [
+    {
+      "width": 960,
+      "scene": "welcome",
+      "viewport": 960,
+      "height": 816,
+      "scroll": 960,
+      "guide": "330.25px 313.75px"
+    },
+    {
+      "width": 960,
+      "scene": "settings-edit",
+      "viewport": 960,
+      "height": 816,
+      "scroll": 960,
+      "guide": null
+    },
+    {
+      "width": 960,
+      "scene": "export-menu",
+      "viewport": 960,
+      "height": 816,
+      "scroll": 960,
+      "guide": null,
+      "menu": {
+        "x": 120,
+        "y": 311.125,
+        "width": 420,
+        "height": 231.015625,
+        "top": 311.125,
+        "right": 540,
+        "bottom": 542.140625,
+        "left": 120
+      }
+    },
+    {
+      "width": 960,
+      "scene": "restore-confirm",
+      "viewport": 960,
+      "height": 816,
+      "scroll": 960,
+      "guide": null,
+      "dialog": {
+        "x": 240,
+        "y": 182.5625,
+        "width": 480,
+        "height": 450.875,
+        "top": 182.5625,
+        "right": 720,
+        "bottom": 633.4375,
+        "left": 240
+      }
+    },
+    {
+      "width": 680,
+      "scene": "welcome",
+      "viewport": 680,
+      "height": 816,
+      "scroll": 680,
+      "guide": "480px"
+    },
+    {
+      "width": 680,
+      "scene": "settings-edit",
+      "viewport": 680,
+      "height": 816,
+      "scroll": 680,
+      "guide": null
+    },
+    {
+      "width": 680,
+      "scene": "export-menu",
+      "viewport": 680,
+      "height": 816,
+      "scroll": 680,
+      "guide": null,
+      "menu": {
+        "x": 90,
+        "y": 311.71875,
+        "width": 420,
+        "height": 231.015625,
+        "top": 311.71875,
+        "right": 510,
+        "bottom": 542.734375,
+        "left": 90
+      }
+    },
+    {
+      "width": 680,
+      "scene": "restore-confirm",
+      "viewport": 680,
+      "height": 816,
+      "scroll": 680,
+      "guide": null,
+      "dialog": {
+        "x": 100,
+        "y": 182.5625,
+        "width": 480,
+        "height": 450.875,
+        "top": 182.5625,
+        "right": 580,
+        "bottom": 633.4375,
+        "left": 100
+      }
+    },
+    {
+      "width": 390,
+      "scene": "welcome",
+      "viewport": 390,
+      "height": 816,
+      "scroll": 390,
+      "guide": "342px"
+    },
+    {
+      "width": 390,
+      "scene": "settings-edit",
+      "viewport": 390,
+      "height": 816,
+      "scroll": 390,
+      "guide": null
+    },
+    {
+      "width": 390,
+      "scene": "export-menu",
+      "viewport": 390,
+      "height": 816,
+      "scroll": 390,
+      "guide": null,
+      "menu": {
+        "x": 58,
+        "y": 332,
+        "width": 274,
+        "height": 231.015625,
+        "top": 332,
+        "right": 332,
+        "bottom": 563.015625,
+        "left": 58
+      }
+    },
+    {
+      "width": 390,
+      "scene": "restore-confirm",
+      "viewport": 390,
+      "height": 816,
+      "scroll": 390,
+      "guide": null,
+      "dialog": {
+        "x": 16,
+        "y": 186.5625,
+        "width": 358,
+        "height": 442.875,
+        "top": 186.5625,
+        "right": 374,
+        "bottom": 629.4375,
+        "left": 16
+      }
+    }
+  ],
+  "reducedMotion": "0s",
+  "runtimeErrors": []
+}

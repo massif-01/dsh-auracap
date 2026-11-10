@@ -14,6 +14,7 @@
   "files": [
     "index.js",
     "client.js",
+    "backup/*.js",
     "prompts/*.md",
     "locale/*.json",
     "cordis.patch.yml",
@@ -48,6 +49,9 @@
     }
   },
   "dependencies": {
-    "pdf-parse": "^2.4.5"
+    "pdf-parse": "^2.4.5",
+    "stream-json": "3.9.0",
+    "yauzl": "3.4.0",
+    "yazl": "3.3.1"
   }
 }
