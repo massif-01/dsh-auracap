@@ -60,7 +60,6 @@ window.__ModuleLoader__.load({
       tagFilter: '标签',
       relatedMoments: '相关片刻',
       relatedInsights: '相关洞察',
-      insightSources: '依据',
       memory: '记忆',
       memoryIndexed: '已建立',
       memoryBackfill: '建立记忆索引',
@@ -192,7 +191,11 @@ window.__ModuleLoader__.load({
       insightTimeout: '生成超时，请重试',
       insightLoading: '读取中…',
       insightAlsoSources: '参考',
-      insightUnit: '条洞察',
+      insightUnit: '篇洞察',
+      insightUnitOne: '篇洞察',
+      insightMomentUnit: '条片刻',
+      insightMomentUnitOne: '条片刻',
+      insightSourcesUnavailable: '另有 {count} 条来源已不可用',
       insightBasedOn: '基于',
       insightUpdated: '生成于',
       insightEmptyTitle: '今天还没有洞察',
@@ -337,7 +340,6 @@ window.__ModuleLoader__.load({
       tagFilter: 'Tag',
       relatedMoments: 'Related moments',
       relatedInsights: 'Related insights',
-      insightSources: 'Sources',
       memory: 'Memory',
       memoryIndexed: 'Indexed',
       memoryBackfill: 'Build memory index',
@@ -470,6 +472,10 @@ window.__ModuleLoader__.load({
       insightLoading: 'Loading…',
       insightAlsoSources: 'plus',
       insightUnit: 'insights',
+      insightUnitOne: 'insight',
+      insightMomentUnit: 'moments',
+      insightMomentUnitOne: 'moment',
+      insightSourcesUnavailable: 'Unavailable sources: {count}',
       insightBasedOn: 'Based on',
       insightUpdated: 'Generated',
       insightEmptyTitle: 'No insight yet',
@@ -787,7 +793,8 @@ window.__ModuleLoader__.load({
 .ac-digest-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 .ac-digest-nav { display: flex; gap: 1px; }
 .ac-digest-h1 { font-size: 24px; line-height: 1.35; font-weight: 600; letter-spacing: -.01em; margin: 0 0 10px; }
-.ac-digest-meta { font-size: 11.5px; color: var(--dsw-alias-label-secondary); margin-bottom: 26px; }
+.ac-insight-summary { margin-bottom: 26px; }
+.ac-digest-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 5px; font-size: 11.5px; color: var(--dsw-alias-label-secondary); }
 .ac-digest-empty { padding: 70px 20px; text-align: center; }
 .ac-digest-hint { max-width: 420px; margin: 0 auto 20px; font-size: 13px; line-height: 1.75; color: var(--dsw-alias-label-secondary); }
 .ac-digest .ac-body-text { margin-bottom: 0; }
@@ -864,15 +871,15 @@ window.__ModuleLoader__.load({
 .ac-related-time { min-width: 48px; color: var(--dsw-alias-label-secondary); font-size: 10.5px; }
 .ac-related-title { flex: 1; min-width: 0; }
 .ac-related-reason { color: var(--dsw-alias-label-secondary); font-size: 10.5px; }
-.ac-insight-sources { margin: -10px 0 24px; }
-.ac-source-toggle { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; padding: 0; color: var(--dsw-alias-label-secondary); font-family: inherit; font-size: 10.5px; cursor: pointer; }
-.ac-source-toggle:hover { color: var(--dsw-alias-label-primary); }
+.ac-source-toggle { display: inline-flex; align-items: center; gap: 4px; border: 0; background: transparent; padding: 0; color: inherit; font: inherit; cursor: pointer; }
+.ac-source-toggle:hover { color: var(--dsw-alias-label-primary); text-decoration: underline; text-underline-offset: 2px; }
 .ac-source-toggle span { display: inline-flex; transition: transform .15s ease; }
 .ac-source-toggle span[data-open="true"] { transform: rotate(180deg); }
 .ac-source-list { display: flex; flex-direction: column; gap: 1px; margin-top: 8px; padding: 4px 0; border-top: 1px solid var(--dsw-alias-border-l1); }
 .ac-source-row { display: flex; align-items: baseline; gap: 10px; width: 100%; border: 0; background: transparent; padding: 6px 0; color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 11.5px; text-align: left; cursor: pointer; }
 .ac-source-row:hover { color: var(--dsw-alias-brand-primary); }
 .ac-source-row span:first-child { min-width: 48px; color: var(--dsw-alias-label-secondary); font-size: 10px; }
+.ac-source-note { margin: 0; padding: 6px 0; color: var(--dsw-alias-label-secondary); font-size: 11.5px; }
 .ac-entity-panel { width: min(620px, 100%); max-height: 86vh; overflow: auto; background: var(--dsw-alias-bg-base); border: .5px solid var(--ac-line); border-radius: 24px; padding: 26px 28px 30px; box-shadow: var(--ac-panel-shadow); }
 .ac-entity-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 20px; }
 .ac-entity-type { font-size: 9.5px; letter-spacing: .15em; color: var(--dsw-alias-label-secondary); opacity: .7; margin-bottom: 5px; }
@@ -2232,6 +2239,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       const sections = digest && digest.content ? splitSections(digest.content) : []
       const [menuOpen, setMenuOpen] = useState(false)
       const [sourcesOpen, setSourcesOpen] = useState(false)
+      const sourceListId = React.useId()
       const [calendarOpen, setCalendarOpen] = useState(false)
       const [calendarMonth, setCalendarMonth] = useState(() => String(props.anchor || todayKey()).slice(0, 7))
       useEffect(() => {
@@ -2338,18 +2346,36 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       } else if (props.error) {
         body = h('div', { className: 'ac-error' }, props.error)
       } else if (digest) {
+        const momentCount = digest.itemCount || 0
+        const momentLabel = momentCount + ' ' + t(momentCount === 1 ? 'insightMomentUnitOne' : 'insightMomentUnit')
+        const sources = props.sources
+        const unavailableSources = momentCount - sources.length
+        const showSources = sourcesOpen && sources.length > 0
         body = h('div', null,
           h('h1', { className: 'ac-digest-h1' }, digest.title || props.periodLabel || t('insightToday')),
-          h('div', { className: 'ac-digest-meta' }, t('insightBasedOn') + ' ' + (digest.itemCount || 0) + ' ' + t('itemsUnit') + (digest.sourceCount ? ' · ' + t('insightAlsoSources') + ' ' + digest.sourceCount + ' ' + t('insightUnit') : '') + ' · ' + t('insightUpdated') + ' ' + timeText(digest.createdAt)),
-          props.sources && props.sources.length ? h('div', { className: 'ac-insight-sources' },
-            h('button', { className: 'ac-source-toggle', type: 'button', onClick: () => setSourcesOpen(!sourcesOpen) },
-              t('insightSources') + ' ' + props.sources.length + ' ' + t('itemsUnit'), h('span', { 'data-open': sourcesOpen }, ChevronDownIcon())),
-            sourcesOpen ? h('div', { className: 'ac-source-list' }, props.sources.map((item) => h('button', {
-              key: item.id,
-              className: 'ac-source-row',
-              type: 'button',
-              onClick: () => props.onOpenSource(item.id),
-            }, h('span', null, timeText(item.createdAt)), h('span', null, (item.summary && item.summary.title) || t('untitled'))))) : null) : null,
+          h('div', { className: 'ac-insight-summary' },
+            h('div', { className: 'ac-digest-meta' },
+              h('span', null, t('insightBasedOn') + ' ', sources.length
+                ? h('button', {
+                    className: 'ac-source-toggle',
+                    type: 'button',
+                    'aria-expanded': showSources,
+                    'aria-controls': showSources ? sourceListId : undefined,
+                    onClick: () => setSourcesOpen(open => !open),
+                  }, momentLabel, h('span', { 'data-open': showSources }, ChevronDownIcon()))
+                : momentLabel),
+              digest.sourceCount ? h('span', null, '· ' + t('insightAlsoSources') + ' ' + digest.sourceCount + ' ' + t(digest.sourceCount === 1 ? 'insightUnitOne' : 'insightUnit')) : null,
+              h('span', null, '· ' + t('insightUpdated') + ' ' + timeText(digest.createdAt))),
+            showSources ? h('div', { className: 'ac-source-list', id: sourceListId },
+              sources.map((item) => h('button', {
+                key: item.id,
+                className: 'ac-source-row',
+                type: 'button',
+                onClick: () => props.onOpenSource(item.id),
+              }, h('span', null, timeText(item.createdAt)), h('span', null, (item.summary && item.summary.title) || t('untitled')))),
+              unavailableSources > 0
+                ? h('p', { className: 'ac-source-note' }, t('insightSourcesUnavailable').replace('{count}', String(unavailableSources)))
+                : null) : null),
           sections.map((section, index) => h(SectionBlock, { key: index, section })))
       } else {
         body = h('div', { className: 'ac-digest-empty' },
@@ -3160,9 +3186,8 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       const [lightbox, setLightbox] = useState(null)
       const [modalId, setModalId] = useState(null)
       const [digest, setDigest] = useState(null)
-      const [digestBusy, setDigestBusy] = useState(false)
+      const [pendingInsights, setPendingInsights] = useState(() => new Set())
       const [digestError, setDigestError] = useState(null)
-      const [digestLoaded, setDigestLoaded] = useState(false)
       const [digestLoading, setDigestLoading] = useState(false)
       const [period, setPeriod] = useState('day')
       const [appliedAnchor, setAppliedAnchor] = useState(() => todayKey())
@@ -3192,10 +3217,10 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         } catch { return null }
       })
       const insightSeq = useRef(0)
-      const generationTask = useRef(0)
-      const digestBusyRef = useRef(false)
-      const viewRef = useRef({ period, anchor: appliedAnchor })
-      viewRef.current = { period, anchor: appliedAnchor }
+      const insightBounds = periodBounds(period, appliedAnchor)
+      const insightKey = period + ':' + insightBounds.start
+      const insightView = useRef(insightKey)
+      insightView.current = insightKey
       const { settingsOpen, setSettingsOpen } = props
       const [searchOpen, setSearchOpen] = useState(false)
       const [github, setGithub] = usePolledState(null)
@@ -3430,10 +3455,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
 
       const loadInsight = useCallback(async (type, anchor) => {
         const seq = ++insightSeq.current
-        const stillCurrent = () => {
-          const view = viewRef.current
-          return seq === insightSeq.current && type === view.period && anchor === view.anchor
-        }
+        const stillCurrent = () => seq === insightSeq.current && type + ':' + anchor === insightView.current
         try {
           let payload
           if (type === 'day') payload = await request(API + '/digest?date=' + encodeURIComponent(anchor))
@@ -3445,12 +3467,9 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           if (!stillCurrent()) return
           setDigestError(digestLoadError.message)
         } finally {
-          if (stillCurrent()) {
-            setDigestLoaded(true)
-            setDigestLoading(false)
-          }
+          if (stillCurrent()) setDigestLoading(false)
         }
-      }, [t])
+      }, [])
 
       useEffect(() => {
         insightSeq.current += 1
@@ -3458,12 +3477,11 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         setDigest(null)
         setDigestError(null)
         setDigestLoading(true)
-        if (!digestBusyRef.current) loadInsight(period, appliedAnchor)
-        const timer = setInterval(() => {
-          if (!digestBusyRef.current) loadInsight(period, appliedAnchor)
-        }, 60_000)
+        const read = () => loadInsight(period, insightBounds.start)
+        read()
+        const timer = setInterval(read, 60_000)
         return () => clearInterval(timer)
-      }, [loadInsight, period, appliedAnchor, libraryUnavailable])
+      }, [loadInsight, period, insightBounds.start, libraryUnavailable])
 
       const insightStatusVersion = useRef(0)
       const loadInsightStatus = useCallback(async () => {
@@ -3755,41 +3773,37 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       }
 
       const generateInsight = async () => {
-        const taskId = ++generationTask.current
-        const seq = ++insightSeq.current
-        digestBusyRef.current = true
-        setDigestBusy(true)
-        setDigestError(null)
+        const key = insightKey
+        if (pendingInsights.has(key)) return
         const type = period
-        const anchor = appliedAnchor
-        let failed = false
+        const anchor = insightBounds.start
+        setPendingInsights(current => new Set(current).add(key))
+        setDigestError(null)
         try {
           const payload = type === 'day'
             ? await request(API + '/digest', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ date: anchor }), signal: AbortSignal.timeout(360_000) })
             : await request(API + '/insights', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type, anchor, force: true }), signal: AbortSignal.timeout(360_000) })
-          const view = viewRef.current
-          if (taskId === generationTask.current && seq === insightSeq.current && type === view.period && anchor === view.anchor) {
+          if (key === insightView.current) {
+            insightSeq.current += 1
             setDigest((type === 'day' ? payload.digest : payload.insight) || null)
-            setDigestLoaded(true)
+            setDigestError(null)
             setDigestLoading(false)
           }
         } catch (insightError) {
-          failed = true
           const message = insightError && (insightError.name === 'TimeoutError' || insightError.name === 'AbortError')
             ? t('insightTimeout')
             : (insightError && insightError.message) || t('githubError')
-          const view = viewRef.current
-          if (taskId === generationTask.current && type === view.period && anchor === view.anchor) {
+          if (key === insightView.current) {
+            insightSeq.current += 1
             setDigestError(message)
             setDigestLoading(false)
           }
         } finally {
-          if (taskId === generationTask.current) {
-            digestBusyRef.current = false
-            setDigestBusy(false)
-            const view = viewRef.current
-            if (!failed || type !== view.period || anchor !== view.anchor) loadInsight(view.period, view.anchor)
-          }
+          setPendingInsights(current => {
+            const next = new Set(current)
+            next.delete(key)
+            return next
+          })
         }
       }
 
@@ -4068,7 +4082,6 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         setAppliedAnchor(date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate()))
       }
       const periodLabels = { day: t('periodDay'), week: t('periodWeek'), month: t('periodMonth'), year: t('periodYear') }
-      const insightBounds = periodBounds(period, appliedAnchor)
       // Reuse the element tree across unrelated status updates; refresh relative times separately.
       const entryNodes = useMemo(() => scope === 'digest' ? null : visibleEntries.map((entry) => {
         if (view === 'grid') return entry.kind === 'group'
@@ -4164,7 +4177,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           periodLabel: periodLabels[period],
           rangeLabel: rangeText(insightBounds.start, insightBounds.end),
           digest,
-          busy: digestBusy,
+          busy: pendingInsights.has(insightKey),
           loading: digestLoading,
           error: digestError,
           onGenerate: generateInsight,

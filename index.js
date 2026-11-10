@@ -400,7 +400,9 @@ function isoWeekKey(date) {
 }
 
 export function periodInfo(type, anchorISO) {
-  const base = anchorISO ? localMidday(localDateKey(anchorISO)) : localMidday(todayKey())
+  const anchor = anchorISO || todayKey()
+  const dateKey = /^\d{4}-\d{2}-\d{2}$/.test(anchor) ? anchor : localDateKey(anchor)
+  const base = localMidday(dateKey)
   if (type === 'day') {
     const key = localDateKeyOfDate(base)
     return { type, key, start: key, end: key }
