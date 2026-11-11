@@ -786,6 +786,19 @@ window.__ModuleLoader__.load({
 .ac-bullets { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .ac-bullet { display: flex; gap: 10px; font-size: 13px; line-height: 1.65; }
 .ac-bullet-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--dsw-alias-label-secondary); flex: none; margin-top: 9px; }
+.ac-bullet-no { flex: none; min-width: 12px; padding-top: 3px; font-size: 10px; line-height: 1.4; color: var(--dsw-alias-label-secondary); font-variant-numeric: tabular-nums; }
+.ac-bullet-text { min-width: 0; }
+.ac-bullet[data-depth="1"] { padding-left: 18px; }
+.ac-inline-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; padding: .5px 4px; border-radius: 4px; background: var(--ac-surface); color: var(--dsw-alias-label-primary); overflow-wrap: anywhere; }
+.ac-md { display: flex; flex-direction: column; gap: 10px; }
+.ac-code-block { padding: 12px 14px; border-radius: 8px; background: var(--dsw-alias-bg-layer-1); border: .5px solid var(--ac-line); overflow-x: auto; }
+.ac-code-block code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; line-height: 1.65; white-space: pre; }
+.ac-quote { padding: 2px 0 2px 12px; border-left: 2px solid var(--ac-line); color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 1.7; white-space: pre-wrap; }
+.ac-table-wrap { overflow-x: auto; }
+.ac-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.ac-table th, .ac-table td { border: .5px solid var(--ac-line); padding: 6px 9px; text-align: left; vertical-align: top; }
+.ac-table th { background: var(--ac-surface); font-weight: 600; }
+.ac-link { color: inherit; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: var(--ac-muted); }
 .ac-digest { flex: 1; overflow: auto; padding: 30px 28px 60px; }
 .ac-digest-inner { max-width: 860px; margin: 0 auto; }
 .ac-digest-head { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 26px; }
@@ -1606,14 +1619,30 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       return t('ready')
     }
 
+    // Plain-text surfaces (card previews, snippets) must never leak Markdown markers.
+    function stripInlineMarkdown(value) {
+      return String(value || '')
+        .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+        .replace(/\[([^\]]+)\]\([^)\s]+\)/g, '$1')
+        .replace(/\*\*([^*\n]+)\*\*/g, '$1')
+        .replace(/__([^_\n]+)__/g, '$1')
+        .replace(/~~([^~\n]+)~~/g, '$1')
+        .replace(/`([^`\n]+)`/g, '$1')
+        .replace(/\*([^*\s][^*\n]*)\*/g, '$1')
+        .replace(/\*{2,}|~{2,}|`+/g, '')
+        .replace(/[ \t]+\n/g, '\n')
+        .trim()
+    }
+
     function plainTextOf(summary) {
       if (!summary) return ''
       const source = typeof summary.content === 'string' && summary.content.trim()
         ? summary.content
         : (typeof summary.summary === 'string' ? summary.summary : '')
-      return String(source)
+      return stripInlineMarkdown(String(source)
         .replace(/^#{1,6}\s+.*$/gm, ' ')
-        .replace(/^\s*[-*]\s+/gm, ' ')
+        .replace(/^\s*[-*+]\s+/gm, ' ')
+        .replace(/^\s*\d+[.)]\s+/gm, ' '))
         .replace(/\s+/g, ' ')
         .trim()
     }
@@ -1621,42 +1650,194 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
     function previewOf(item) {
       const summary = item.summary
       if (!summary) return ''
-      if (typeof summary.excerpt === 'string' && summary.excerpt) return summary.excerpt
+      if (typeof summary.excerpt === 'string' && summary.excerpt) return stripInlineMarkdown(summary.excerpt).slice(0, 160)
       return plainTextOf(summary).slice(0, 160)
     }
 
-    function splitSections(markdown) {
-      const lines = String(markdown || '').replace(/\r\n/g, '\n').split('\n')
+    // Inline Markdown: the model is told to use `code`, **bold** and links, so the
+    // detail view has to render that subset instead of showing the raw markers.
+    const INLINE_MARKDOWN = /(\*\*[^*\n]+\*\*|`[^`\n]+`|~~[^~\n]+~~|\*[^*\s][^*\n]*\*|\[[^\]\n]+\]\([^)\s]+\))/g
+
+    function safeHref(value) {
+      return /^(https?:\/\/|mailto:)/i.test(String(value || ''))
+    }
+
+    function renderInline(text, keyPrefix) {
+      const source = String(text == null ? '' : text)
+      const nodes = []
+      let cursor = 0
+      let index = 0
+      INLINE_MARKDOWN.lastIndex = 0
+      let match = INLINE_MARKDOWN.exec(source)
+      while (match) {
+        const token = match[0]
+        if (match.index > cursor) nodes.push(source.slice(cursor, match.index))
+        const key = (keyPrefix || 'inline') + '-' + index
+        index += 1
+        if (token.startsWith('**')) {
+          nodes.push(h('strong', { key }, token.slice(2, -2)))
+        } else if (token.startsWith('`')) {
+          nodes.push(h('code', { key, className: 'ac-inline-code' }, token.slice(1, -1)))
+        } else if (token.startsWith('~~')) {
+          nodes.push(h('del', { key }, token.slice(2, -2)))
+        } else if (token.startsWith('[')) {
+          const link = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/)
+          if (link && safeHref(link[2])) {
+            nodes.push(h('a', { key, className: 'ac-link', href: link[2], target: '_blank', rel: 'noreferrer noopener' }, link[1]))
+          } else {
+            nodes.push(token)
+          }
+        } else {
+          nodes.push(h('em', { key }, token.slice(1, -1)))
+        }
+        cursor = INLINE_MARKDOWN.lastIndex
+        match = INLINE_MARKDOWN.exec(source)
+      }
+      if (cursor < source.length) nodes.push(source.slice(cursor))
+      return nodes
+    }
+
+    // Block subset produced by the AuraCap prompts: `###` sections, `-`/`1.` lists,
+    // fenced code and quotes. Blocks keep their original order inside a section.
+    function parseMarkdownSections(markdown) {
+      const lines = String(markdown || '').replace(/\r\n?/g, '\n').split('\n')
       const sections = []
-      let current = null
-      const flush = () => {
-        if (!current) return
-        const bodyText = current.body.join('\n').trim()
-        if (bodyText || current.items.length) sections.push({ label: current.label, bodyText, items: current.items })
-        current = null
+      let section = null
+      let paragraph = []
+      let list = null
+      let code = null
+      const ensureSection = () => {
+        if (!section) {
+          section = { label: '', blocks: [] }
+          sections.push(section)
+        }
+        return section
       }
-      for (const raw of lines) {
-        const line = raw.trim()
-        const heading = line.match(/^#{1,6}\s+(.*)$/)
+      const flushParagraph = () => {
+        if (!paragraph.length) return
+        ensureSection().blocks.push({ type: 'paragraph', text: paragraph.join('\n').trim() })
+        paragraph = []
+      }
+      const flushList = () => {
+        if (!list) return
+        if (list.items.length) ensureSection().blocks.push(list)
+        list = null
+      }
+      const flushInline = () => { flushParagraph(); flushList() }
+      for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+        const raw = lines[lineIndex]
+        const line = raw.replace(/\s+$/, '')
+        const trimmed = line.trim()
+        if (code) {
+          if (/^```/.test(trimmed)) {
+            ensureSection().blocks.push({ type: 'code', lang: code.lang, text: code.lines.join('\n') })
+            code = null
+          } else {
+            code.lines.push(line)
+          }
+          continue
+        }
+        if (/^```/.test(trimmed)) {
+          flushInline()
+          code = { lang: trimmed.slice(3).trim(), lines: [] }
+          continue
+        }
+        const heading = trimmed.match(/^(#{1,6})\s+(.*)$/)
         if (heading) {
-          flush()
-          current = { label: heading[1].trim(), body: [], items: [] }
+          flushInline()
+          section = { label: heading[2].trim(), blocks: [] }
+          sections.push(section)
           continue
         }
-        if (!current) current = { label: '', body: [], items: [] }
-        const bullet = line.match(/^[-*]\s+(.*)$/)
-        if (bullet) {
-          current.items.push(bullet[1].trim())
+        if (!trimmed) {
+          flushInline()
           continue
         }
-        if (!line) {
-          if (current.body.length) current.body.push('')
+        const quote = line.match(/^\s{0,3}>\s?(.*)$/)
+        if (quote) {
+          flushInline()
+          const blocks = ensureSection().blocks
+          const previous = blocks[blocks.length - 1]
+          if (previous && previous.type === 'quote') previous.text += '\n' + quote[1].trim()
+          else blocks.push({ type: 'quote', text: quote[1].trim() })
           continue
         }
-        current.body.push(raw)
+        if (/^\|.*\|$/.test(trimmed)) {
+          const separator = lineIndex + 1 < lines.length ? lines[lineIndex + 1].trim() : ''
+          if (/^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?$/.test(separator)) {
+            flushInline()
+            const cellsOf = (row) => row.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((cell) => cell.trim())
+            const header = cellsOf(trimmed)
+            const rows = []
+            let cursor = lineIndex + 2
+            while (cursor < lines.length && /^\|.*\|$/.test(lines[cursor].trim())) {
+              rows.push(cellsOf(lines[cursor].trim()))
+              cursor += 1
+            }
+            ensureSection().blocks.push({ type: 'table', header, rows })
+            lineIndex = cursor - 1
+            continue
+          }
+        }
+        const marker = line.match(/^(\s*)([-*+]|\d+[.)])\s+(.*)$/)
+        if (marker) {
+          flushParagraph()
+          const ordered = /^\d+[.)]$/.test(marker[2])
+          const depth = marker[1].replace(/\t/g, '  ').length >= 2 ? 1 : 0
+          if (!list || list.ordered !== ordered) {
+            flushList()
+            list = { type: 'list', ordered, items: [] }
+          }
+          list.items.push({ text: marker[3].trim(), depth })
+          continue
+        }
+        // A plain line directly under a list item is a wrapped continuation, not a new paragraph.
+        if (list && list.items.length) {
+          list.items[list.items.length - 1].text += '\n' + trimmed
+          continue
+        }
+        flushList()
+        paragraph.push(line)
       }
-      flush()
-      return sections
+      if (code) ensureSection().blocks.push({ type: 'code', lang: code.lang, text: code.lines.join('\n') })
+      flushInline()
+      return sections.filter((entry) => entry.label || entry.blocks.length)
+    }
+
+    function MarkdownBlocks(props) {
+      return h('div', { className: 'ac-md' }, (props.blocks || []).map((block, index) => {
+        const key = (props.idPrefix || 'md') + '-' + index
+        if (block.type === 'list') {
+          const items = block.items.map((entry, itemIndex) => h('li', {
+            key: 'i' + itemIndex,
+            className: 'ac-bullet',
+            'data-depth': entry.depth ? '1' : undefined,
+          },
+            block.ordered
+              ? h('span', { className: 'ac-bullet-no' }, String(itemIndex + 1) + '.')
+              : h('span', { className: 'ac-bullet-dot' }),
+            h('span', { className: 'ac-bullet-text' }, renderInline(entry.text, key + '-i' + itemIndex))))
+          return h(block.ordered ? 'ol' : 'ul', { key, className: 'ac-bullets' }, items)
+        }
+        if (block.type === 'code') return h('pre', { key, className: 'ac-code-block', 'data-lang': block.lang || undefined }, h('code', null, block.text))
+        if (block.type === 'table') {
+          return h('div', { key, className: 'ac-table-wrap' },
+            h('table', { className: 'ac-table' },
+              h('thead', null, h('tr', null, block.header.map((cell, cellIndex) => h('th', { key: cellIndex }, renderInline(cell, key + '-h' + cellIndex))))),
+              h('tbody', null, block.rows.map((row, rowIndex) => h('tr', { key: rowIndex }, row.map((cell, cellIndex) => h('td', { key: cellIndex }, renderInline(cell, key + '-r' + rowIndex + 'c' + cellIndex))))))))
+        }
+        if (block.type === 'quote') return h('blockquote', { key, className: 'ac-quote' }, renderInline(block.text, key))
+        return h('div', { key, className: 'ac-body-text' }, renderInline(block.text, key))
+      }))
+    }
+
+    function MarkdownSections(props) {
+      return (props.sections || []).map((section, index) => h('div', {
+        className: 'ac-section',
+        key: (props.idPrefix || 'section') + '-' + index,
+      },
+        section.label ? h('div', { className: 'ac-sec-label' }, section.label) : null,
+        h(MarkdownBlocks, { blocks: section.blocks, idPrefix: (props.idPrefix || 'section') + '-' + index })))
     }
 
     function groupTitle(group, items, t) {
@@ -1741,7 +1922,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       const latest = groupLatest(items)
       const title = groupTitle(group, items, t)
       const merged = group.merged
-      const mergedSections = merged && merged.content ? splitSections(merged.content) : []
+      const mergedSections = merged && merged.content ? parseMarkdownSections(merged.content) : []
       const deleteAction = props.onDelete ? h('button', {
         className: 'ac-ghost',
         'data-danger': true,
@@ -1773,7 +1954,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           merged
             ? h('div', { className: 'ac-group-merged' },
                 h('div', { className: 'ac-sec-label' }, t('mergedSummary')),
-                mergedSections.map((section, index) => h(SectionBlock, { key: index, section })))
+                mergedSections.map((section, index) => h(SectionBlock, { key: index, section, idPrefix: 'merged-' + index })))
             : h('div', { className: 'ac-group-actions' },
                 h('button', {
                   className: 'ac-primary',
@@ -1905,16 +2086,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           ? summary.content
           : (typeof summary.summary === 'string' && /^\s*#{1,6}\s/m.test(summary.summary) ? summary.summary : '')
         if (markdown) {
-          splitSections(markdown).forEach((section, index) => {
-            body.push(h('div', { className: 'ac-section', key: 'section-' + index },
-              section.label ? h('div', { className: 'ac-sec-label' }, section.label) : null,
-              section.bodyText ? h('div', { className: 'ac-body-text' }, section.bodyText) : null,
-              section.items.length
-                ? h('ul', { className: 'ac-bullets' }, section.items.map((entry, itemIndex) => h('li', { className: 'ac-bullet', key: itemIndex },
-                    h('span', { className: 'ac-bullet-dot' }),
-                    h('span', null, entry))))
-                : null))
-          })
+          body.push(h(MarkdownSections, { key: 'markdown', sections: parseMarkdownSections(markdown), idPrefix: 'detail' }))
         } else {
           if (summary.summary) body.push(h('div', { className: 'ac-section', key: 'summary' }, h('div', { className: 'ac-body-text' }, summary.summary)))
           if (summary.keyPoints && summary.keyPoints.length) {
@@ -2007,12 +2179,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       const section = props.section
       return h('div', { className: 'ac-section' },
         section.label ? h('div', { className: 'ac-sec-label' }, section.label) : null,
-        section.bodyText ? h('div', { className: 'ac-body-text' }, section.bodyText) : null,
-        section.items.length
-          ? h('ul', { className: 'ac-bullets' }, section.items.map((entry, index) => h('li', { className: 'ac-bullet', key: index },
-              h('span', { className: 'ac-bullet-dot' }),
-              h('span', null, entry))))
-          : null)
+        h(MarkdownBlocks, { blocks: section.blocks, idPrefix: props.idPrefix || 'block' }))
     }
 
     function TimeFlow(props) {
@@ -2236,7 +2403,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
     function DigestView(props) {
       const t = props.t
       const digest = props.digest
-      const sections = digest && digest.content ? splitSections(digest.content) : []
+      const sections = digest && digest.content ? parseMarkdownSections(digest.content) : []
       const [menuOpen, setMenuOpen] = useState(false)
       const [sourcesOpen, setSourcesOpen] = useState(false)
       const sourceListId = React.useId()
@@ -2376,7 +2543,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
               unavailableSources > 0
                 ? h('p', { className: 'ac-source-note' }, t('insightSourcesUnavailable').replace('{count}', String(unavailableSources)))
                 : null) : null),
-          sections.map((section, index) => h(SectionBlock, { key: index, section })))
+          sections.map((section, index) => h(SectionBlock, { key: index, section, idPrefix: 'digest-' + index })))
       } else {
         body = h('div', { className: 'ac-digest-empty' },
           h('h2', { className: 'ac-digest-h1' }, props.period === 'day' ? t('insightEmptyTitle') : t('longInsightEmptyTitle')),

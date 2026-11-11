@@ -622,7 +622,7 @@ async function generatePeriodInsight(ctx, items, type, anchorISO, force) {
 }
 
 function searchSnippet(text, terms) {
-  const source = String(text || '').replace(/^#{1,6}\s+.*$/gm, ' ').replace(/\s+/g, ' ').trim()
+  const source = stripMarkdownMarkers(String(text || '').replace(/^#{1,6}\s+.*$/gm, ' ')).replace(/\s+/g, ' ').trim()
   if (!source) return ''
   const lower = source.toLowerCase()
   let index = -1
@@ -789,14 +789,27 @@ function previousPeriodAnchors() {
   return { week: localDateKeyOfDate(week), month: localDateKeyOfDate(month), year: localDateKeyOfDate(year) }
 }
 
+function stripMarkdownMarkers(text) {
+  return String(text || '')
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)\s]+\)/g, '$1')
+    .replace(/\*\*([^*\n]+)\*\*/g, '$1')
+    .replace(/__([^_\n]+)__/g, '$1')
+    .replace(/~~([^~\n]+)~~/g, '$1')
+    .replace(/`([^`\n]+)`/g, '$1')
+    .replace(/\*([^*\s][^*\n]*)\*/g, '$1')
+    .replace(/\*{2,}|~{2,}|`+/g, '')
+}
+
 function plainTextOfSummary(summary) {
   if (!summary) return ''
   const source = typeof summary.content === 'string' && summary.content.trim()
     ? summary.content
     : (typeof summary.summary === 'string' ? summary.summary : '')
-  return String(source)
+  return stripMarkdownMarkers(String(source)
     .replace(/^#{1,6}\s+.*$/gm, ' ')
-    .replace(/^\s*[-*]\s+/gm, ' ')
+    .replace(/^\s*[-*+]\s+/gm, ' ')
+    .replace(/^\s*\d+[.)]\s+/gm, ' '))
     .replace(/\s+/g, ' ')
     .trim()
 }
@@ -1826,10 +1839,11 @@ function ensureCoreSection(content, language = 'zh') {
 }
 
 function makeExcerpt(markdown) {
-  return String(markdown || '')
+  return stripMarkdownMarkers(String(markdown || '')
     .replace(/^#{1,6}\s+.*$/gm, ' ')
-    .replace(/^\s*[-*]\s+/gm, ' ')
-    .replace(/```/g, ' ')
+    .replace(/^\s*[-*+]\s+/gm, ' ')
+    .replace(/^\s*\d+[.)]\s+/gm, ' ')
+    .replace(/```/g, ' '))
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 240)
@@ -2247,7 +2261,7 @@ function entityDetail(id, items) {
         start: parsed.start || parsed.date || '',
         end: parsed.end || parsed.date || '',
         title: parsed.title || '',
-        excerpt: String(parsed.content || '').replace(/^#{1,6}\s+.*$/gm, ' ').replace(/\s+/g, ' ').slice(0, 120),
+        excerpt: makeExcerpt(parsed.content).slice(0, 120),
         createdAt: parsed.createdAt || '',
       })
     } catch {}
@@ -2380,7 +2394,7 @@ function compactItemLine(item, index) {
   const summary = item.summary || {}
   const title = summary.title || '未命名'
   const date = localDateKey(item.createdAt)
-  const excerpt = String(summary.excerpt || makeExcerpt(summary.content || summary.summary || '')).slice(0, 120)
+  const excerpt = makeExcerpt(summary.content || summary.summary || '').slice(0, 120)
   return `${index + 1}. [${item.id}] ${title} · ${date}${excerpt ? ' · ' + excerpt : ''}`
 }
 
