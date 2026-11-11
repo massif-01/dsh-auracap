@@ -1620,10 +1620,12 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
     }
 
     // Plain-text surfaces (card previews, snippets) must never leak Markdown markers.
-    function stripInlineMarkdown(value) {
+    // `formatLink` lets the copy action keep the target url while previews drop it.
+    function stripInlineMarkdown(value, formatLink) {
+      const link = typeof formatLink === 'function' ? formatLink : (label) => label
       return String(value || '')
         .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
-        .replace(/\[([^\]]+)\]\([^)\s]+\)/g, '$1')
+        .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (match, label, url) => link(label, url))
         .replace(/\*\*([^*\n]+)\*\*/g, '$1')
         .replace(/__([^_\n]+)__/g, '$1')
         .replace(/~~([^~\n]+)~~/g, '$1')
@@ -1632,6 +1634,44 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         .replace(/\*{2,}|~{2,}|`+/g, '')
         .replace(/[ \t]+\n/g, '\n')
         .trim()
+    }
+
+    function inlineToPlainText(value) {
+      return stripInlineMarkdown(value, (label, url) => (label === url ? label : label + ' (' + url + ')'))
+    }
+
+    // What "复制总结" puts on the clipboard: the rendered text, not the Markdown source.
+    function markdownToPlainText(markdown) {
+      const lines = []
+      const separate = () => { if (lines.length && lines[lines.length - 1] !== '') lines.push('') }
+      for (const section of parseMarkdownSections(markdown)) {
+        if (section.label) {
+          separate()
+          lines.push(section.label)
+        }
+        let firstBlockOfLabel = Boolean(section.label)
+        for (const block of section.blocks) {
+          if (!firstBlockOfLabel) separate()
+          firstBlockOfLabel = false
+          if (block.type === 'paragraph') {
+            lines.push(inlineToPlainText(block.text))
+          } else if (block.type === 'list') {
+            block.items.forEach((entry, index) => {
+              const marker = block.ordered ? String(index + 1) + '. ' : '· '
+              const text = inlineToPlainText(entry.text).replace(/\n+/g, ' ')
+              lines.push('  '.repeat(entry.depth) + marker + text)
+            })
+          } else if (block.type === 'code') {
+            lines.push(block.text)
+          } else if (block.type === 'quote') {
+            lines.push(inlineToPlainText(block.text).split('\n').map((line) => '  ' + line).join('\n'))
+          } else if (block.type === 'table') {
+            lines.push(block.header.map((cell) => inlineToPlainText(cell)).join(' | '))
+            block.rows.forEach((row) => lines.push(row.map((cell) => inlineToPlainText(cell)).join(' | ')))
+          }
+        }
+      }
+      return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim()
     }
 
     function plainTextOf(summary) {
@@ -2050,11 +2090,16 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       }, [confirm])
       useEffect(() => { setCopied(false) }, [item.id])
       const summary = item.summary
-      const copyText = summary
+      const copyBody = summary
         ? (typeof summary.content === 'string' && summary.content.trim()
-            ? [summary.title, summary.content].filter(Boolean).join('\n\n')
-            : [summary.title, summary.summary].concat(summary.keyPoints || [], (summary.todos || []).map((todo) => '□ ' + todo)).filter(Boolean).join('\n\n'))
+            ? markdownToPlainText(summary.content)
+            : [
+                summary.summary ? inlineToPlainText(summary.summary) : '',
+                ...(summary.keyPoints || []).map((point, index) => String(index + 1) + '. ' + inlineToPlainText(point)),
+                ...(summary.todos || []).map((todo) => '□ ' + inlineToPlainText(todo)),
+              ].filter(Boolean).join('\n'))
         : ''
+      const copyText = summary ? [summary.title ? inlineToPlainText(summary.title) : '', copyBody].filter(Boolean).join('\n\n') : ''
       const copy = async () => {
         try {
           await navigator.clipboard.writeText(copyText)

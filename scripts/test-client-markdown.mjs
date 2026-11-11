@@ -10,8 +10,8 @@ const start = source.indexOf('function stripInlineMarkdown(')
 const end = source.indexOf('function groupTitle(')
 assert.ok(start > 0 && end > start, 'renderer section markers moved; update this test')
 
-const exposed = new Function('h', 'React', `${source.slice(start, end)}\nreturn { stripInlineMarkdown, plainTextOf, previewOf, renderInline, parseMarkdownSections }`)
-const { stripInlineMarkdown, previewOf, renderInline, parseMarkdownSections } = exposed(React.createElement, React)
+const exposed = new Function('h', 'React', `${source.slice(start, end)}\nreturn { stripInlineMarkdown, inlineToPlainText, markdownToPlainText, plainTextOf, previewOf, renderInline, parseMarkdownSections }`)
+const { stripInlineMarkdown, inlineToPlainText, markdownToPlainText, previewOf, renderInline, parseMarkdownSections } = exposed(React.createElement, React)
 
 const types = (nodes) => nodes.map((node) => (typeof node === 'string' ? 'text' : node.type))
 
@@ -73,5 +73,35 @@ const stale = { excerpt: '**长期记忆**（`MEMORY.md`）：对话中实时记
 assert.equal(previewOf({ summary: stale }), '长期记忆（MEMORY.md）：对话中实时记录')
 const halfBold = { excerpt: '**未闭合的粗体', summary: '', content: '' }
 assert.equal(previewOf({ summary: halfBold }), '未闭合的粗体')
+
+// Copy action puts rendered text on the clipboard, not the Markdown source.
+const copy = markdownToPlainText([
+  '### 核心内容',
+  '董青山整理了五类机制：',
+  '- **长期记忆**（`MEMORY.md`）：实时记录。',
+  '  1. 编号条目',
+  '',
+  '作者注明：内容依据提示词整理。',
+  '',
+  '### 待确认',
+  '- 正文缺少上下文。',
+].join('\n'))
+assert.equal(copy, [
+  '核心内容',
+  '董青山整理了五类机制：',
+  '',
+  '· 长期记忆（MEMORY.md）：实时记录。',
+  '',
+  '  1. 编号条目',
+  '',
+  '作者注明：内容依据提示词整理。',
+  '',
+  '待确认',
+  '· 正文缺少上下文。',
+].join('\n'))
+assert.equal(inlineToPlainText('[文档](https://example.com/a)'), '文档 (https://example.com/a)')
+assert.equal(markdownToPlainText('```js\nconst a = 1\n```'), 'const a = 1')
+assert.equal(markdownToPlainText('| A | B |\n| --- | --- |\n| 1 | 2 |'), 'A | B\n1 | 2')
+assert.equal(markdownToPlainText('### 仅有标题'), '仅有标题')
 
 console.log('client markdown ok')
