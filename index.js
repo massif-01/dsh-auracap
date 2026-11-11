@@ -622,15 +622,9 @@ async function generatePeriodInsight(ctx, items, type, anchorISO, force) {
 }
 
 export function searchSnippet(text, terms) {
-  // Locate the hit in the raw text, then clean only the slice we display, so
-  // offsets never shift and literals such as `__init__` keep their characters.
+  // Locate the hit in the raw text first, then clean only the slice we display.
   const longest = terms.reduce((max, term) => Math.max(max, String(term).length), 0)
-  const source = String(text || '')
-    .replace(/^#{1,6}[ \t]+/gm, (match) => ' '.repeat(match.length))
-    .replace(/^[ \t]*[-*+][ \t]+/gm, (match) => ' '.repeat(match.length))
-    .replace(/^[ \t]*\d+[.)][ \t]+/gm, (match) => ' '.repeat(match.length))
-    .replace(/\s+/g, ' ')
-    .trim()
+  const source = String(text || '').replace(/\s+/g, ' ').trim()
   if (!source) return ''
   const lower = source.toLowerCase()
   let index = -1
@@ -639,12 +633,12 @@ export function searchSnippet(text, terms) {
     if (found >= 0 && (index < 0 || found < index)) index = found
   }
   if (index < 0) {
-    return cleanPreviewText(source.slice(0, 90))
+    return cleanPreviewText(source.slice(0, 90)).replace(/#{1,6}[ \t]+/g, '').trim()
   }
   const start = Math.max(0, index - 34)
   const end = Math.min(source.length, index + Math.max(76, longest + 12))
   const raw = source.slice(start, end)
-  const cleaned = cleanPreviewText(raw)
+  const cleaned = cleanPreviewText(raw).replace(/#{1,6}[ \t]+/g, '').trim()
   const keepsTerm = terms.some((term) => cleaned.toLowerCase().includes(term))
   return (start > 0 ? '…' : '') + (keepsTerm ? cleaned : raw) + (end < source.length ? '…' : '')
 }
@@ -830,21 +824,29 @@ function canOpenEmphasis(text, index, length) {
   return length === 1 ? !isAsciiWord(before) : !/[0-9]/.test(before)
 }
 
-function findClosingRun(text, from, char, length, limit) {
+function findClosingRun(text, from, char, length, limit, context) {
   const end = Math.min(text.length, from + limit)
   let cursor = from
+  let linkAttempts = 0
   while (cursor < end) {
     const current = text[cursor]
-    if (current === '\\') { cursor += 2; continue }
+    if (char !== '`' && current === '\\') { cursor += 2; continue }
     if (char !== '`' && current === '`') {
       const run = runLength(text, cursor, '`')
-      const close = findClosingRun(text, cursor + run, '`', run, MAX_CODE_SPAN)
+      const close = findClosingRun(text, cursor + run, '`', run, MAX_CODE_SPAN, context)
       cursor = close >= 0 ? close + run : cursor + run
       continue
     }
     if (char !== '`' && current === '[') {
-      const link = parseLinkAt(text, cursor)
+      if (context && (context.lastBracket < cursor || linkAttempts >= 8)) {
+        cursor += 1
+        continue
+      }
+      const link = parseLinkAt(text, cursor, context)
       if (link) { cursor = link.end; continue }
+      linkAttempts += 1
+      cursor += 1
+      continue
     }
     if (current === char) {
       const run = runLength(text, cursor, char)
@@ -862,7 +864,7 @@ function unescapeLink(value) {
   return String(value || '').replace(LINK_UNESCAPE, '$1')
 }
 
-function parseLinkAt(text, index) {
+function parseLinkAt(text, index, context) {
   const labelLimit = Math.min(text.length, index + 1 + MAX_INLINE_LABEL)
   let close = -1
   for (let cursor = index + 1; cursor < labelLimit; cursor += 1) {
@@ -875,8 +877,17 @@ function parseLinkAt(text, index) {
   while (cursor < limit && /\s/.test(text[cursor])) cursor += 1
   let target = ''
   if (text[cursor] === '<') {
-    const endAngle = text.indexOf('>', cursor + 1)
-    if (endAngle < 0 || endAngle > limit) return null
+    if (context && context.lastAngleClose < cursor) return null
+    let endAngle = -1
+    let probe = cursor + 1
+    while (probe < limit) {
+      const char = text[probe]
+      if (char === '\\') { probe += 2; continue }
+      if (char === '\n' || char === '\r') return null
+      if (char === '>') { endAngle = probe; break }
+      probe += 1
+    }
+    if (endAngle < 0) return null
     target = text.slice(cursor + 1, endAngle)
     cursor = endAngle + 1
   } else {
@@ -920,6 +931,7 @@ function parseLinkAt(text, index) {
 
 function parseInline(text) {
   const source = String(text == null ? '' : text)
+  const context = { lastBracket: source.lastIndexOf(']'), lastAngleClose: source.lastIndexOf('>') }
   const tokens = []
   let buffer = ''
   let index = 0
@@ -937,7 +949,7 @@ function parseInline(text) {
     }
     if (char === '`') {
       const run = runLength(source, index, '`')
-      const close = findClosingRun(source, index + run, '`', run, MAX_CODE_SPAN)
+      const close = findClosingRun(source, index + run, '`', run, MAX_CODE_SPAN, context)
       if (close >= 0) {
         flush()
         let value = source.slice(index + run, close)
@@ -957,7 +969,7 @@ function parseInline(text) {
       let matched = null
       for (const length of lengths) {
         if (!canOpenEmphasis(source, index, length)) continue
-        const close = findClosingRun(source, index + length, char, length, MAX_INLINE_SPAN)
+        const close = findClosingRun(source, index + length, char, length, MAX_INLINE_SPAN, context)
         if (close > index + length) { matched = { length, close }; break }
       }
       if (matched) {
@@ -975,7 +987,7 @@ function parseInline(text) {
       continue
     }
     if (char === '[') {
-      const link = parseLinkAt(source, index)
+      const link = context.lastBracket >= index ? parseLinkAt(source, index, context) : null
       if (link) {
         flush()
         tokens.push({ type: 'link', href: link.href, children: parseInline(link.label) })
@@ -1030,31 +1042,46 @@ export function cleanPreviewText(value) {
 
 // Remove block markers outside fenced code, so comments and arguments inside
 // a code block keep their literal text when the body is sent to a model.
-function stripBlockMarkers(text) {
-  const lines = String(text || '').split('\n')
-  const out = []
+// Split Markdown into plain-text and code segments so code keeps its literal
+// characters instead of being parsed as formatting.
+function splitMarkdownSegments(text) {
+  const lines = String(text || '').replace(/\r\n?/g, '\n').split('\n')
+  const segments = []
+  let buffer = []
   let fence = null
+  const flushText = () => {
+    if (!buffer.length) return
+    segments.push({ code: false, text: buffer.join('\n') })
+    buffer = []
+  }
   for (const line of lines) {
     if (fence) {
       const closing = line.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/)
-      if (closing && closing[1][0] === fence.marker && closing[1].length >= fence.length) { fence = null; continue }
-      out.push(line)
+      if (closing && closing[1][0] === fence.marker && closing[1].length >= fence.length) {
+        segments.push({ code: true, text: fence.lines.join('\n') })
+        fence = null
+      } else {
+        fence.lines.push(line)
+      }
       continue
     }
     const opening = line.match(/^( {0,3})(`{3,}|~{3,})(.*)$/)
     if (opening && !(opening[2][0] === '`' && opening[3].includes('`'))) {
-      fence = { marker: opening[2][0], length: opening[2].length }
+      flushText()
+      fence = { marker: opening[2][0], length: opening[2].length, lines: [] }
       continue
     }
     if (/^#{1,6}[ \t]+/.test(line)) {
-      out.push('')
+      buffer.push('')
       continue
     }
-    out.push(line
+    buffer.push(line
       .replace(/^[ \t]*[-*+][ \t]+/, '')
       .replace(/^[ \t]*\d+[.)][ \t]+/, ''))
   }
-  return out.join('\n')
+  if (fence) segments.push({ code: true, text: fence.lines.join('\n') })
+  flushText()
+  return segments
 }
 
 export function plainTextOfSummary(summary, cache) {
@@ -1066,7 +1093,11 @@ export function plainTextOfSummary(summary, cache) {
   const source = typeof summary.content === 'string' && summary.content.trim()
     ? summary.content
     : (typeof summary.summary === 'string' ? summary.summary : '')
-  const text = stripInlineMarkdown(stripBlockMarkers(source)).replace(/\s+/g, ' ').trim()
+  const text = splitMarkdownSegments(source)
+    .map((segment) => (segment.code ? segment.text : stripInlineMarkdown(segment.text)))
+    .join('\n')
+    .replace(/\s+/g, ' ')
+    .trim()
   if (cache) cache.set(summary, text)
   return text
 }
@@ -2098,8 +2129,12 @@ function ensureCoreSection(content, language = 'zh') {
 export function makeExcerpt(markdown) {
   // Previews only need a few hundred characters; cap the input before parsing.
   const source = String(markdown || '').slice(0, 2000)
-  const cleaned = cleanPreviewText(stripBlockMarkers(source)).replace(/\s+/g, ' ').trim()
-  return stripDanglingMarkers(cleaned.slice(0, 240)).trim()
+  const cleaned = splitMarkdownSegments(source)
+    .map((segment) => (segment.code ? segment.text : previewText(parseInline(segment.text))))
+    .join('\n')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return cleaned.slice(0, 240).trim()
 }
 
 function balancedJsonObjects(text) {

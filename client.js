@@ -1654,22 +1654,33 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       return length === 1 ? !isAsciiWord(before) : !/[0-9]/.test(before)
     }
 
-    function findClosingRun(text, from, char, length, limit) {
+    function findClosingRun(text, from, char, length, limit, context) {
       const end = Math.min(text.length, from + limit)
       let cursor = from
+      let linkAttempts = 0
       while (cursor < end) {
         const current = text[cursor]
-        if (current === '\\') { cursor += 2; continue }
+        // Escapes apply outside code spans only.
+        if (char !== '`' && current === '\\') { cursor += 2; continue }
         // Code spans and link targets cannot terminate outer emphasis.
         if (char !== '`' && current === '`') {
           const run = runLength(text, cursor, '`')
-          const close = findClosingRun(text, cursor + run, '`', run, MAX_CODE_SPAN)
+          const close = findClosingRun(text, cursor + run, '`', run, MAX_CODE_SPAN, context)
           cursor = close >= 0 ? close + run : cursor + run
           continue
         }
         if (char !== '`' && current === '[') {
-          const link = parseLinkAt(text, cursor)
+          // Link probing is the expensive branch; only try it when a closing
+          // bracket exists ahead and we have not spent the per-scan budget.
+          if (context && (context.lastBracket < cursor || linkAttempts >= 8)) {
+            cursor += 1
+            continue
+          }
+          const link = parseLinkAt(text, cursor, context)
           if (link) { cursor = link.end; continue }
+          linkAttempts += 1
+          cursor += 1
+          continue
         }
         if (current === char) {
           const run = runLength(text, cursor, char)
@@ -1691,7 +1702,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       return String(value || '').replace(LINK_UNESCAPE, '$1')
     }
 
-    function parseLinkAt(text, index) {
+    function parseLinkAt(text, index, context) {
       // A bounded label scan keeps a wall of "[" linear instead of quadratic.
       const labelLimit = Math.min(text.length, index + 1 + MAX_INLINE_LABEL)
       let close = -1
@@ -1705,8 +1716,17 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       while (cursor < limit && /\s/.test(text[cursor])) cursor += 1
       let target = ''
       if (text[cursor] === '<') {
-        const endAngle = text.indexOf('>', cursor + 1)
-        if (endAngle < 0 || endAngle > limit) return null
+        if (context && context.lastAngleClose < cursor) return null
+        let endAngle = -1
+        let probe = cursor + 1
+        while (probe < limit) {
+          const char = text[probe]
+          if (char === '\\') { probe += 2; continue }
+          if (char === '\n' || char === '\r') return null
+          if (char === '>') { endAngle = probe; break }
+          probe += 1
+        }
+        if (endAngle < 0) return null
         target = text.slice(cursor + 1, endAngle)
         cursor = endAngle + 1
       } else {
@@ -1750,6 +1770,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
 
     function parseInline(text) {
       const source = String(text == null ? '' : text)
+      const context = { lastBracket: source.lastIndexOf(']'), lastAngleClose: source.lastIndexOf('>') }
       const tokens = []
       let buffer = ''
       let index = 0
@@ -1767,7 +1788,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         }
         if (char === '`') {
           const run = runLength(source, index, '`')
-          const close = findClosingRun(source, index + run, '`', run, MAX_CODE_SPAN)
+          const close = findClosingRun(source, index + run, '`', run, MAX_CODE_SPAN, context)
           if (close >= 0) {
             flush()
             let value = source.slice(index + run, close)
@@ -1787,7 +1808,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           let matched = null
           for (const length of lengths) {
             if (!canOpenEmphasis(source, index, length)) continue
-            const close = findClosingRun(source, index + length, char, length, MAX_INLINE_SPAN)
+            const close = findClosingRun(source, index + length, char, length, MAX_INLINE_SPAN, context)
             if (close > index + length) { matched = { length, close }; break }
           }
           if (matched) {
@@ -1805,7 +1826,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           continue
         }
         if (char === '[') {
-          const link = parseLinkAt(source, index)
+          const link = context.lastBracket >= index ? parseLinkAt(source, index, context) : null
           if (link) {
             flush()
             tokens.push({ type: 'link', href: link.href, children: parseInline(link.label) })
@@ -1886,33 +1907,46 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       return stripDanglingMarkers(previewText(parseInline(String(value || '').slice(0, 600)))).trim()
     }
 
-    // Remove block markers outside fenced code, so comments and arguments
-    // inside a code block keep their literal text.
-    function stripBlockMarkers(text) {
-      const lines = String(text || '').split('\n')
-      const out = []
+    // Split Markdown into plain-text and code segments so code keeps its
+    // literal characters instead of being parsed as formatting.
+    function splitMarkdownSegments(text) {
+      const lines = String(text || '').replace(/\r\n?/g, '\n').split('\n')
+      const segments = []
+      let buffer = []
       let fence = null
+      const flushText = () => {
+        if (!buffer.length) return
+        segments.push({ code: false, text: buffer.join('\n') })
+        buffer = []
+      }
       for (const line of lines) {
         if (fence) {
           const closing = line.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/)
-          if (closing && closing[1][0] === fence.marker && closing[1].length >= fence.length) { fence = null; continue }
-          out.push(line)
+          if (closing && closing[1][0] === fence.marker && closing[1].length >= fence.length) {
+            segments.push({ code: true, text: fence.lines.join('\n') })
+            fence = null
+          } else {
+            fence.lines.push(line)
+          }
           continue
         }
         const opening = line.match(/^( {0,3})(`{3,}|~{3,})(.*)$/)
         if (opening && !(opening[2][0] === '`' && opening[3].includes('`'))) {
-          fence = { marker: opening[2][0], length: opening[2].length }
+          flushText()
+          fence = { marker: opening[2][0], length: opening[2].length, lines: [] }
           continue
         }
         if (/^#{1,6}[ \t]+/.test(line)) {
-          out.push('')
+          buffer.push('')
           continue
         }
-        out.push(line
+        buffer.push(line
           .replace(/^[ \t]*[-*+][ \t]+/, '')
           .replace(/^[ \t]*\d+[.)][ \t]+/, ''))
       }
-      return out.join('\n')
+      if (fence) segments.push({ code: true, text: fence.lines.join('\n') })
+      flushText()
+      return segments
     }
 
     function plainTextOf(summary, limit) {
@@ -1922,8 +1956,10 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         : (typeof summary.summary === 'string' ? summary.summary : '')
       const cap = Number(limit) > 0 ? Math.max(Number(limit) * 6, 600) : 0
       const source = cap ? String(raw).slice(0, cap) : String(raw)
-      const cleaned = previewText(parseInline(stripBlockMarkers(source)))
-      return stripDanglingMarkers(cleaned).replace(/\s+/g, ' ').trim()
+      const cleaned = splitMarkdownSegments(source)
+        .map((segment) => (segment.code ? segment.text : stripDanglingMarkers(previewText(parseInline(segment.text)))))
+        .join('\n')
+      return cleaned.replace(/\s+/g, ' ').trim()
     }
 
     function previewOf(item) {

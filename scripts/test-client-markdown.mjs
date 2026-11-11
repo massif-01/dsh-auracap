@@ -104,6 +104,16 @@ assert.equal(unsafe.some((node) => typeof node !== 'string' && node.type === 'a'
 assert.equal(plain(unsafe), '[危险](javascript:alert(1))')
 assert.equal(plain(renderInline('[缺少引号](https://example.com/a')), '[缺少引号](https://example.com/a')
 
+// Backslashes inside code spans must not escape the closing backtick.
+assert.equal(inlineToPlainText('`C:\\` 与 `ok`'), 'C:\\ 与 ok')
+assert.equal(serverStrip('`C:\\` 与 `ok`'), 'C:\\ 与 ok')
+
+// Combined emphasis/link probes stay linear.
+const combo = ' *['.repeat(21333)
+const comboStarted = Date.now()
+renderInline(combo)
+assert.ok(Date.now() - comboStarted < 500, 'combined markers must stay linear')
+
 // Long unclosed brackets stay linear (this was a 4.5s pathological case).
 const brackets = '['.repeat(64000)
 let startedAt = Date.now()
@@ -217,6 +227,13 @@ assert.equal(previewOf({ summary: { excerpt: '**长期记忆**（`MEMORY.md`）�
 assert.equal(serverStrip('`__init__` 与 `2**3`'), '__init__ 与 2**3')
 assert.equal(serverStrip('[文档](https://example.com/?q=__init__)'), '文档')
 assert.equal(makeExcerpt('`__init__` 与 `2**3`'), '__init__ 与 2**3')
+assert.equal(makeExcerpt('`*.js`'), '*.js')
+assert.equal(makeExcerpt('`**`'), '**')
+assert.equal(makeExcerpt('`x*`'), 'x*')
+const fencedExcerpt = makeExcerpt('```\n**foo** [x](https://example.com/a)\n```')
+assert.ok(fencedExcerpt.includes('**foo**'), fencedExcerpt)
+assert.ok(fencedExcerpt.includes('[x](https://example.com/a)'), fencedExcerpt)
+assert.ok(makeExcerpt('```\r\n# c\r\n```').includes('# c'))
 assert.equal(makeExcerpt('### 标题\n- **要点**'), '要点')
 assert.ok(makeExcerpt('```sh\n# config flag\n- argument\n1. keep\n```').includes('# config flag'))
 assert.ok(makeExcerpt('```sh\n# config flag\n- argument\n1. keep\n```').includes('- argument'))
@@ -235,6 +252,10 @@ const located = searchSnippet('x'.repeat(400) + ' __init__ tail', ['__init__'])
 assert.ok(located.includes('__init__'), located)
 assert.ok(located.startsWith('…'), located)
 assert.equal(searchSnippet('开头 `__init__` 结尾', ['__init__']).includes('__init__'), true)
+assert.ok(searchSnippet('prefix\n```\n1. keep this literal\n```', ['1.']).includes('1. keep this literal'))
+const angleEscaped = renderInline('[a](<https://example.com/a\\>b>)')
+assert.equal(angleEscaped[0].props.href, 'https://example.com/a>b')
+assert.equal(renderInline('[a](<https://example.com/a\nb>)').some((node) => typeof node !== 'string' && node.type === 'a'), false)
 const headingHit = searchSnippet('### 关键词标题\n正文内容', ['关键词'])
 assert.ok(headingHit.includes('关键词标题'), headingHit)
 const longQuery = 'q'.repeat(90)
