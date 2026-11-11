@@ -624,7 +624,13 @@ async function generatePeriodInsight(ctx, items, type, anchorISO, force) {
 export function searchSnippet(text, terms) {
   // Locate the hit in the raw text, then clean only the slice we display, so
   // offsets never shift and literals such as `__init__` keep their characters.
-  const source = String(text || '').replace(/^#{1,6}\s+.*$/gm, ' ').replace(/\s+/g, ' ').trim()
+  const longest = terms.reduce((max, term) => Math.max(max, String(term).length), 0)
+  const source = String(text || '')
+    .replace(/^#{1,6}[ \t]+/gm, (match) => ' '.repeat(match.length))
+    .replace(/^[ \t]*[-*+][ \t]+/gm, (match) => ' '.repeat(match.length))
+    .replace(/^[ \t]*\d+[.)][ \t]+/gm, (match) => ' '.repeat(match.length))
+    .replace(/\s+/g, ' ')
+    .trim()
   if (!source) return ''
   const lower = source.toLowerCase()
   let index = -1
@@ -636,7 +642,7 @@ export function searchSnippet(text, terms) {
     return cleanPreviewText(source.slice(0, 90))
   }
   const start = Math.max(0, index - 34)
-  const end = Math.min(source.length, index + 76)
+  const end = Math.min(source.length, index + Math.max(76, longest + 12))
   const raw = source.slice(start, end)
   const cleaned = cleanPreviewText(raw)
   const keepsTerm = terms.some((term) => cleaned.toLowerCase().includes(term))
@@ -801,9 +807,10 @@ function previousPeriodAnchors() {
 // every scan is bounded so a body full of "[" cannot stall a request.
 const MAX_INLINE_SPAN = 400
 const MAX_INLINE_LABEL = 400
-const MAX_INLINE_TARGET = 600
+const MAX_INLINE_TARGET = 2048
 const MAX_CODE_SPAN = 1000
 const INLINE_ESCAPABLE = /[\\`*_{}\[\]()#+\-.!~>|]/
+const LINK_UNESCAPE = /\\([\\`*_{}\[\]()#+\-.!~>|<>])/g
 
 function isAsciiWord(value) {
   return /[A-Za-z0-9]/.test(value || '')
@@ -818,24 +825,41 @@ function runLength(text, index, char) {
 function canOpenEmphasis(text, index, length) {
   const after = text[index + length]
   if (!after || /\s/.test(after)) return false
-  return !isAsciiWord(index > 0 ? text[index - 1] : '')
+  const before = index > 0 ? text[index - 1] : ''
+  if (!before) return true
+  return length === 1 ? !isAsciiWord(before) : !/[0-9]/.test(before)
 }
 
 function findClosingRun(text, from, char, length, limit) {
   const end = Math.min(text.length, from + limit)
   let cursor = from
   while (cursor < end) {
-    const found = text.indexOf(char, cursor)
-    if (found < 0 || found + length > end) return -1
-    const run = runLength(text, found, char)
-    if (char === '`') {
-      if (run === length) return found
-    } else if (run >= length && !/\s/.test(text[found - 1] || '')) {
-      return found
+    const current = text[cursor]
+    if (current === '\\') { cursor += 2; continue }
+    if (char !== '`' && current === '`') {
+      const run = runLength(text, cursor, '`')
+      const close = findClosingRun(text, cursor + run, '`', run, MAX_CODE_SPAN)
+      cursor = close >= 0 ? close + run : cursor + run
+      continue
     }
-    cursor = found + run
+    if (char !== '`' && current === '[') {
+      const link = parseLinkAt(text, cursor)
+      if (link) { cursor = link.end; continue }
+    }
+    if (current === char) {
+      const run = runLength(text, cursor, char)
+      const matched = char === '`' ? run === length : run >= length
+      if (matched && (char === '`' || !/\s/.test(text[cursor - 1] || ''))) return cursor
+      cursor += run
+      continue
+    }
+    cursor += 1
   }
   return -1
+}
+
+function unescapeLink(value) {
+  return String(value || '').replace(LINK_UNESCAPE, '$1')
 }
 
 function parseLinkAt(text, index) {
@@ -846,23 +870,50 @@ function parseLinkAt(text, index) {
     if (text[cursor] === ']') { close = cursor; break }
   }
   if (close < 0 || text[close + 1] !== '(') return null
-  let depth = 1
+  const limit = Math.min(text.length, close + 2 + MAX_INLINE_TARGET)
   let cursor = close + 2
-  const targetLimit = Math.min(text.length, cursor + MAX_INLINE_TARGET)
-  while (cursor < targetLimit) {
-    const char = text[cursor]
-    if (char === '\\') { cursor += 2; continue }
-    if (char === '(') depth += 1
-    else if (char === ')') {
-      depth -= 1
-      if (depth === 0) break
+  while (cursor < limit && /\s/.test(text[cursor])) cursor += 1
+  let target = ''
+  if (text[cursor] === '<') {
+    const endAngle = text.indexOf('>', cursor + 1)
+    if (endAngle < 0 || endAngle > limit) return null
+    target = text.slice(cursor + 1, endAngle)
+    cursor = endAngle + 1
+  } else {
+    const start = cursor
+    let depth = 0
+    while (cursor < limit) {
+      const char = text[cursor]
+      if (char === '\\') { cursor += 2; continue }
+      if (char === '(') { depth += 1; cursor += 1; continue }
+      if (char === ')') {
+        if (depth === 0) break
+        depth -= 1
+        cursor += 1
+        continue
+      }
+      if (depth === 0 && /\s/.test(char)) break
+      cursor += 1
     }
-    cursor += 1
+    if (depth !== 0) return null
+    target = text.slice(start, cursor)
   }
-  if (depth !== 0) return null
+  while (cursor < limit && /\s/.test(text[cursor])) cursor += 1
+  if (cursor < limit && (text[cursor] === '"' || text[cursor] === "'" || text[cursor] === '(')) {
+    const opener = text[cursor]
+    const closer = opener === '(' ? ')' : opener
+    cursor += 1
+    while (cursor < limit) {
+      if (text[cursor] === '\\') { cursor += 2; continue }
+      if (text[cursor] === closer) { cursor += 1; break }
+      cursor += 1
+    }
+    while (cursor < limit && /\s/.test(text[cursor])) cursor += 1
+  }
+  if (text[cursor] !== ')') return null
   return {
     label: text.slice(index + 1, close),
-    href: text.slice(close + 2, cursor).trim(),
+    href: unescapeLink(target),
     end: cursor + 1,
   }
 }
@@ -907,7 +958,7 @@ function parseInline(text) {
       for (const length of lengths) {
         if (!canOpenEmphasis(source, index, length)) continue
         const close = findClosingRun(source, index + length, char, length, MAX_INLINE_SPAN)
-        if (close >= 0) { matched = { length, close }; break }
+        if (close > index + length) { matched = { length, close }; break }
       }
       if (matched) {
         flush()
@@ -977,17 +1028,47 @@ export function cleanPreviewText(value) {
   return stripDanglingMarkers(previewText(parseInline(String(value || '')))).trim()
 }
 
-function plainTextOfSummary(summary) {
+// Remove block markers outside fenced code, so comments and arguments inside
+// a code block keep their literal text when the body is sent to a model.
+function stripBlockMarkers(text) {
+  const lines = String(text || '').split('\n')
+  const out = []
+  let fence = null
+  for (const line of lines) {
+    if (fence) {
+      const closing = line.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/)
+      if (closing && closing[1][0] === fence.marker && closing[1].length >= fence.length) { fence = null; continue }
+      out.push(line)
+      continue
+    }
+    const opening = line.match(/^( {0,3})(`{3,}|~{3,})(.*)$/)
+    if (opening && !(opening[2][0] === '`' && opening[3].includes('`'))) {
+      fence = { marker: opening[2][0], length: opening[2].length }
+      continue
+    }
+    if (/^#{1,6}[ \t]+/.test(line)) {
+      out.push('')
+      continue
+    }
+    out.push(line
+      .replace(/^[ \t]*[-*+][ \t]+/, '')
+      .replace(/^[ \t]*\d+[.)][ \t]+/, ''))
+  }
+  return out.join('\n')
+}
+
+export function plainTextOfSummary(summary, cache) {
   if (!summary) return ''
+  if (cache) {
+    const cached = cache.get(summary)
+    if (cached !== undefined) return cached
+  }
   const source = typeof summary.content === 'string' && summary.content.trim()
     ? summary.content
     : (typeof summary.summary === 'string' ? summary.summary : '')
-  return stripInlineMarkdown(String(source)
-    .replace(/^#{1,6}\s+.*$/gm, ' ')
-    .replace(/^\s*[-*+]\s+/gm, ' ')
-    .replace(/^\s*\d+[.)]\s+/gm, ' '))
-    .replace(/\s+/g, ' ')
-    .trim()
+  const text = stripInlineMarkdown(stripBlockMarkers(source)).replace(/\s+/g, ' ').trim()
+  if (cache) cache.set(summary, text)
+  return text
 }
 
 function digestMaterial(items, language = 'zh') {
@@ -2017,13 +2098,7 @@ function ensureCoreSection(content, language = 'zh') {
 export function makeExcerpt(markdown) {
   // Previews only need a few hundred characters; cap the input before parsing.
   const source = String(markdown || '').slice(0, 2000)
-  const cleaned = cleanPreviewText(source
-    .replace(/^#{1,6}\s+.*$/gm, ' ')
-    .replace(/^\s*[-*+]\s+/gm, ' ')
-    .replace(/^\s*\d+[.)]\s+/gm, ' ')
-    .replace(/```/g, ' '))
-    .replace(/\s+/g, ' ')
-    .trim()
+  const cleaned = cleanPreviewText(stripBlockMarkers(source)).replace(/\s+/g, ' ').trim()
   return stripDanglingMarkers(cleaned.slice(0, 240)).trim()
 }
 
@@ -2159,6 +2234,7 @@ export function parseSummary(text, fallbackLanguage = 'zh') {
       title: title || makeExcerpt(normalized).slice(0, 24),
       content: normalized,
       excerpt: makeExcerpt(normalized),
+      excerptClean: true,
       tags,
       entities,
       contentType,
@@ -2169,7 +2245,7 @@ export function parseSummary(text, fallbackLanguage = 'zh') {
   const summary = typeof merged.summary === 'string' ? merged.summary.trim() : ''
   if (summary) {
     if (/^\s*#{1,6}\s/m.test(summary)) {
-      return { title: title || makeExcerpt(summary).slice(0, 24), content: ensureCoreSection(summary, language), excerpt: makeExcerpt(summary), tags, entities, contentType, language }
+      return { title: title || makeExcerpt(summary).slice(0, 24), content: ensureCoreSection(summary, language), excerpt: makeExcerpt(summary), excerptClean: true, tags, entities, contentType, language }
     }
     return {
       title: title || summary.split(/[。.!?\n]/)[0].slice(0, 24),
@@ -2189,6 +2265,7 @@ export function parseSummary(text, fallbackLanguage = 'zh') {
     title: (lines[0] || (language === 'en' ? 'Untitled moment' : '未命名碎片')).replace(/^#+\s*/, '').slice(0, 24),
     content: fallbackContent,
     excerpt: makeExcerpt(fallbackContent),
+    excerptClean: true,
     tags: [],
     entities: [],
     contentType: 'other',
@@ -2575,7 +2652,9 @@ export function compactItemLine(item, index) {
   const body = summary.content || summary.summary || ''
   const excerpt = body
     ? makeExcerpt(body).slice(0, 120)
-    : cleanPreviewText(summary.excerpt || '').slice(0, 120)
+    : (summary.excerptClean
+        ? String(summary.excerpt || '').slice(0, 120)
+        : cleanPreviewText(summary.excerpt || '').slice(0, 120))
   return `${index + 1}. [${item.id}] ${title} · ${date}${excerpt ? ' · ' + excerpt : ''}`
 }
 
@@ -3072,13 +3151,13 @@ function groupSourceKind(item) {
   return (item.source && item.source.kind) || item.kind || 'local'
 }
 
-function groupContinuation(item) {
+function groupContinuation(item, cache) {
   const summary = item.summary || {}
-  const text = [summary.title, plainTextOfSummary(summary)].filter(Boolean).join(' ')
+  const text = [summary.title, plainTextOfSummary(summary, cache)].filter(Boolean).join(' ')
   return /(第\s*[一二三四五六七八九十\d]+\s*[页屏]|接上页|续上|上接|page\s*\d+)/i.test(text) ? 1 : 0
 }
 
-function groupScore(left, right) {
+function groupScore(left, right, cache) {
   const timeA = Date.parse(left.createdAt)
   const timeB = Date.parse(right.createdAt)
   if (!Number.isFinite(timeA) || !Number.isFinite(timeB)) return 0
@@ -3091,8 +3170,8 @@ function groupScore(left, right) {
   if (aspectA && aspectB && Math.abs(aspectA - aspectB) > 0.12) return 0
   const summaryA = left.summary || {}
   const summaryB = right.summary || {}
-  const bodyA = plainTextOfSummary(summaryA).slice(0, 700)
-  const bodyB = plainTextOfSummary(summaryB).slice(0, 700)
+  const bodyA = plainTextOfSummary(summaryA, cache).slice(0, 700)
+  const bodyB = plainTextOfSummary(summaryB, cache).slice(0, 700)
   const titleA = summaryA.title || bodyA.slice(0, 120)
   const titleB = summaryB.title || bodyB.slice(0, 120)
   const title = bigramSimilarity(titleA, titleB)
@@ -3100,7 +3179,7 @@ function groupScore(left, right) {
   const overlap = groupOverlap(left, right)
   const time = 1 - delta / GROUP_WINDOW_MS
   const aspect = aspectA && aspectB ? 1 - Math.min(1, Math.abs(aspectA - aspectB) / 0.12) : 0.7
-  const continuation = Math.max(groupContinuation(left), groupContinuation(right))
+  const continuation = Math.max(groupContinuation(left, cache), groupContinuation(right, cache))
   const score = 0.26 * title + 0.14 * body + 0.18 * overlap + 0.20 * time + 0.12 * aspect + 0.10 * continuation
   const quick = delta <= 5 * 60 * 1000
   const quickEvidence = quick && overlap > 0 && continuation > 0 && aspect > 0.8
@@ -3158,6 +3237,7 @@ export function rebuildGroups(items) {
     if (a !== b) parent.set(b, a)
   }
   const pairScores = new Map()
+  const textCache = new WeakMap()
   const byTime = candidates.map((item) => ({ item, at: Date.parse(item.createdAt) }))
     .filter((entry) => Number.isFinite(entry.at))
     .sort((left, right) => left.at - right.at)
@@ -3166,7 +3246,7 @@ export function rebuildGroups(items) {
       if (byTime[rightIndex].at - byTime[leftIndex].at > GROUP_WINDOW_MS) break
       const left = byTime[leftIndex].item
       const right = byTime[rightIndex].item
-      const score = groupScore(left, right)
+      const score = groupScore(left, right, textCache)
       if (score > 0) {
         union(left.id, right.id)
         pairScores.set(left.id + '|' + right.id, score)

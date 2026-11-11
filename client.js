@@ -801,6 +801,7 @@ window.__ModuleLoader__.load({
 .ac-table th, .ac-table td { border: .5px solid var(--ac-line); padding: 6px 9px; text-align: left; vertical-align: top; }
 .ac-table th { background: var(--ac-surface); font-weight: 600; }
 .ac-link { color: inherit; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: var(--ac-muted); }
+.ac-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .ac-digest { flex: 1; overflow: auto; padding: 30px 28px 60px; }
 .ac-digest-inner { max-width: 860px; margin: 0 auto; }
 .ac-digest-head { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 26px; }
@@ -1628,9 +1629,10 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
     // full of "[" cannot stall a render.
     const MAX_INLINE_SPAN = 400
     const MAX_INLINE_LABEL = 400
-    const MAX_INLINE_TARGET = 600
+    const MAX_INLINE_TARGET = 2048
     const MAX_CODE_SPAN = 1000
     const ESCAPABLE = /[\\`*_{}\[\]()#+\-.!~>|]/
+    const LINK_UNESCAPE = /\\([\\`*_{}\[\]()#+\-.!~>|<>])/g
 
     function isAsciiWord(value) {
       return /[A-Za-z0-9]/.test(value || '')
@@ -1645,28 +1647,48 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
     function canOpenEmphasis(text, index, length) {
       const after = text[index + length]
       if (!after || /\s/.test(after)) return false
-      return !isAsciiWord(index > 0 ? text[index - 1] : '')
+      const before = index > 0 ? text[index - 1] : ''
+      if (!before) return true
+      // Single "*" never opens after a word (2*3*4); "**" may follow a letter
+      // ("page**2**") but not a digit, so math and identifiers stay literal.
+      return length === 1 ? !isAsciiWord(before) : !/[0-9]/.test(before)
     }
 
     function findClosingRun(text, from, char, length, limit) {
       const end = Math.min(text.length, from + limit)
       let cursor = from
       while (cursor < end) {
-        const found = text.indexOf(char, cursor)
-        if (found < 0 || found + length > end) return -1
-        const run = runLength(text, found, char)
-        if (char === '`') {
-          if (run === length) return found
-        } else if (run >= length && !/\s/.test(text[found - 1] || '')) {
-          return found
+        const current = text[cursor]
+        if (current === '\\') { cursor += 2; continue }
+        // Code spans and link targets cannot terminate outer emphasis.
+        if (char !== '`' && current === '`') {
+          const run = runLength(text, cursor, '`')
+          const close = findClosingRun(text, cursor + run, '`', run, MAX_CODE_SPAN)
+          cursor = close >= 0 ? close + run : cursor + run
+          continue
         }
-        cursor = found + run
+        if (char !== '`' && current === '[') {
+          const link = parseLinkAt(text, cursor)
+          if (link) { cursor = link.end; continue }
+        }
+        if (current === char) {
+          const run = runLength(text, cursor, char)
+          const matched = char === '`' ? run === length : run >= length
+          if (matched && (char === '`' || !/\s/.test(text[cursor - 1] || ''))) return cursor
+          cursor += run
+          continue
+        }
+        cursor += 1
       }
       return -1
     }
 
     function safeHref(value) {
       return /^(https?:\/\/|mailto:)/i.test(String(value || ''))
+    }
+
+    function unescapeLink(value) {
+      return String(value || '').replace(LINK_UNESCAPE, '$1')
     }
 
     function parseLinkAt(text, index) {
@@ -1678,23 +1700,50 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         if (text[cursor] === ']') { close = cursor; break }
       }
       if (close < 0 || text[close + 1] !== '(') return null
-      let depth = 1
+      const limit = Math.min(text.length, close + 2 + MAX_INLINE_TARGET)
       let cursor = close + 2
-      const targetLimit = Math.min(text.length, cursor + MAX_INLINE_TARGET)
-      while (cursor < targetLimit) {
-        const char = text[cursor]
-        if (char === '\\') { cursor += 2; continue }
-        if (char === '(') depth += 1
-        else if (char === ')') {
-          depth -= 1
-          if (depth === 0) break
+      while (cursor < limit && /\s/.test(text[cursor])) cursor += 1
+      let target = ''
+      if (text[cursor] === '<') {
+        const endAngle = text.indexOf('>', cursor + 1)
+        if (endAngle < 0 || endAngle > limit) return null
+        target = text.slice(cursor + 1, endAngle)
+        cursor = endAngle + 1
+      } else {
+        const start = cursor
+        let depth = 0
+        while (cursor < limit) {
+          const char = text[cursor]
+          if (char === '\\') { cursor += 2; continue }
+          if (char === '(') { depth += 1; cursor += 1; continue }
+          if (char === ')') {
+            if (depth === 0) break
+            depth -= 1
+            cursor += 1
+            continue
+          }
+          if (depth === 0 && /\s/.test(char)) break
+          cursor += 1
         }
-        cursor += 1
+        if (depth !== 0) return null
+        target = text.slice(start, cursor)
       }
-      if (depth !== 0) return null
+      while (cursor < limit && /\s/.test(text[cursor])) cursor += 1
+      if (cursor < limit && (text[cursor] === '"' || text[cursor] === "'" || text[cursor] === '(')) {
+        const opener = text[cursor]
+        const closer = opener === '(' ? ')' : opener
+        cursor += 1
+        while (cursor < limit) {
+          if (text[cursor] === '\\') { cursor += 2; continue }
+          if (text[cursor] === closer) { cursor += 1; break }
+          cursor += 1
+        }
+        while (cursor < limit && /\s/.test(text[cursor])) cursor += 1
+      }
+      if (text[cursor] !== ')') return null
       return {
         label: text.slice(index + 1, close),
-        href: text.slice(close + 2, cursor).trim(),
+        href: unescapeLink(target),
         end: cursor + 1,
       }
     }
@@ -1739,7 +1788,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           for (const length of lengths) {
             if (!canOpenEmphasis(source, index, length)) continue
             const close = findClosingRun(source, index + length, char, length, MAX_INLINE_SPAN)
-            if (close >= 0) { matched = { length, close }; break }
+            if (close > index + length) { matched = { length, close }; break }
           }
           if (matched) {
             flush()
@@ -1827,7 +1876,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       let out = ''
       for (const token of tokens) {
         if (token.type === 'code') out += token.value
-        else if (token.type === 'text') out += token.value.replace(/`+/g, '').replace(/\*{2,}/g, '').replace(/~{2,}/g, '')
+        else if (token.type === 'text') out += token.value.replace(/`+/g, '').replace(/~{2,}/g, '')
         else out += previewText(token.children)
       }
       return out
@@ -1837,6 +1886,35 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       return stripDanglingMarkers(previewText(parseInline(String(value || '').slice(0, 600)))).trim()
     }
 
+    // Remove block markers outside fenced code, so comments and arguments
+    // inside a code block keep their literal text.
+    function stripBlockMarkers(text) {
+      const lines = String(text || '').split('\n')
+      const out = []
+      let fence = null
+      for (const line of lines) {
+        if (fence) {
+          const closing = line.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/)
+          if (closing && closing[1][0] === fence.marker && closing[1].length >= fence.length) { fence = null; continue }
+          out.push(line)
+          continue
+        }
+        const opening = line.match(/^( {0,3})(`{3,}|~{3,})(.*)$/)
+        if (opening && !(opening[2][0] === '`' && opening[3].includes('`'))) {
+          fence = { marker: opening[2][0], length: opening[2].length }
+          continue
+        }
+        if (/^#{1,6}[ \t]+/.test(line)) {
+          out.push('')
+          continue
+        }
+        out.push(line
+          .replace(/^[ \t]*[-*+][ \t]+/, '')
+          .replace(/^[ \t]*\d+[.)][ \t]+/, ''))
+      }
+      return out.join('\n')
+    }
+
     function plainTextOf(summary, limit) {
       if (!summary) return ''
       const raw = typeof summary.content === 'string' && summary.content.trim()
@@ -1844,17 +1922,19 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         : (typeof summary.summary === 'string' ? summary.summary : '')
       const cap = Number(limit) > 0 ? Math.max(Number(limit) * 6, 600) : 0
       const source = cap ? String(raw).slice(0, cap) : String(raw)
-      const cleaned = previewText(parseInline(source
-        .replace(/^#{1,6}\s+.*$/gm, ' ')
-        .replace(/^\s*[-*+]\s+/gm, ' ')
-        .replace(/^\s*\d+[.)]\s+/gm, ' ')))
+      const cleaned = previewText(parseInline(stripBlockMarkers(source)))
       return stripDanglingMarkers(cleaned).replace(/\s+/g, ' ').trim()
     }
 
     function previewOf(item) {
       const summary = item.summary
       if (!summary) return ''
-      if (typeof summary.excerpt === 'string' && summary.excerpt) return cleanPreview(summary.excerpt).slice(0, 160)
+      if (typeof summary.excerpt === 'string' && summary.excerpt) {
+        // Generated excerpts are already plain text; only legacy stored
+        // excerpts need the tolerant Markdown cleanup.
+        const text = summary.excerptClean ? String(summary.excerpt) : cleanPreview(summary.excerpt)
+        return text.slice(0, 160)
+      }
       return plainTextOf(summary, 160).slice(0, 160)
     }
 
@@ -1869,13 +1949,16 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
     function summaryCopyText(summary) {
       if (!summary) return ''
       const markdown = summaryMarkdown(summary)
-      const body = markdown
-        ? markdownToPlainText(markdown)
-        : [
-            summary.summary ? inlineToPlainText(summary.summary) : '',
-            ...(summary.keyPoints || []).map((point, index) => String(index + 1) + '. ' + inlineToPlainText(point)),
-            ...(summary.todos || []).map((todo) => '□ ' + inlineToPlainText(todo)),
-          ].filter(Boolean).join('\n')
+      const parts = []
+      if (markdown) parts.push(markdownToPlainText(markdown))
+      else if (summary.summary) parts.push(inlineToPlainText(summary.summary))
+      if (summary.keyPoints && summary.keyPoints.length) {
+        parts.push(summary.keyPoints.map((point, index) => String(index + 1) + '. ' + inlineToPlainText(point)).join('\n'))
+      }
+      if (summary.todos && summary.todos.length) {
+        parts.push(summary.todos.map((todo) => '□ ' + inlineToPlainText(todo)).join('\n'))
+      }
+      const body = parts.filter(Boolean).join('\n')
       return [summary.title ? inlineToPlainText(summary.title) : '', body].filter(Boolean).join('\n\n')
     }
 
@@ -1946,7 +2029,9 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         const raw = lines[lineIndex]
         const trimmed = raw.trim()
         if (code) {
-          const closing = trimmed.match(/^(`{3,}|~{3,})$/)
+          // A closing fence may be indented up to three spaces; deeper
+          // indentation is code content.
+          const closing = raw.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/)
           if (closing && closing[1][0] === code.marker && closing[1].length >= code.length) {
             ensureSection().blocks.push({ type: 'code', lang: code.lang, text: code.lines.join('\n') })
             code = null
@@ -1955,10 +2040,10 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           }
           continue
         }
-        const opening = raw.match(/^\s{0,3}(`{3,}|~{3,})\s*(.*)$/)
-        if (opening) {
+        const opening = raw.match(/^( {0,3})(`{3,}|~{3,})(.*)$/)
+        if (opening && !(opening[2][0] === '`' && opening[3].includes('`'))) {
           flushInline()
-          code = { marker: opening[1][0], length: opening[1].length, lang: opening[2].trim(), lines: [] }
+          code = { marker: opening[2][0], length: opening[2].length, lang: opening[3].trim(), lines: [] }
           continue
         }
         const heading = trimmed.match(/^(#{1,6})\s+(.*)$/)
@@ -2184,7 +2269,6 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         'data-active': props.active,
         role: 'button',
         tabIndex: 0,
-        'aria-label': name + ' · ' + t('groupCount') + ' ' + items.length + ' ' + t('groupScreens'),
         onClick: props.onClick,
         onKeyDown: (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); props.onClick() } },
       },
@@ -2194,7 +2278,8 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           h('div', { className: 'ac-row-meta' },
             h('span', { className: 'ac-status' }, h('i', { className: 'ac-dot', 'data-state': groupStatus(items) })),
             latest ? h('span', null, timeText(latest.createdAt)) : null,
-            tag ? h('span', { className: 'ac-row-tag' }, '#' + tag) : null)))
+            tag ? h('span', { className: 'ac-row-tag' }, '#' + tag) : null),
+          h('span', { className: 'ac-sr-only' }, t('groupCount') + ' ' + items.length + ' ' + t('groupScreens'))))
     }
 
     function GroupCard(props) {
@@ -2209,7 +2294,6 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       return h('button', {
         className: 'ac-card ac-group-card',
         type: 'button',
-        'aria-label': name + ' · ' + t('groupCount') + ' ' + items.length + ' ' + t('groupScreens'),
         onClick: props.onClick,
       },
         h(GroupStack, { items, variant: 'card', placeholder: primary }),
@@ -2218,7 +2302,8 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           h('div', { className: 'ac-card-desc' }, mergedPreview || previewOf(primary) || ''),
           h('div', { className: 'ac-card-meta' },
             latest ? h('span', null, timeText(latest.createdAt)) : null,
-            tag ? h('span', { className: 'ac-card-tag' }, '#' + tag) : null)))
+            tag ? h('span', { className: 'ac-card-tag' }, '#' + tag) : null),
+          h('span', { className: 'ac-sr-only' }, t('groupCount') + ' ' + items.length + ' ' + t('groupScreens'))))
     }
 
     function latestGroupTime(items) {
@@ -2394,22 +2479,23 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         const markdown = summaryMarkdown(summary)
         if (markdown) {
           body.push(h(MarkdownSections, { key: 'markdown', sections: parseMarkdownSections(markdown), idPrefix: 'detail' }))
-        } else {
-          if (summary.summary) body.push(h('div', { className: 'ac-section', key: 'summary' }, h('div', { className: 'ac-body-text' }, summary.summary)))
-          if (summary.keyPoints && summary.keyPoints.length) {
-            body.push(h('div', { className: 'ac-section', key: 'points' },
-              h('div', { className: 'ac-sec-label' }, t('keyPoints')),
-              h('ol', { className: 'ac-points' }, summary.keyPoints.map((point, index) => h('li', { className: 'ac-point', key: index },
-                h('span', { className: 'ac-point-no' }, pad(index + 1)),
-                h('span', null, point))))))
-          }
-          if (summary.todos && summary.todos.length) {
-            body.push(h('div', { className: 'ac-section', key: 'todos' },
-              h('div', { className: 'ac-sec-label' }, t('todos')),
-              h('ul', { className: 'ac-todos' }, summary.todos.map((todo, index) => h('li', { className: 'ac-todo', key: index },
-                h('span', { className: 'ac-todo-dot' }),
-                h('span', null, todo))))))
-          }
+        } else if (summary.summary) {
+          body.push(h('div', { className: 'ac-section', key: 'summary' }, h('div', { className: 'ac-body-text' }, summary.summary)))
+        }
+        // Legacy structured fields survive even when the body is Markdown.
+        if (summary.keyPoints && summary.keyPoints.length) {
+          body.push(h('div', { className: 'ac-section', key: 'points' },
+            h('div', { className: 'ac-sec-label' }, t('keyPoints')),
+            h('ol', { className: 'ac-points' }, summary.keyPoints.map((point, index) => h('li', { className: 'ac-point', key: index },
+              h('span', { className: 'ac-point-no' }, pad(index + 1)),
+              h('span', null, inlineToPlainText(point)))))))
+        }
+        if (summary.todos && summary.todos.length) {
+          body.push(h('div', { className: 'ac-section', key: 'todos' },
+            h('div', { className: 'ac-sec-label' }, t('todos')),
+            h('ul', { className: 'ac-todos' }, summary.todos.map((todo, index) => h('li', { className: 'ac-todo', key: index },
+              h('span', { className: 'ac-todo-dot' }),
+              h('span', null, inlineToPlainText(todo)))))))
         }
         if (summary.tags && summary.tags.length) {
           body.push(h('div', { className: 'ac-section', key: 'tags' },
