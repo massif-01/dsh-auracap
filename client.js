@@ -686,14 +686,13 @@ window.__ModuleLoader__.load({
 .ac-thumb-doc { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-layer-2); }
 .ac-doc-ext { font-size: 8px; letter-spacing: .08em; font-family: var(--dsw-font-family, 'Geist', sans-serif); opacity: .8; }
 .ac-card-doc { display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--dsw-alias-label-secondary); }
-.ac-row-meta { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--dsw-alias-label-secondary); margin-top: auto; padding-top: 2px; }
+.ac-row-meta { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--dsw-alias-label-secondary); margin-top: auto; padding-top: 2px; min-width: 0; overflow: hidden; }
+.ac-row-meta > span, .ac-card-meta > span { white-space: nowrap; }
+.ac-row-tag { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .ac-thumb-stack { position: relative; width: 44px; height: 56px; flex: none; }
 .ac-stack-thumb { position: absolute; top: 0; left: 0; width: 36px; height: 48px; border-radius: 5px; object-fit: cover; object-position: top center; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-2); box-shadow: 0 2px 6px color-mix(in srgb, var(--dsw-alias-label-primary) 8%, transparent); }
-.ac-group-count { position: absolute; right: 0; bottom: 0; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 999px; background: var(--dsw-alias-brand-primary); color: var(--dsw-alias-bg-base); font-size: 9px; line-height: 15px; text-align: center; font-variant-numeric: tabular-nums; }
-.ac-group-badge { color: var(--dsw-alias-brand-primary); }
-.ac-card-group-cover { position: relative; }
-.ac-card-group-cover .ac-card-img { display: block; }
-.ac-group-count-overlay { top: 8px; right: 8px; bottom: auto; }
+.ac-card-stack { position: relative; aspect-ratio: 1 / 1; background: var(--dsw-alias-bg-layer-1); border-bottom: 1px solid var(--dsw-alias-border-l1); overflow: hidden; }
+.ac-card-stack-img { position: absolute; object-fit: cover; object-position: top center; border-radius: 6px; border: .5px solid var(--ac-line); background: var(--dsw-alias-bg-base); box-shadow: 0 2px 6px color-mix(in srgb, var(--dsw-alias-label-primary) 8%, transparent); }
 .ac-group-kicker { font-size: 9.5px; letter-spacing: .14em; color: var(--dsw-alias-label-secondary); margin-bottom: 10px; text-transform: uppercase; }
 .ac-group-members { display: flex; flex-direction: column; gap: 2px; }
 .ac-group-member { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 0; border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1); background: transparent; color: var(--dsw-alias-label-primary); font-family: inherit; text-align: left; cursor: pointer; }
@@ -1026,9 +1025,10 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
 .ac-card:hover { transform: translateY(-2px); border-color: var(--dsw-alias-border-l2); box-shadow: 0 10px 30px color-mix(in srgb, var(--dsw-alias-label-primary) 9%, transparent); }
 .ac-card-img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; object-position: top center; background: var(--dsw-alias-bg-layer-2); border-bottom: 1px solid var(--dsw-alias-border-l1); }
 .ac-card-body { padding: 9px 10px 10px; display: flex; flex-direction: column; gap: 3px; }
-.ac-card-title { font-size: 12.5px; font-weight: 500; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.ac-card-desc { font-size: 10.5px; color: var(--dsw-alias-label-secondary); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
-.ac-card-meta { font-size: 10px; color: var(--dsw-alias-label-secondary); margin-top: 2px; display: flex; gap: 6px; }
+.ac-card-title { font-size: 12.5px; font-weight: 500; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.8em; }
+.ac-card-desc { font-size: 10.5px; color: var(--dsw-alias-label-secondary); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; min-height: 1.45em; }
+.ac-card-meta { font-size: 10px; color: var(--dsw-alias-label-secondary); margin-top: 2px; display: flex; gap: 6px; min-width: 0; }
+.ac-card-tag { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .ac-modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 40px; background: color-mix(in srgb,var(--ac-ink) 24%,transparent); backdrop-filter: none; }
 .ac-modal-card { width: min(980px, 100%); max-height: 86vh; overflow: auto; background: var(--dsw-alias-bg-base); border: .5px solid var(--ac-line); border-radius: 24px; box-shadow: var(--ac-panel-shadow); position: relative; }
 .ac-modal-card .ac-detail { padding: 26px; }
@@ -1891,17 +1891,27 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
     }
 
     function GroupStack(props) {
+      const card = props.variant === 'card'
       const items = (props.items || []).filter((item) => item.image).slice(0, 3)
-      return h('div', { className: 'ac-thumb-stack' },
+      const step = card ? 6 : 3
+      const spread = step * Math.max(0, items.length - 1)
+      return h('div', { className: card ? 'ac-card-stack' : 'ac-thumb-stack' },
         items.map((item, index) => h('img', {
           key: item.id,
-          className: 'ac-stack-thumb',
-          style: { zIndex: 3 - index, transform: 'translate(' + (index * 3) + 'px,' + (index * 2) + 'px)' },
+          className: card ? 'ac-card-stack-img' : 'ac-stack-thumb',
+          style: card
+            ? {
+                zIndex: 3 - index,
+                top: (index * step) + 'px',
+                left: (index * step) + 'px',
+                width: 'calc(100% - ' + spread + 'px)',
+                height: 'calc(100% - ' + spread + 'px)',
+              }
+            : { zIndex: 3 - index, transform: 'translate(' + (index * 3) + 'px,' + (index * 2) + 'px)' },
           src: API + '/media/' + encodeURIComponent(item.id),
           alt: '',
           draggable: false,
-        })),
-        h('span', { className: 'ac-group-count' }, String(props.count || items.length)))
+        })))
     }
 
     function GroupRow(props) {
@@ -1910,6 +1920,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       const latest = groupLatest(items)
       const primary = items.find((item) => item.id === props.group.primaryId) || items[0]
       const tag = primary && primary.summary && primary.summary.tags && primary.summary.tags[0]
+      const hasImage = items.some((item) => item.image)
       return h('div', {
         className: 'ac-row ac-group-row',
         'data-active': props.active,
@@ -1918,34 +1929,35 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         onClick: props.onClick,
         onKeyDown: (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); props.onClick() } },
       },
-        h(GroupStack, { items, count: items.length }),
+        hasImage
+          ? h(GroupStack, { items })
+          : h('div', { className: 'ac-thumb ac-thumb-doc' }, DocumentIcon(), h('span', { className: 'ac-doc-ext' }, documentExtension(primary))),
         h('div', { className: 'ac-row-main' },
           h('div', { className: 'ac-row-title' }, groupTitle(props.group, items, t)),
           h('div', { className: 'ac-row-meta' },
-            h('span', { className: 'ac-group-badge' }, t('groupCount') + ' ' + items.length + ' ' + t('groupScreens')),
+            h('span', { className: 'ac-status' }, h('i', { className: 'ac-dot', 'data-state': latest && latest.status ? latest.status : 'ready' })),
             latest ? h('span', null, timeText(latest.createdAt)) : null,
-            tag ? h('span', null, '#' + tag) : null)))
+            tag ? h('span', { className: 'ac-row-tag' }, '#' + tag) : null)))
     }
 
     function GroupCard(props) {
       const t = props.t
       const items = props.items || []
       const primary = items.find((item) => item.id === props.group.primaryId) || items[0]
-      const cover = primary && primary.image ? primary : items.find((item) => item.image)
+      const merged = props.group.merged
       const latest = groupLatest(items)
       const tag = primary && primary.summary && primary.summary.tags && primary.summary.tags[0]
+      const mergedPreview = merged && merged.content ? plainTextOf({ content: merged.content }).slice(0, 160) : ''
       return h('button', { className: 'ac-card ac-group-card', type: 'button', onClick: props.onClick },
-        h('div', { className: 'ac-card-group-cover' },
-          cover
-            ? h('img', { className: 'ac-card-img', src: API + '/media/' + encodeURIComponent(cover.id), alt: '', loading: 'lazy', draggable: false })
-            : h('div', { className: 'ac-card-img ac-card-doc' }, DocumentIcon(), h('span', { className: 'ac-doc-ext' }, documentExtension(primary))),
-          h('span', { className: 'ac-group-count ac-group-count-overlay' }, String(items.length))),
+        items.some((item) => item.image)
+          ? h(GroupStack, { items, variant: 'card' })
+          : h('div', { className: 'ac-card-img ac-card-doc' }, DocumentIcon(), h('span', { className: 'ac-doc-ext' }, documentExtension(primary))),
         h('div', { className: 'ac-card-body' },
           h('div', { className: 'ac-card-title' }, groupTitle(props.group, items, t)),
-          h('div', { className: 'ac-card-desc' }, t('groupSame') + ' · ' + items.length + ' ' + t('groupScreens')),
+          h('div', { className: 'ac-card-desc' }, mergedPreview || previewOf(primary) || ''),
           h('div', { className: 'ac-card-meta' },
             latest ? h('span', null, timeText(latest.createdAt)) : null,
-            tag ? h('span', null, '#' + tag) : null)))
+            tag ? h('span', { className: 'ac-card-tag' }, '#' + tag) : null)))
     }
 
     function latestGroupTime(items) {
@@ -2075,7 +2087,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           h('div', { className: 'ac-row-meta' },
             h('span', { className: 'ac-status' }, h('i', { className: 'ac-dot', 'data-state': item.status })),
             h('span', null, timeText(item.createdAt)),
-            summary && summary.tags && summary.tags.length ? h('span', null, '#' + summary.tags[0]) : null)))
+            summary && summary.tags && summary.tags.length ? h('span', { className: 'ac-row-tag' }, '#' + summary.tags[0]) : null)))
     }
 
     function Detail(props) {
@@ -2217,7 +2229,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
                 : t('summarizing')),
           h('div', { className: 'ac-card-meta' },
             h('span', null, timeText(item.createdAt)),
-            summary && summary.tags && summary.tags.length ? h('span', null, '#' + summary.tags[0]) : null)))
+            summary && summary.tags && summary.tags.length ? h('span', { className: 'ac-card-tag' }, '#' + summary.tags[0]) : null)))
     }
 
     function SectionBlock(props) {
