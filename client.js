@@ -687,12 +687,15 @@ window.__ModuleLoader__.load({
 .ac-doc-ext { font-size: 8px; letter-spacing: .08em; font-family: var(--dsw-font-family, 'Geist', sans-serif); opacity: .8; }
 .ac-card-doc { display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--dsw-alias-label-secondary); }
 .ac-row-meta { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--dsw-alias-label-secondary); margin-top: auto; padding-top: 2px; min-width: 0; overflow: hidden; }
-.ac-row-meta > span, .ac-card-meta > span { white-space: nowrap; }
-.ac-row-tag { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ac-row-meta > span, .ac-card-meta > span { min-width: 0; overflow-wrap: anywhere; }
+.ac-row-meta > .ac-status { flex: none; }
+.ac-row-tag { flex-shrink: 1000; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ac-thumb-stack { position: relative; width: 44px; height: 56px; flex: none; }
 .ac-stack-thumb { position: absolute; top: 0; left: 0; width: 36px; height: 48px; border-radius: 5px; object-fit: cover; object-position: top center; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-2); box-shadow: 0 2px 6px color-mix(in srgb, var(--dsw-alias-label-primary) 8%, transparent); }
 .ac-card-stack { position: relative; aspect-ratio: 1 / 1; background: var(--dsw-alias-bg-layer-1); border-bottom: 1px solid var(--dsw-alias-border-l1); overflow: hidden; }
 .ac-card-stack-img { position: absolute; object-fit: cover; object-position: top center; border-radius: 6px; border: .5px solid var(--ac-line); background: var(--dsw-alias-bg-base); box-shadow: 0 2px 6px color-mix(in srgb, var(--dsw-alias-label-primary) 8%, transparent); }
+.ac-stack-doc { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--dsw-alias-label-secondary); }
+.ac-stack-ghost { background: var(--dsw-alias-bg-layer-1); }
 .ac-group-kicker { font-size: 9.5px; letter-spacing: .14em; color: var(--dsw-alias-label-secondary); margin-bottom: 10px; text-transform: uppercase; }
 .ac-group-members { display: flex; flex-direction: column; gap: 2px; }
 .ac-group-member { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 0; border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1); background: transparent; color: var(--dsw-alias-label-primary); font-family: inherit; text-align: left; cursor: pointer; }
@@ -1028,7 +1031,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
 .ac-card-title { font-size: 12.5px; font-weight: 500; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.8em; }
 .ac-card-desc { font-size: 10.5px; color: var(--dsw-alias-label-secondary); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; min-height: 1.45em; }
 .ac-card-meta { font-size: 10px; color: var(--dsw-alias-label-secondary); margin-top: 2px; display: flex; gap: 6px; min-width: 0; }
-.ac-card-tag { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ac-card-tag { flex-shrink: 1000; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ac-modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 40px; background: color-mix(in srgb,var(--ac-ink) 24%,transparent); backdrop-filter: none; }
 .ac-modal-card { width: min(980px, 100%); max-height: 86vh; overflow: auto; background: var(--dsw-alias-bg-base); border: .5px solid var(--ac-line); border-radius: 24px; box-shadow: var(--ac-panel-shadow); position: relative; }
 .ac-modal-card .ac-detail { padding: 26px; }
@@ -1619,132 +1622,303 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       return t('ready')
     }
 
+    // Inline Markdown for model output. Code spans stay literal, links need a
+    // balanced target, and emphasis only opens at word boundaries so "2*3*4"
+    // or a URL never turns into formatting. Every scan is bounded, so a body
+    // full of "[" cannot stall a render.
+    const MAX_INLINE_SPAN = 400
+    const MAX_INLINE_LABEL = 400
+    const MAX_INLINE_TARGET = 600
+    const MAX_CODE_SPAN = 1000
+    const ESCAPABLE = /[\\`*_{}\[\]()#+\-.!~>|]/
+
+    function isAsciiWord(value) {
+      return /[A-Za-z0-9]/.test(value || '')
+    }
+
+    function runLength(text, index, char) {
+      let end = index
+      while (end < text.length && text[end] === char) end += 1
+      return end - index
+    }
+
+    function canOpenEmphasis(text, index, length) {
+      const after = text[index + length]
+      if (!after || /\s/.test(after)) return false
+      return !isAsciiWord(index > 0 ? text[index - 1] : '')
+    }
+
+    function findClosingRun(text, from, char, length, limit) {
+      const end = Math.min(text.length, from + limit)
+      let cursor = from
+      while (cursor < end) {
+        const found = text.indexOf(char, cursor)
+        if (found < 0 || found + length > end) return -1
+        const run = runLength(text, found, char)
+        if (char === '`') {
+          if (run === length) return found
+        } else if (run >= length && !/\s/.test(text[found - 1] || '')) {
+          return found
+        }
+        cursor = found + run
+      }
+      return -1
+    }
+
+    function safeHref(value) {
+      return /^(https?:\/\/|mailto:)/i.test(String(value || ''))
+    }
+
+    function parseLinkAt(text, index) {
+      // A bounded label scan keeps a wall of "[" linear instead of quadratic.
+      const labelLimit = Math.min(text.length, index + 1 + MAX_INLINE_LABEL)
+      let close = -1
+      for (let cursor = index + 1; cursor < labelLimit; cursor += 1) {
+        if (text[cursor] === '\\') { cursor += 1; continue }
+        if (text[cursor] === ']') { close = cursor; break }
+      }
+      if (close < 0 || text[close + 1] !== '(') return null
+      let depth = 1
+      let cursor = close + 2
+      const targetLimit = Math.min(text.length, cursor + MAX_INLINE_TARGET)
+      while (cursor < targetLimit) {
+        const char = text[cursor]
+        if (char === '\\') { cursor += 2; continue }
+        if (char === '(') depth += 1
+        else if (char === ')') {
+          depth -= 1
+          if (depth === 0) break
+        }
+        cursor += 1
+      }
+      if (depth !== 0) return null
+      return {
+        label: text.slice(index + 1, close),
+        href: text.slice(close + 2, cursor).trim(),
+        end: cursor + 1,
+      }
+    }
+
+    function parseInline(text) {
+      const source = String(text == null ? '' : text)
+      const tokens = []
+      let buffer = ''
+      let index = 0
+      const flush = () => {
+        if (!buffer) return
+        tokens.push({ type: 'text', value: buffer })
+        buffer = ''
+      }
+      while (index < source.length) {
+        const char = source[index]
+        if (char === '\\' && index + 1 < source.length && ESCAPABLE.test(source[index + 1])) {
+          buffer += source[index + 1]
+          index += 2
+          continue
+        }
+        if (char === '`') {
+          const run = runLength(source, index, '`')
+          const close = findClosingRun(source, index + run, '`', run, MAX_CODE_SPAN)
+          if (close >= 0) {
+            flush()
+            let value = source.slice(index + run, close)
+            // CommonMark trims one padding space on each side of a code span.
+            if (value.length > 2 && value.startsWith(' ') && value.endsWith(' ') && value.trim()) value = value.slice(1, -1)
+            tokens.push({ type: 'code', value })
+            index = close + run
+            continue
+          }
+          buffer += source.slice(index, index + run)
+          index += run
+          continue
+        }
+        if (char === '*' || char === '~') {
+          const run = runLength(source, index, char)
+          const lengths = char === '~' ? (run >= 2 ? [2] : []) : [3, 2, 1].filter((length) => length <= run)
+          let matched = null
+          for (const length of lengths) {
+            if (!canOpenEmphasis(source, index, length)) continue
+            const close = findClosingRun(source, index + length, char, length, MAX_INLINE_SPAN)
+            if (close >= 0) { matched = { length, close }; break }
+          }
+          if (matched) {
+            flush()
+            const children = parseInline(source.slice(index + matched.length, matched.close))
+            if (char === '~') tokens.push({ type: 'del', children })
+            else if (matched.length === 3) tokens.push({ type: 'strong', children: [{ type: 'em', children }] })
+            else if (matched.length === 2) tokens.push({ type: 'strong', children })
+            else tokens.push({ type: 'em', children })
+            index = matched.close + matched.length
+            continue
+          }
+          buffer += source.slice(index, index + run)
+          index += run
+          continue
+        }
+        if (char === '[') {
+          const link = parseLinkAt(source, index)
+          if (link) {
+            flush()
+            tokens.push({ type: 'link', href: link.href, children: parseInline(link.label) })
+            index = link.end
+            continue
+          }
+          buffer += char
+          index += 1
+          continue
+        }
+        buffer += char
+        index += 1
+      }
+      flush()
+      return tokens
+    }
+
+    function inlineNodes(tokens, keyPrefix) {
+      return tokens.map((token, index) => {
+        const key = keyPrefix + '-' + index
+        if (token.type === 'text') return token.value
+        if (token.type === 'code') return h('code', { key, className: 'ac-inline-code' }, token.value)
+        if (token.type === 'link') {
+          if (!safeHref(token.href)) {
+            return h('span', { key, className: 'ac-link-literal' }, '[', inlineNodes(token.children, key), '](' + token.href + ')')
+          }
+          return h('a', { key, className: 'ac-link', href: token.href, target: '_blank', rel: 'noreferrer noopener' }, inlineNodes(token.children, key))
+        }
+        const tag = token.type === 'strong' ? 'strong' : token.type === 'em' ? 'em' : 'del'
+        return h(tag, { key }, inlineNodes(token.children, key))
+      })
+    }
+
+    function renderInline(text, keyPrefix) {
+      return inlineNodes(parseInline(text), keyPrefix || 'inline')
+    }
+
+    function inlineText(tokens, formatLink) {
+      let out = ''
+      for (const token of tokens) {
+        if (token.type === 'text' || token.type === 'code') out += token.value
+        else if (token.type === 'link') out += formatLink(inlineText(token.children, formatLink), token.href)
+        else out += inlineText(token.children, formatLink)
+      }
+      return out
+    }
+
     // Plain-text surfaces (card previews, snippets) must never leak Markdown markers.
     // `formatLink` lets the copy action keep the target url while previews drop it.
     function stripInlineMarkdown(value, formatLink) {
       const link = typeof formatLink === 'function' ? formatLink : (label) => label
-      return String(value || '')
-        .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
-        .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (match, label, url) => link(label, url))
-        .replace(/\*\*([^*\n]+)\*\*/g, '$1')
-        .replace(/__([^_\n]+)__/g, '$1')
-        .replace(/~~([^~\n]+)~~/g, '$1')
-        .replace(/`([^`\n]+)`/g, '$1')
-        .replace(/\*([^*\s][^*\n]*)\*/g, '$1')
-        .replace(/\*{2,}|~{2,}|`+/g, '')
-        .replace(/[ \t]+\n/g, '\n')
-        .trim()
+      return inlineText(parseInline(value), link)
     }
 
     function inlineToPlainText(value) {
       return stripInlineMarkdown(value, (label, url) => (label === url ? label : label + ' (' + url + ')'))
     }
 
-    // What "复制总结" puts on the clipboard: the rendered text, not the Markdown source.
-    function markdownToPlainText(markdown) {
-      const lines = []
-      const separate = () => { if (lines.length && lines[lines.length - 1] !== '') lines.push('') }
-      for (const section of parseMarkdownSections(markdown)) {
-        if (section.label) {
-          separate()
-          lines.push(section.label)
-        }
-        let firstBlockOfLabel = Boolean(section.label)
-        for (const block of section.blocks) {
-          if (!firstBlockOfLabel) separate()
-          firstBlockOfLabel = false
-          if (block.type === 'paragraph') {
-            lines.push(inlineToPlainText(block.text))
-          } else if (block.type === 'list') {
-            block.items.forEach((entry, index) => {
-              const marker = block.ordered ? String(index + 1) + '. ' : '· '
-              const text = inlineToPlainText(entry.text).replace(/\n+/g, ' ')
-              lines.push('  '.repeat(entry.depth) + marker + text)
-            })
-          } else if (block.type === 'code') {
-            lines.push(block.text)
-          } else if (block.type === 'quote') {
-            lines.push(inlineToPlainText(block.text).split('\n').map((line) => '  ' + line).join('\n'))
-          } else if (block.type === 'table') {
-            lines.push(block.header.map((cell) => inlineToPlainText(cell)).join(' | '))
-            block.rows.forEach((row) => lines.push(row.map((cell) => inlineToPlainText(cell)).join(' | ')))
-          }
-        }
-      }
-      return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim()
+    // Stored excerpts were cut mid-token before the renderer existed; only
+    // previews may drop such dangling markers.
+    function stripDanglingMarkers(value) {
+      return String(value || '')
+        .replace(/^(?:\*{1,3}|`{1,3}|~{2})/, '')
+        .replace(/(?:\*{1,3}|`{1,3}|~{2})$/, '')
     }
 
-    function plainTextOf(summary) {
+    function previewText(tokens) {
+      let out = ''
+      for (const token of tokens) {
+        if (token.type === 'code') out += token.value
+        else if (token.type === 'text') out += token.value.replace(/`+/g, '').replace(/\*{2,}/g, '').replace(/~{2,}/g, '')
+        else out += previewText(token.children)
+      }
+      return out
+    }
+
+    function cleanPreview(value) {
+      return stripDanglingMarkers(previewText(parseInline(String(value || '').slice(0, 600)))).trim()
+    }
+
+    function plainTextOf(summary, limit) {
       if (!summary) return ''
-      const source = typeof summary.content === 'string' && summary.content.trim()
+      const raw = typeof summary.content === 'string' && summary.content.trim()
         ? summary.content
         : (typeof summary.summary === 'string' ? summary.summary : '')
-      return stripInlineMarkdown(String(source)
+      const cap = Number(limit) > 0 ? Math.max(Number(limit) * 6, 600) : 0
+      const source = cap ? String(raw).slice(0, cap) : String(raw)
+      const cleaned = previewText(parseInline(source
         .replace(/^#{1,6}\s+.*$/gm, ' ')
         .replace(/^\s*[-*+]\s+/gm, ' ')
-        .replace(/^\s*\d+[.)]\s+/gm, ' '))
-        .replace(/\s+/g, ' ')
-        .trim()
+        .replace(/^\s*\d+[.)]\s+/gm, ' ')))
+      return stripDanglingMarkers(cleaned).replace(/\s+/g, ' ').trim()
     }
 
     function previewOf(item) {
       const summary = item.summary
       if (!summary) return ''
-      if (typeof summary.excerpt === 'string' && summary.excerpt) return stripInlineMarkdown(summary.excerpt).slice(0, 160)
-      return plainTextOf(summary).slice(0, 160)
+      if (typeof summary.excerpt === 'string' && summary.excerpt) return cleanPreview(summary.excerpt).slice(0, 160)
+      return plainTextOf(summary, 160).slice(0, 160)
     }
 
-    // Inline Markdown: the model is told to use `code`, **bold** and links, so the
-    // detail view has to render that subset instead of showing the raw markers.
-    const INLINE_MARKDOWN = /(\*\*[^*\n]+\*\*|`[^`\n]+`|~~[^~\n]+~~|\*[^*\s][^*\n]*\*|\[[^\]\n]+\]\([^)\s]+\))/g
-
-    function safeHref(value) {
-      return /^(https?:\/\/|mailto:)/i.test(String(value || ''))
+    // The detail view and the copy action must agree on which field is the body.
+    function summaryMarkdown(summary) {
+      if (!summary) return ''
+      if (typeof summary.content === 'string' && summary.content.trim()) return summary.content
+      if (typeof summary.summary === 'string' && /^\s*#{1,6}\s/m.test(summary.summary)) return summary.summary
+      return ''
     }
 
-    function renderInline(text, keyPrefix) {
-      const source = String(text == null ? '' : text)
-      const nodes = []
-      let cursor = 0
-      let index = 0
-      INLINE_MARKDOWN.lastIndex = 0
-      let match = INLINE_MARKDOWN.exec(source)
-      while (match) {
-        const token = match[0]
-        if (match.index > cursor) nodes.push(source.slice(cursor, match.index))
-        const key = (keyPrefix || 'inline') + '-' + index
-        index += 1
-        if (token.startsWith('**')) {
-          nodes.push(h('strong', { key }, token.slice(2, -2)))
-        } else if (token.startsWith('`')) {
-          nodes.push(h('code', { key, className: 'ac-inline-code' }, token.slice(1, -1)))
-        } else if (token.startsWith('~~')) {
-          nodes.push(h('del', { key }, token.slice(2, -2)))
-        } else if (token.startsWith('[')) {
-          const link = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/)
-          if (link && safeHref(link[2])) {
-            nodes.push(h('a', { key, className: 'ac-link', href: link[2], target: '_blank', rel: 'noreferrer noopener' }, link[1]))
-          } else {
-            nodes.push(token)
-          }
-        } else {
-          nodes.push(h('em', { key }, token.slice(1, -1)))
-        }
-        cursor = INLINE_MARKDOWN.lastIndex
-        match = INLINE_MARKDOWN.exec(source)
-      }
-      if (cursor < source.length) nodes.push(source.slice(cursor))
-      return nodes
+    function summaryCopyText(summary) {
+      if (!summary) return ''
+      const markdown = summaryMarkdown(summary)
+      const body = markdown
+        ? markdownToPlainText(markdown)
+        : [
+            summary.summary ? inlineToPlainText(summary.summary) : '',
+            ...(summary.keyPoints || []).map((point, index) => String(index + 1) + '. ' + inlineToPlainText(point)),
+            ...(summary.todos || []).map((todo) => '□ ' + inlineToPlainText(todo)),
+          ].filter(Boolean).join('\n')
+      return [summary.title ? inlineToPlainText(summary.title) : '', body].filter(Boolean).join('\n\n')
     }
 
     // Block subset produced by the AuraCap prompts: `###` sections, `-`/`1.` lists,
     // fenced code and quotes. Blocks keep their original order inside a section.
+    function splitTableRow(row) {
+      const body = row.trim().replace(/^\|/, '').replace(/\|$/, '')
+      const cells = []
+      let cell = ''
+      let ticks = 0
+      for (let index = 0; index < body.length; index += 1) {
+        const char = body[index]
+        if (char === '\\' && body[index + 1] === '|') {
+          cell += '|'
+          index += 1
+          continue
+        }
+        if (char === '`') {
+          const run = runLength(body, index, '`')
+          if (ticks === 0) ticks = run
+          else if (ticks === run) ticks = 0
+          cell += body.slice(index, index + run)
+          index += run - 1
+          continue
+        }
+        if (char === '|' && !ticks) {
+          cells.push(cell.trim())
+          cell = ''
+          continue
+        }
+        cell += char
+      }
+      cells.push(cell.trim())
+      return cells
+    }
+
     function parseMarkdownSections(markdown) {
       const lines = String(markdown || '').replace(/\r\n?/g, '\n').split('\n')
       const sections = []
       let section = null
       let paragraph = []
       let list = null
+      let quote = null
       let code = null
       const ensureSection = () => {
         if (!section) {
@@ -1763,23 +1937,28 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         if (list.items.length) ensureSection().blocks.push(list)
         list = null
       }
-      const flushInline = () => { flushParagraph(); flushList() }
+      const flushInline = () => {
+        flushParagraph()
+        flushList()
+        quote = null
+      }
       for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
         const raw = lines[lineIndex]
-        const line = raw.replace(/\s+$/, '')
-        const trimmed = line.trim()
+        const trimmed = raw.trim()
         if (code) {
-          if (/^```/.test(trimmed)) {
+          const closing = trimmed.match(/^(`{3,}|~{3,})$/)
+          if (closing && closing[1][0] === code.marker && closing[1].length >= code.length) {
             ensureSection().blocks.push({ type: 'code', lang: code.lang, text: code.lines.join('\n') })
             code = null
           } else {
-            code.lines.push(line)
+            code.lines.push(raw)
           }
           continue
         }
-        if (/^```/.test(trimmed)) {
+        const opening = raw.match(/^\s{0,3}(`{3,}|~{3,})\s*(.*)$/)
+        if (opening) {
           flushInline()
-          code = { lang: trimmed.slice(3).trim(), lines: [] }
+          code = { marker: opening[1][0], length: opening[1].length, lang: opening[2].trim(), lines: [] }
           continue
         }
         const heading = trimmed.match(/^(#{1,6})\s+(.*)$/)
@@ -1793,25 +1972,27 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           flushInline()
           continue
         }
-        const quote = line.match(/^\s{0,3}>\s?(.*)$/)
-        if (quote) {
-          flushInline()
-          const blocks = ensureSection().blocks
-          const previous = blocks[blocks.length - 1]
-          if (previous && previous.type === 'quote') previous.text += '\n' + quote[1].trim()
-          else blocks.push({ type: 'quote', text: quote[1].trim() })
+        const quoteLine = raw.match(/^\s{0,3}>\s?(.*)$/)
+        if (quoteLine) {
+          flushParagraph()
+          flushList()
+          if (!quote) {
+            quote = { type: 'quote', text: '' }
+            ensureSection().blocks.push(quote)
+          }
+          quote.text += (quote.text ? '\n' : '') + quoteLine[1].trim()
           continue
         }
+        quote = null
         if (/^\|.*\|$/.test(trimmed)) {
           const separator = lineIndex + 1 < lines.length ? lines[lineIndex + 1].trim() : ''
           if (/^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?$/.test(separator)) {
             flushInline()
-            const cellsOf = (row) => row.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((cell) => cell.trim())
-            const header = cellsOf(trimmed)
+            const header = splitTableRow(trimmed)
             const rows = []
             let cursor = lineIndex + 2
             while (cursor < lines.length && /^\|.*\|$/.test(lines[cursor].trim())) {
-              rows.push(cellsOf(lines[cursor].trim()))
+              rows.push(splitTableRow(lines[cursor].trim()))
               cursor += 1
             }
             ensureSection().blocks.push({ type: 'table', header, rows })
@@ -1819,16 +2000,20 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
             continue
           }
         }
-        const marker = line.match(/^(\s*)([-*+]|\d+[.)])\s+(.*)$/)
+        const marker = raw.match(/^(\s*)([-*+]|\d+[.)])\s+(.*)$/)
         if (marker) {
           flushParagraph()
           const ordered = /^\d+[.)]$/.test(marker[2])
           const depth = marker[1].replace(/\t/g, '  ').length >= 2 ? 1 : 0
           if (!list || list.ordered !== ordered) {
             flushList()
-            list = { type: 'list', ordered, items: [] }
+            list = { type: 'list', ordered, items: [], counters: [] }
           }
-          list.items.push({ text: marker[3].trim(), depth })
+          if (depth < list.counters.length) list.counters.length = depth + 1
+          if (list.counters[depth] === undefined) list.counters[depth] = ordered ? parseInt(marker[2], 10) : 1
+          const number = list.counters[depth]
+          list.counters[depth] += 1
+          list.items.push({ text: marker[3].trim(), depth, number })
           continue
         }
         // A plain line directly under a list item is a wrapped continuation, not a new paragraph.
@@ -1837,11 +2022,43 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
           continue
         }
         flushList()
-        paragraph.push(line)
+        paragraph.push(raw)
       }
       if (code) ensureSection().blocks.push({ type: 'code', lang: code.lang, text: code.lines.join('\n') })
       flushInline()
       return sections.filter((entry) => entry.label || entry.blocks.length)
+    }
+
+    function blockToText(block) {
+      if (!block) return ''
+      if (block.type === 'paragraph') return inlineToPlainText(block.text)
+      if (block.type === 'code') return block.text
+      if (block.type === 'quote') return inlineToPlainText(block.text).split('\n').map((line) => '  ' + line).join('\n')
+      if (block.type === 'table') {
+        return [block.header, ...block.rows].map((row) => row.map((cell) => inlineToPlainText(cell)).join(' | ')).join('\n')
+      }
+      if (block.type === 'list') {
+        return block.items.map((entry) => {
+          const marker = block.ordered ? String(entry.number) + '. ' : '· '
+          return '  '.repeat(entry.depth) + marker + inlineToPlainText(entry.text).replace(/\n+/g, ' ')
+        }).join('\n')
+      }
+      return ''
+    }
+
+    // What "复制总结" puts on the clipboard: the rendered text, not the Markdown source.
+    function markdownToPlainText(markdown) {
+      const chunks = []
+      for (const section of parseMarkdownSections(markdown)) {
+        const head = section.label ? inlineToPlainText(section.label) : ''
+        const blocks = section.blocks.map(blockToText).filter((chunk) => chunk !== '')
+        if (!head) {
+          if (blocks.length) chunks.push(blocks.join('\n\n'))
+          continue
+        }
+        chunks.push(blocks.length ? head + '\n' + blocks.join('\n\n') : head)
+      }
+      return chunks.join('\n\n')
     }
 
     function MarkdownBlocks(props) {
@@ -1854,7 +2071,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
             'data-depth': entry.depth ? '1' : undefined,
           },
             block.ordered
-              ? h('span', { className: 'ac-bullet-no' }, String(itemIndex + 1) + '.')
+              ? h('span', { className: 'ac-bullet-no' }, String(entry.number) + '.')
               : h('span', { className: 'ac-bullet-dot' }),
             h('span', { className: 'ac-bullet-text' }, renderInline(entry.text, key + '-i' + itemIndex))))
           return h(block.ordered ? 'ol' : 'ul', { key, className: 'ac-bullets' }, items)
@@ -1876,7 +2093,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         className: 'ac-section',
         key: (props.idPrefix || 'section') + '-' + index,
       },
-        section.label ? h('div', { className: 'ac-sec-label' }, section.label) : null,
+        section.label ? h('div', { className: 'ac-sec-label' }, renderInline(section.label, (props.idPrefix || 'section') + '-label-' + index)) : null,
         h(MarkdownBlocks, { blocks: section.blocks, idPrefix: (props.idPrefix || 'section') + '-' + index })))
     }
 
@@ -1890,16 +2107,43 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       return items.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0] || null
     }
 
+    function groupStatus(items) {
+      const list = items || []
+      if (list.some((item) => item.status === 'ready')) return 'ready'
+      if (list.some((item) => item.status === 'summarizing')) return 'summarizing'
+      return list.length ? 'failed' : 'ready'
+    }
+
     function GroupStack(props) {
       const card = props.variant === 'card'
-      const items = (props.items || []).filter((item) => item.image).slice(0, 3)
+      const [visible, setVisible] = useState(false)
+      const stackRef = useRef(null)
+      useEffect(() => {
+        if (visible) return undefined
+        const node = stackRef.current
+        if (!node || typeof IntersectionObserver !== 'function') {
+          setVisible(true)
+          return undefined
+        }
+        const observer = new IntersectionObserver((entries) => {
+          if (!entries.some((entry) => entry.isIntersecting)) return
+          setVisible(true)
+          observer.disconnect()
+        }, { rootMargin: '400px 0px' })
+        observer.observe(node)
+        return () => observer.disconnect()
+      }, [visible])
+      const images = (props.items || []).filter((item) => item.image).slice(0, 3)
+      const layers = images.map((item) => ({ kind: 'image', item }))
+      if (!layers.length && props.placeholder) layers.push({ kind: 'doc', item: props.placeholder })
+      // A single cover (or a document cover) still needs the stacked affordance.
+      if (layers.length < 2) layers.push({ kind: 'ghost' })
       const step = card ? 6 : 3
-      const spread = step * Math.max(0, items.length - 1)
-      return h('div', { className: card ? 'ac-card-stack' : 'ac-thumb-stack' },
-        items.map((item, index) => h('img', {
-          key: item.id,
-          className: card ? 'ac-card-stack-img' : 'ac-stack-thumb',
-          style: card
+      const spread = step * Math.max(0, layers.length - 1)
+      return h('div', { className: card ? 'ac-card-stack' : 'ac-thumb-stack', ref: stackRef },
+        layers.map((layer, index) => {
+          const key = layer.kind + '-' + (layer.item ? layer.item.id : 'ghost') + '-' + index
+          const style = card
             ? {
                 zIndex: 3 - index,
                 top: (index * step) + 'px',
@@ -1907,11 +2151,25 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
                 width: 'calc(100% - ' + spread + 'px)',
                 height: 'calc(100% - ' + spread + 'px)',
               }
-            : { zIndex: 3 - index, transform: 'translate(' + (index * 3) + 'px,' + (index * 2) + 'px)' },
-          src: API + '/media/' + encodeURIComponent(item.id),
-          alt: '',
-          draggable: false,
-        })))
+            : { zIndex: 3 - index, transform: 'translate(' + (index * 3) + 'px,' + (index * 2) + 'px)' }
+          const className = card ? 'ac-card-stack-img' : 'ac-stack-thumb'
+          if (layer.kind === 'image') {
+            return h('img', {
+              key,
+              className,
+              style,
+              src: visible ? API + '/media/' + encodeURIComponent(layer.item.id) : undefined,
+              alt: '',
+              loading: 'lazy',
+              draggable: false,
+            })
+          }
+          if (layer.kind === 'doc') {
+            return h('div', { key, className: className + ' ac-stack-doc', style },
+              DocumentIcon(), h('span', { className: 'ac-doc-ext' }, documentExtension(layer.item)))
+          }
+          return h('span', { key, className: className + ' ac-stack-ghost', style, 'aria-hidden': 'true' })
+        }))
     }
 
     function GroupRow(props) {
@@ -1920,22 +2178,21 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       const latest = groupLatest(items)
       const primary = items.find((item) => item.id === props.group.primaryId) || items[0]
       const tag = primary && primary.summary && primary.summary.tags && primary.summary.tags[0]
-      const hasImage = items.some((item) => item.image)
+      const name = groupTitle(props.group, items, t)
       return h('div', {
         className: 'ac-row ac-group-row',
         'data-active': props.active,
         role: 'button',
         tabIndex: 0,
+        'aria-label': name + ' · ' + t('groupCount') + ' ' + items.length + ' ' + t('groupScreens'),
         onClick: props.onClick,
         onKeyDown: (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); props.onClick() } },
       },
-        hasImage
-          ? h(GroupStack, { items })
-          : h('div', { className: 'ac-thumb ac-thumb-doc' }, DocumentIcon(), h('span', { className: 'ac-doc-ext' }, documentExtension(primary))),
+        h(GroupStack, { items, placeholder: primary }),
         h('div', { className: 'ac-row-main' },
-          h('div', { className: 'ac-row-title' }, groupTitle(props.group, items, t)),
+          h('div', { className: 'ac-row-title' }, name),
           h('div', { className: 'ac-row-meta' },
-            h('span', { className: 'ac-status' }, h('i', { className: 'ac-dot', 'data-state': latest && latest.status ? latest.status : 'ready' })),
+            h('span', { className: 'ac-status' }, h('i', { className: 'ac-dot', 'data-state': groupStatus(items) })),
             latest ? h('span', null, timeText(latest.createdAt)) : null,
             tag ? h('span', { className: 'ac-row-tag' }, '#' + tag) : null)))
     }
@@ -1947,13 +2204,17 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       const merged = props.group.merged
       const latest = groupLatest(items)
       const tag = primary && primary.summary && primary.summary.tags && primary.summary.tags[0]
-      const mergedPreview = merged && merged.content ? plainTextOf({ content: merged.content }).slice(0, 160) : ''
-      return h('button', { className: 'ac-card ac-group-card', type: 'button', onClick: props.onClick },
-        items.some((item) => item.image)
-          ? h(GroupStack, { items, variant: 'card' })
-          : h('div', { className: 'ac-card-img ac-card-doc' }, DocumentIcon(), h('span', { className: 'ac-doc-ext' }, documentExtension(primary))),
+      const mergedPreview = merged && merged.content ? plainTextOf({ content: merged.content }, 160) : ''
+      const name = groupTitle(props.group, items, t)
+      return h('button', {
+        className: 'ac-card ac-group-card',
+        type: 'button',
+        'aria-label': name + ' · ' + t('groupCount') + ' ' + items.length + ' ' + t('groupScreens'),
+        onClick: props.onClick,
+      },
+        h(GroupStack, { items, variant: 'card', placeholder: primary }),
         h('div', { className: 'ac-card-body' },
-          h('div', { className: 'ac-card-title' }, groupTitle(props.group, items, t)),
+          h('div', { className: 'ac-card-title' }, name),
           h('div', { className: 'ac-card-desc' }, mergedPreview || previewOf(primary) || ''),
           h('div', { className: 'ac-card-meta' },
             latest ? h('span', null, timeText(latest.createdAt)) : null,
@@ -2102,16 +2363,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
       }, [confirm])
       useEffect(() => { setCopied(false) }, [item.id])
       const summary = item.summary
-      const copyBody = summary
-        ? (typeof summary.content === 'string' && summary.content.trim()
-            ? markdownToPlainText(summary.content)
-            : [
-                summary.summary ? inlineToPlainText(summary.summary) : '',
-                ...(summary.keyPoints || []).map((point, index) => String(index + 1) + '. ' + inlineToPlainText(point)),
-                ...(summary.todos || []).map((todo) => '□ ' + inlineToPlainText(todo)),
-              ].filter(Boolean).join('\n'))
-        : ''
-      const copyText = summary ? [summary.title ? inlineToPlainText(summary.title) : '', copyBody].filter(Boolean).join('\n\n') : ''
+      const copyText = summaryCopyText(summary)
       const copy = async () => {
         try {
           await navigator.clipboard.writeText(copyText)
@@ -2139,9 +2391,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
         body.push(h('div', { className: 'ac-section', key: 'error' }, h('div', { className: 'ac-error' }, item.error || t('failed'))))
       }
       if (summary) {
-        const markdown = typeof summary.content === 'string' && summary.content.trim()
-          ? summary.content
-          : (typeof summary.summary === 'string' && /^\s*#{1,6}\s/m.test(summary.summary) ? summary.summary : '')
+        const markdown = summaryMarkdown(summary)
         if (markdown) {
           body.push(h(MarkdownSections, { key: 'markdown', sections: parseMarkdownSections(markdown), idPrefix: 'detail' }))
         } else {
@@ -2235,7 +2485,7 @@ html[lang^="zh"] .ac-flow-month, html[lang^="zh"] .ac-flow-range, html[lang^="zh
     function SectionBlock(props) {
       const section = props.section
       return h('div', { className: 'ac-section' },
-        section.label ? h('div', { className: 'ac-sec-label' }, section.label) : null,
+        section.label ? h('div', { className: 'ac-sec-label' }, renderInline(section.label, (props.idPrefix || 'block') + '-label')) : null,
         h(MarkdownBlocks, { blocks: section.blocks, idPrefix: props.idPrefix || 'block' }))
     }
 

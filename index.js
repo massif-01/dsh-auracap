@@ -621,8 +621,10 @@ async function generatePeriodInsight(ctx, items, type, anchorISO, force) {
   }
 }
 
-function searchSnippet(text, terms) {
-  const source = stripMarkdownMarkers(String(text || '').replace(/^#{1,6}\s+.*$/gm, ' ')).replace(/\s+/g, ' ').trim()
+export function searchSnippet(text, terms) {
+  // Locate the hit in the raw text, then clean only the slice we display, so
+  // offsets never shift and literals such as `__init__` keep their characters.
+  const source = String(text || '').replace(/^#{1,6}\s+.*$/gm, ' ').replace(/\s+/g, ' ').trim()
   if (!source) return ''
   const lower = source.toLowerCase()
   let index = -1
@@ -630,10 +632,15 @@ function searchSnippet(text, terms) {
     const found = lower.indexOf(term)
     if (found >= 0 && (index < 0 || found < index)) index = found
   }
-  if (index < 0) return source.slice(0, 90)
+  if (index < 0) {
+    return cleanPreviewText(source.slice(0, 90))
+  }
   const start = Math.max(0, index - 34)
   const end = Math.min(source.length, index + 76)
-  return (start > 0 ? '…' : '') + source.slice(start, end) + (end < source.length ? '…' : '')
+  const raw = source.slice(start, end)
+  const cleaned = cleanPreviewText(raw)
+  const keepsTerm = terms.some((term) => cleaned.toLowerCase().includes(term))
+  return (start > 0 ? '…' : '') + (keepsTerm ? cleaned : raw) + (end < source.length ? '…' : '')
 }
 
 function searchScore(haystack, terms, title) {
@@ -789,16 +796,185 @@ function previousPeriodAnchors() {
   return { week: localDateKeyOfDate(week), month: localDateKeyOfDate(month), year: localDateKeyOfDate(year) }
 }
 
-function stripMarkdownMarkers(text) {
-  return String(text || '')
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
-    .replace(/\[([^\]]+)\]\([^)\s]+\)/g, '$1')
-    .replace(/\*\*([^*\n]+)\*\*/g, '$1')
-    .replace(/__([^_\n]+)__/g, '$1')
-    .replace(/~~([^~\n]+)~~/g, '$1')
-    .replace(/`([^`\n]+)`/g, '$1')
-    .replace(/\*([^*\s][^*\n]*)\*/g, '$1')
-    .replace(/\*{2,}|~{2,}|`+/g, '')
+// Inline Markdown for model output. Mirrors client.js: code spans stay literal,
+// links need a balanced target, emphasis only opens at word boundaries, and
+// every scan is bounded so a body full of "[" cannot stall a request.
+const MAX_INLINE_SPAN = 400
+const MAX_INLINE_LABEL = 400
+const MAX_INLINE_TARGET = 600
+const MAX_CODE_SPAN = 1000
+const INLINE_ESCAPABLE = /[\\`*_{}\[\]()#+\-.!~>|]/
+
+function isAsciiWord(value) {
+  return /[A-Za-z0-9]/.test(value || '')
+}
+
+function runLength(text, index, char) {
+  let end = index
+  while (end < text.length && text[end] === char) end += 1
+  return end - index
+}
+
+function canOpenEmphasis(text, index, length) {
+  const after = text[index + length]
+  if (!after || /\s/.test(after)) return false
+  return !isAsciiWord(index > 0 ? text[index - 1] : '')
+}
+
+function findClosingRun(text, from, char, length, limit) {
+  const end = Math.min(text.length, from + limit)
+  let cursor = from
+  while (cursor < end) {
+    const found = text.indexOf(char, cursor)
+    if (found < 0 || found + length > end) return -1
+    const run = runLength(text, found, char)
+    if (char === '`') {
+      if (run === length) return found
+    } else if (run >= length && !/\s/.test(text[found - 1] || '')) {
+      return found
+    }
+    cursor = found + run
+  }
+  return -1
+}
+
+function parseLinkAt(text, index) {
+  const labelLimit = Math.min(text.length, index + 1 + MAX_INLINE_LABEL)
+  let close = -1
+  for (let cursor = index + 1; cursor < labelLimit; cursor += 1) {
+    if (text[cursor] === '\\') { cursor += 1; continue }
+    if (text[cursor] === ']') { close = cursor; break }
+  }
+  if (close < 0 || text[close + 1] !== '(') return null
+  let depth = 1
+  let cursor = close + 2
+  const targetLimit = Math.min(text.length, cursor + MAX_INLINE_TARGET)
+  while (cursor < targetLimit) {
+    const char = text[cursor]
+    if (char === '\\') { cursor += 2; continue }
+    if (char === '(') depth += 1
+    else if (char === ')') {
+      depth -= 1
+      if (depth === 0) break
+    }
+    cursor += 1
+  }
+  if (depth !== 0) return null
+  return {
+    label: text.slice(index + 1, close),
+    href: text.slice(close + 2, cursor).trim(),
+    end: cursor + 1,
+  }
+}
+
+function parseInline(text) {
+  const source = String(text == null ? '' : text)
+  const tokens = []
+  let buffer = ''
+  let index = 0
+  const flush = () => {
+    if (!buffer) return
+    tokens.push({ type: 'text', value: buffer })
+    buffer = ''
+  }
+  while (index < source.length) {
+    const char = source[index]
+    if (char === '\\' && index + 1 < source.length && INLINE_ESCAPABLE.test(source[index + 1])) {
+      buffer += source[index + 1]
+      index += 2
+      continue
+    }
+    if (char === '`') {
+      const run = runLength(source, index, '`')
+      const close = findClosingRun(source, index + run, '`', run, MAX_CODE_SPAN)
+      if (close >= 0) {
+        flush()
+        let value = source.slice(index + run, close)
+        // CommonMark trims one padding space on each side of a code span.
+        if (value.length > 2 && value.startsWith(' ') && value.endsWith(' ') && value.trim()) value = value.slice(1, -1)
+        tokens.push({ type: 'code', value })
+        index = close + run
+        continue
+      }
+      buffer += source.slice(index, index + run)
+      index += run
+      continue
+    }
+    if (char === '*' || char === '~') {
+      const run = runLength(source, index, char)
+      const lengths = char === '~' ? (run >= 2 ? [2] : []) : [3, 2, 1].filter((length) => length <= run)
+      let matched = null
+      for (const length of lengths) {
+        if (!canOpenEmphasis(source, index, length)) continue
+        const close = findClosingRun(source, index + length, char, length, MAX_INLINE_SPAN)
+        if (close >= 0) { matched = { length, close }; break }
+      }
+      if (matched) {
+        flush()
+        const children = parseInline(source.slice(index + matched.length, matched.close))
+        if (char === '~') tokens.push({ type: 'del', children })
+        else if (matched.length === 3) tokens.push({ type: 'strong', children: [{ type: 'em', children }] })
+        else if (matched.length === 2) tokens.push({ type: 'strong', children })
+        else tokens.push({ type: 'em', children })
+        index = matched.close + matched.length
+        continue
+      }
+      buffer += source.slice(index, index + run)
+      index += run
+      continue
+    }
+    if (char === '[') {
+      const link = parseLinkAt(source, index)
+      if (link) {
+        flush()
+        tokens.push({ type: 'link', href: link.href, children: parseInline(link.label) })
+        index = link.end
+        continue
+      }
+      buffer += char
+      index += 1
+      continue
+    }
+    buffer += char
+    index += 1
+  }
+  flush()
+  return tokens
+}
+
+function inlineText(tokens, formatLink) {
+  let out = ''
+  for (const token of tokens) {
+    if (token.type === 'text' || token.type === 'code') out += token.value
+    else if (token.type === 'link') out += formatLink(inlineText(token.children, formatLink), token.href)
+    else out += inlineText(token.children, formatLink)
+  }
+  return out
+}
+
+export function stripInlineMarkdown(value, formatLink) {
+  const link = typeof formatLink === 'function' ? formatLink : (label) => label
+  return inlineText(parseInline(value), link)
+}
+
+export function stripDanglingMarkers(value) {
+  return String(value || '')
+    .replace(/^(?:\*{1,3}|`{1,3}|~{2})/, '')
+    .replace(/(?:\*{1,3}|`{1,3}|~{2})$/, '')
+}
+
+function previewText(tokens) {
+  let out = ''
+  for (const token of tokens) {
+    if (token.type === 'code') out += token.value
+    else if (token.type === 'text') out += token.value.replace(/`+/g, '').replace(/\*{2,}/g, '').replace(/~{2,}/g, '')
+    else out += previewText(token.children)
+  }
+  return out
+}
+
+export function cleanPreviewText(value) {
+  return stripDanglingMarkers(previewText(parseInline(String(value || '')))).trim()
 }
 
 function plainTextOfSummary(summary) {
@@ -806,7 +982,7 @@ function plainTextOfSummary(summary) {
   const source = typeof summary.content === 'string' && summary.content.trim()
     ? summary.content
     : (typeof summary.summary === 'string' ? summary.summary : '')
-  return stripMarkdownMarkers(String(source)
+  return stripInlineMarkdown(String(source)
     .replace(/^#{1,6}\s+.*$/gm, ' ')
     .replace(/^\s*[-*+]\s+/gm, ' ')
     .replace(/^\s*\d+[.)]\s+/gm, ' '))
@@ -1838,15 +2014,17 @@ function ensureCoreSection(content, language = 'zh') {
   return heading + '\n' + text
 }
 
-function makeExcerpt(markdown) {
-  return stripMarkdownMarkers(String(markdown || '')
+export function makeExcerpt(markdown) {
+  // Previews only need a few hundred characters; cap the input before parsing.
+  const source = String(markdown || '').slice(0, 2000)
+  const cleaned = cleanPreviewText(source
     .replace(/^#{1,6}\s+.*$/gm, ' ')
     .replace(/^\s*[-*+]\s+/gm, ' ')
     .replace(/^\s*\d+[.)]\s+/gm, ' ')
     .replace(/```/g, ' '))
     .replace(/\s+/g, ' ')
     .trim()
-    .slice(0, 240)
+  return stripDanglingMarkers(cleaned.slice(0, 240)).trim()
 }
 
 function balancedJsonObjects(text) {
@@ -2390,11 +2568,14 @@ function memoryToolDefinition(name, description, parameters, execute) {
   }
 }
 
-function compactItemLine(item, index) {
+export function compactItemLine(item, index) {
   const summary = item.summary || {}
   const title = summary.title || '未命名'
   const date = localDateKey(item.createdAt)
-  const excerpt = makeExcerpt(summary.content || summary.summary || '').slice(0, 120)
+  const body = summary.content || summary.summary || ''
+  const excerpt = body
+    ? makeExcerpt(body).slice(0, 120)
+    : cleanPreviewText(summary.excerpt || '').slice(0, 120)
   return `${index + 1}. [${item.id}] ${title} · ${date}${excerpt ? ' · ' + excerpt : ''}`
 }
 
